@@ -587,7 +587,7 @@ async function carregarDashboard() {
             fetch('/api/imoveis', h).then(r => r.ok ? r.json() : []).catch(() => []),
             fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
-        dashLeads = wpp.length ? wpp : gerarDadosDemo();
+        dashLeads = wpp;
         const allLeads = [...dashLeads, ...manual.map(l => ({ ...l, totalMensagens: 0, ultimaAtualizacao: l.criadoEm }))];
         setStatus(wpp.length > 0 || manual.length > 0);
 
@@ -610,7 +610,7 @@ async function carregarDashboard() {
         renderDashLeads();
     } catch (err) {
         console.error(err);
-        dashLeads = gerarDadosDemo();
+        dashLeads = [];
         setStatus(false);
         const counts = {
             total: dashLeads.length,

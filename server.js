@@ -172,7 +172,7 @@ app.post('/webhook', async (req, res) => {
 // ─────────────────────────────────────────────
 app.get('/api/leads', async (req, res) => {
   try {
-    const leads = await db.listarLeads('whatsapp');
+    const leads = await db.listarLeads('whatsapp', req.userId);
     res.json(leads.map(l => ({
       telefone: l.telefone,
       nome: l.nome || 'Sem nome',
@@ -198,7 +198,7 @@ app.get('/api/leads', async (req, res) => {
 // API — Imoveis (Supabase)
 // ─────────────────────────────────────────────
 app.get('/api/imoveis', async (req, res) => {
-  try { res.json(await db.listarImoveis()); }
+  try { res.json(await db.listarImoveis(req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -216,18 +216,18 @@ app.post('/api/imoveis', async (req, res) => {
       quartos: req.body.quartos || '',
       area: req.body.area || '',
       descricao: req.body.descricao || '',
-    });
+    }, req.userId);
     res.status(201).json(imovel);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.put('/api/imoveis/:id', async (req, res) => {
-  try { res.json(await db.atualizarImovel(parseInt(req.params.id), req.body)); }
+  try { res.json(await db.atualizarImovel(parseInt(req.params.id), req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.delete('/api/imoveis/:id', async (req, res) => {
-  try { await db.excluirImovel(parseInt(req.params.id)); res.json({ ok: true }); }
+  try { await db.excluirImovel(parseInt(req.params.id), req.userId); res.json({ ok: true }); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -236,7 +236,7 @@ app.delete('/api/imoveis/:id', async (req, res) => {
 // ─────────────────────────────────────────────
 app.get('/api/leads-manual', async (req, res) => {
   try {
-    const leads = await db.listarLeads('manual');
+    const leads = await db.listarLeads('manual', req.userId);
     res.json(leads.map(l => ({
       id: l.id,
       nome: l.nome,
@@ -272,18 +272,18 @@ app.post('/api/leads-manual', async (req, res) => {
       temperatura: req.body.temperatura || 'frio',
       observacoes: req.body.observacoes || '',
       origem: 'manual',
-    });
+    }, req.userId);
     res.status(201).json(lead);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.put('/api/leads-manual/:id', async (req, res) => {
-  try { res.json(await db.atualizarLead(parseInt(req.params.id), req.body)); }
+  try { res.json(await db.atualizarLead(parseInt(req.params.id), req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.delete('/api/leads-manual/:id', async (req, res) => {
-  try { await db.excluirLead(parseInt(req.params.id)); res.json({ ok: true }); }
+  try { await db.excluirLead(parseInt(req.params.id), req.userId); res.json({ ok: true }); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -291,7 +291,7 @@ app.delete('/api/leads-manual/:id', async (req, res) => {
 // API — Visitas (Supabase)
 // ─────────────────────────────────────────────
 app.get('/api/visitas', async (req, res) => {
-  try { res.json(await db.listarVisitas()); }
+  try { res.json(await db.listarVisitas(req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -308,18 +308,18 @@ app.post('/api/visitas', async (req, res) => {
       corretor: req.body.corretor || '',
       observacoes: req.body.observacoes || '',
       status: req.body.status || 'agendada',
-    });
+    }, req.userId);
     res.status(201).json(visita);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.put('/api/visitas/:id', async (req, res) => {
-  try { res.json(await db.atualizarVisita(parseInt(req.params.id), req.body)); }
+  try { res.json(await db.atualizarVisita(parseInt(req.params.id), req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 app.delete('/api/visitas/:id', async (req, res) => {
-  try { await db.excluirVisita(parseInt(req.params.id)); res.json({ ok: true }); }
+  try { await db.excluirVisita(parseInt(req.params.id), req.userId); res.json({ ok: true }); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -329,9 +329,9 @@ app.delete('/api/visitas/:id', async (req, res) => {
 app.post('/api/agente/resumo', async (req, res) => {
   try {
     const [todosLeads, todosImoveis, todasVisitas] = await Promise.all([
-      db.listarLeads(),
-      db.listarImoveis(),
-      db.listarVisitas(),
+      db.listarLeads(null, req.userId),
+      db.listarImoveis(req.userId),
+      db.listarVisitas(req.userId),
     ]);
 
     if (!gerarResumoMatching) return res.status(503).json({ erro: 'Agente IA nao configurado. Adicione ANTHROPIC_API_KEY.' });

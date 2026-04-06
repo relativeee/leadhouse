@@ -2,14 +2,27 @@
   "version": 2,
   "builds": [
     {
+      "src": "public/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["public/**", "prompts/**", "services/**", "utils/**"]
+      }
     }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
+    { "src": "/api/(.*)", "dest": "/server.js" },
+    { "src": "/webhook(.*)", "dest": "/server.js" },
+    { "src": "/health", "dest": "/server.js" },
+    { "src": "/login", "dest": "/public/login.html" },
+    { "src": "/(.*\\.css)", "dest": "/public/$1" },
+    { "src": "/(.*\\.svg)", "dest": "/public/$1" },
+    { "src": "/(.*\\.js)", "dest": "/public/$1", "headers": { "Content-Type": "application/javascript" } },
+    { "src": "/(.*\\.html)", "dest": "/public/$1" },
+    { "src": "/", "dest": "/public/index.html" },
+    { "src": "/(.*)", "dest": "/server.js" }
   ]
 }
