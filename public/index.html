@@ -957,25 +957,33 @@ function limparDado(val) {
 
 // ── Trends (variacao semanal simulada) ──
 function renderTrends(counts) {
+    const ids = ['trendTotal','trendQuentes','trendMornos','trendFrios'];
+
+    // Se nao tem nenhum lead, esconde todos os trends
+    if (counts.total === 0) {
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.className = 'stat-card__trend'; el.textContent = ''; }
+        });
+        return;
+    }
+
     const prev = JSON.parse(localStorage.getItem('lh_prev_counts') || 'null');
     const now = { total: counts.total, quentes: counts.quentes, mornos: counts.mornos, frios: counts.frios, ts: Date.now() };
 
-    // So mostra trend se ja tem dados anteriores validos
     if (prev && prev.total > 0 && (Date.now() - prev.ts) < 7 * 24 * 60 * 60 * 1000) {
         setTrend('trendTotal', now.total - prev.total);
         setTrend('trendQuentes', now.quentes - prev.quentes);
         setTrend('trendMornos', now.mornos - prev.mornos);
         setTrend('trendFrios', now.frios - prev.frios);
     } else {
-        // Sem dados anteriores — esconde os trends
-        ['trendTotal','trendQuentes','trendMornos','trendFrios'].forEach(id => {
+        ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.className = 'stat-card__trend'; el.textContent = ''; }
         });
     }
 
-    // So salva se tem pelo menos 1 lead
-    if (now.total > 0) localStorage.setItem('lh_prev_counts', JSON.stringify(now));
+    localStorage.setItem('lh_prev_counts', JSON.stringify(now));
 }
 
 function setTrend(id, diff) {
