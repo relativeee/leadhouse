@@ -23,12 +23,12 @@ try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.war
 const app = express();
 app.use(express.json());
 
-// Servir login.html para quem nao esta autenticado
+// Login
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Proteger index.html — redireciona para /login se nao tiver cookie/token
+// Dashboard
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

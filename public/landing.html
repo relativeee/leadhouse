@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeadHouse — Gestão Imobiliária que Fecha Negócios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0c0c0c;
+      --bg-2:         #111111;
+      --bg-3:         #161616;
+      --bg-4:         #1c1c1c;
+      --border:       rgba(255,255,255,0.07);
+      --border-md:    rgba(255,255,255,0.12);
+      --gold:         #C9A84C;
+      --gold-light:   #E8C97A;
+      --gold-dim:     rgba(201,168,76,0.10);
+      --gold-glow:    rgba(201,168,76,0.18);
+      --text-1:       #F2EEE6;
+      --text-2:       #9A9080;
+      --text-3:       #5A5448;
+      --radius-sm:    6px;
+      --radius-md:    12px;
+      --radius-lg:    18px;
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: var(--font-body);
+      font-weight: 400;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
+    .gold { color: var(--gold-light); }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      border-bottom: 1px solid var(--border);
+      background: rgba(12,12,12,0.85);
+      backdrop-filter: blur(12px);
+    }
+    .nav-inner {
+      max-width: 1080px; margin: 0 auto; padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .nav-logo {
+      font-family: var(--font-display);
+      font-size: 18px; font-weight: 600;
+      color: var(--text-1); text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .nav-logo-icon {
+      width: 28px; height: 28px;
+      border: 1.5px solid var(--gold);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+    }
+    .nav-links {
+      display: flex; align-items: center; gap: 2rem;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 13.5px; color: var(--text-2);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-1); }
+    .nav-cta {
+      background: var(--gold);
+      color: #0c0c0c !important;
+      font-weight: 500;
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--gold-light) !important; }
+    @media (max-width: 640px) { .nav-links { display: none; } }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 8rem 2rem 6rem;
+      position: relative; overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid rgba(201,168,76,0.3);
+      background: rgba(201,168,76,0.07);
+      color: var(--gold-light);
+      font-size: 12px; font-weight: 500;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 6px 16px; border-radius: 20px;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s ease both;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--gold);
+      animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(38px, 6vw, 68px);
+      font-weight: 600; line-height: 1.1;
+      letter-spacing: -0.02em;
+      max-width: 820px; margin-bottom: 1.5rem;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .hero-title em { font-style: italic; color: var(--gold-light); font-weight: 400; }
+    .hero-sub {
+      font-size: 17px; color: var(--text-2);
+      max-width: 520px; line-height: 1.7;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .hero-actions {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+    .btn-primary {
+      background: var(--gold); color: #0c0c0c;
+      font-family: var(--font-body);
+      font-size: 14.5px; font-weight: 500;
+      padding: 13px 28px; border-radius: var(--radius-sm);
+      text-decoration: none; border: none; cursor: pointer;
+      transition: background 0.2s, transform 0.15s; display: inline-block;
+    }
+    .btn-primary:hover { background: var(--gold-light); transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent; color: var(--text-2);
+      font-family: var(--font-body);
+      font-size: 14.5px; font-weight: 400;
+      padding: 13px 28px; border-radius: var(--radius-sm);
+      text-decoration: none; border: 1px solid var(--border-md); cursor: pointer;
+      transition: border-color 0.2s, color 0.2s; display: inline-block;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: var(--text-1); }
+    .hero-social-proof {
+      margin-top: 3.5rem;
+      display: flex; align-items: center; gap: 12px;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+    .hero-avatars { display: flex; }
+    .hero-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 2px solid var(--bg); background: var(--bg-4);
+      margin-left: -8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500; color: var(--gold-light);
+    }
+    .hero-avatar:first-child { margin-left: 0; }
+    .hero-proof-text { font-size: 13px; color: var(--text-2); }
+    .hero-proof-text strong { color: var(--text-1); font-weight: 500; }
+
+    /* SECTIONS */
+    section { padding: 7rem 0; }
+    .section-label {
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 44px);
+      font-weight: 600; line-height: 1.15;
+      letter-spacing: -0.02em; margin-bottom: 1rem;
+    }
+    .section-sub { font-size: 16px; color: var(--text-2); max-width: 520px; line-height: 1.7; }
+    .section-header { margin-bottom: 4rem; }
+
+    /* STATS */
+    .stats-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 2.5rem 0; background: var(--bg-2);
+    }
+    .stats-inner {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 2rem; text-align: center;
+    }
+    @media (max-width: 640px) { .stats-inner { grid-template-columns: repeat(2, 1fr); } }
+    .stat-num {
+      font-family: var(--font-display);
+      font-size: 36px; font-weight: 600;
+      color: var(--gold-light); line-height: 1; margin-bottom: 6px;
+    }
+    .stat-label { font-size: 13px; color: var(--text-2); }
+
+    /* FEATURES */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    @media (max-width: 768px) { .features-grid { grid-template-columns: 1fr; } }
+    .feature-card {
+      background: var(--bg-2); padding: 2rem;
+      transition: background 0.2s;
+    }
+    .feature-card:hover { background: var(--bg-3); }
+    .feature-icon {
+      width: 40px; height: 40px;
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1.25rem; font-size: 18px;
+    }
+    .feature-title {
+      font-family: var(--font-display);
+      font-size: 17px; font-weight: 600; margin-bottom: 0.6rem;
+    }
+    .feature-desc { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+
+    /* TESTIMONIALS */
+    .testimonials-section { background: var(--bg-2); }
+    .testimonials-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 768px) { .testimonials-grid { grid-template-columns: 1fr; } }
+    .testimonial-card {
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.75rem;
+      transition: border-color 0.2s;
+    }
+    .testimonial-card:hover { border-color: var(--border-md); }
+    .testimonial-stars { display: flex; gap: 3px; margin-bottom: 1rem; }
+    .star { color: var(--gold); font-size: 14px; }
+    .testimonial-text {
+      font-size: 14.5px; line-height: 1.7; color: var(--text-2);
+      margin-bottom: 1.25rem; font-style: italic;
+    }
+    .testimonial-author { display: flex; align-items: center; gap: 10px; }
+    .author-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--bg-4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 500; color: var(--gold-light);
+      border: 1px solid rgba(201,168,76,0.2);
+    }
+    .author-name { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
+    .author-role { font-size: 12px; color: var(--text-3); }
+
+    /* PRICING */
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px; max-width: 720px; margin: 0 auto;
+    }
+    @media (max-width: 600px) { .pricing-grid { grid-template-columns: 1fr; } }
+    .pricing-card {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 2rem;
+      position: relative; transition: border-color 0.2s;
+    }
+    .pricing-card.featured {
+      border-color: rgba(201,168,76,0.35); background: var(--bg-3);
+    }
+    .pricing-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--gold); color: #0c0c0c;
+      font-size: 10.5px; font-weight: 500;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 4px 14px; border-radius: 20px; white-space: nowrap;
+    }
+    .pricing-plan {
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-3); margin-bottom: 1rem;
+    }
+    .pricing-card.featured .pricing-plan { color: var(--gold); }
+    .pricing-price {
+      font-family: var(--font-display);
+      font-size: 42px; font-weight: 600;
+      line-height: 1; margin-bottom: 4px;
+    }
+    .pricing-period { font-size: 13px; color: var(--text-2); margin-bottom: 1.5rem; }
+    .pricing-desc { font-size: 14px; color: var(--text-2); margin-bottom: 1.75rem; line-height: 1.6; }
+    .pricing-divider { height: 1px; background: var(--border); margin-bottom: 1.5rem; }
+    .pricing-features {
+      list-style: none; margin-bottom: 2rem;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .pricing-feature {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13.5px; color: var(--text-2);
+    }
+    .feature-check {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,168,76,0.25);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+      font-size: 9px; color: var(--gold-light);
+    }
+    .pricing-cta {
+      display: block; text-align: center; text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      padding: 12px; border-radius: var(--radius-sm);
+      transition: all 0.2s;
+    }
+    .pricing-cta-ghost {
+      border: 1px solid var(--border-md); color: var(--text-1);
+    }
+    .pricing-cta-ghost:hover { border-color: rgba(255,255,255,0.3); background: var(--bg-4); }
+    .pricing-cta-gold { background: var(--gold); color: #0c0c0c; }
+    .pricing-cta-gold:hover { background: var(--gold-light); }
+
+    /* FAQ */
+    .faq-list { max-width: 680px; margin: 0 auto; }
+    .faq-item { border-bottom: 1px solid var(--border); overflow: hidden; }
+    .faq-question {
+      width: 100%; background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1.25rem 0;
+      font-family: var(--font-body);
+      font-size: 15px; font-weight: 400;
+      color: var(--text-1); text-align: left; gap: 1rem;
+    }
+    .faq-icon {
+      width: 20px; height: 20px; flex-shrink: 0;
+      border: 1px solid var(--border-md); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--gold);
+      transition: transform 0.25s;
+    }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+    .faq-answer {
+      font-size: 14.5px; color: var(--text-2);
+      line-height: 1.7; max-height: 0;
+      overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+    .faq-item.open .faq-answer { max-height: 300px; padding-bottom: 1.25rem; }
+
+    /* CTA FINAL */
+    .cta-final {
+      background: var(--bg-2);
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 7rem 2rem;
+    }
+    .cta-final .section-title { margin-bottom: 1rem; }
+    .cta-final .section-sub { margin: 0 auto 2.5rem; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 0; background: var(--bg);
+    }
+    .footer-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-logo {
+      font-family: var(--font-display);
+      font-size: 15px; color: var(--text-2); text-decoration: none;
+    }
+    .footer-links { display: flex; gap: 1.5rem; list-style: none; }
+    .footer-links a {
+      font-size: 13px; color: var(--text-3);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text-2); }
+    .footer-copy { font-size: 12px; color: var(--text-3); }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">L</div>
+        LeadHouse
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Funcionalidades</a></li>
+        <li><a href="#precos">Preços</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="/login" class="nav-cta">Começar agora</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Feito para corretores autônomos
+    </div>
+    <h1 class="hero-title">
+      Pare de perder leads.<br>
+      Comece a <em>fechar negócios.</em>
+    </h1>
+    <p class="hero-sub">
+      LeadHouse organiza seu pipeline imobiliário, qualifica leads automaticamente via WhatsApp e agenda visitas — tudo em um só lugar.
+    </p>
+    <div class="hero-actions">
+      <a href="/login" class="btn-primary">Testar grátis por 14 dias</a>
+      <a href="#features" class="btn-ghost">Ver funcionalidades</a>
+    </div>
+    <div class="hero-social-proof">
+      <div class="hero-avatars">
+        <div class="hero-avatar">RC</div>
+        <div class="hero-avatar">FM</div>
+        <div class="hero-avatar">JB</div>
+        <div class="hero-avatar">AL</div>
+      </div>
+      <p class="hero-proof-text"><strong>+230 corretores</strong> já usam o LeadHouse</p>
+    </div>
+  </section>
+
+  <div class="stats-bar">
+    <div class="container">
+      <div class="stats-inner">
+        <div class="reveal"><div class="stat-num">3×</div><div class="stat-label">mais leads respondidos</div></div>
+        <div class="reveal"><div class="stat-num">68%</div><div class="stat-label">redução no tempo de qualificação</div></div>
+        <div class="reveal"><div class="stat-num">+R$12k</div><div class="stat-label">receita média mensal a mais</div></div>
+        <div class="reveal"><div class="stat-num">14 dias</div><div class="stat-label">trial grátis, sem cartão</div></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <p class="section-label">Funcionalidades</p>
+        <h2 class="section-title">Tudo que você precisa<br>para vender mais</h2>
+        <p class="section-sub">Construído especificamente para a realidade do corretor autônomo brasileiro.</p>
+      </div>
+      <div class="features-grid reveal">
+        <div class="feature-card">
+          <div class="feature-icon">📋</div>
+          <h3 class="feature-title">Pipeline visual</h3>
+          <p class="feature-desc">Visualize todos seus leads por temperatura — quentes, mornos e frios — com ações claras para cada etapa.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3 class="feature-title">Qualificação via WhatsApp</h3>
+          <p class="feature-desc">Integração com a Meta Cloud API. Leads chegam, são qualificados e classificados automaticamente.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📅</div>
+          <h3 class="feature-title">Agenda de visitas</h3>
+          <p class="feature-desc">Gerencie visitas pendentes, confirmadas e realizadas sem sair do painel. Zero planilha.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏠</div>
+          <h3 class="feature-title">Catálogo de imóveis</h3>
+          <p class="feature-desc">Cadastre seu portfólio e vincule cada imóvel ao lead certo. Saiba sempre o que mostrar para quem.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3 class="feature-title">Agente IA integrado</h3>
+          <p class="feature-desc">Um assistente que responde dúvidas dos leads fora do horário comercial e alimenta seu pipeline 24h.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title">Dashboard de performance</h3>
+          <p class="feature-desc">Veja exatamente quantos leads chegaram, quantos viraram visitas e quantos viraram vendas — por semana.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="testimonials-section" id="depoimentos">
+    <div class="container">
+      <div class="section-header reveal" style="text-align:center; margin-left:auto; margin-right:auto;">
+        <p class="section-label" style="text-align:center;">Depoimentos</p>
+        <h2 class="section-title">O que os corretores dizem</h2>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testimonial-card reveal">
+          <div class="testimonial-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+          </div>
+          <p class="testimonial-text">"Antes eu perdia lead todo dia por falta de organização. Hoje sei exatamente quem ligar primeiro e qual imóvel mostrar. Fechei 2 vendas no primeiro mês."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">RC</div>
+            <div>
+              <div class="author-name">Rafael Cardoso</div>
+              <div class="author-role">Corretor autônomo · São Paulo, SP</div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card reveal">
+          <div class="testimonial-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+          </div>
+          <p class="testimonial-text">"O agente de IA respondendo meus leads às 23h foi game changer. Chego de manhã com 3 visitas pré-agendadas. Não consigo mais imaginar trabalhar sem isso."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">FM</div>
+            <div>
+              <div class="author-name">Fernanda Mota</div>
+              <div class="author-role">Corretora autônoma · Curitiba, PR</div>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card reveal">
+          <div class="testimonial-stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+          </div>
+          <p class="testimonial-text">"Simples, rápido e sem enrolação. O pipeline de leads é o que eu sempre quis: vejo tudo numa tela e sei o que fazer. Triplicou minha produtividade."</p>
+          <div class="testimonial-author">
+            <div class="author-avatar">JB</div>
+            <div>
+              <div class="author-name">Jonas Bittencourt</div>
+              <div class="author-role">Corretor autônomo · Recife, PE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="precos">
+    <div class="container">
+      <div class="section-header reveal" style="text-align:center; margin-left:auto; margin-right:auto;">
+        <p class="section-label" style="text-align:center;">Planos</p>
+        <h2 class="section-title">Simples. Sem surpresa.</h2>
+        <p class="section-sub" style="margin:0 auto;">Escolha o plano certo para o seu momento. Cancele quando quiser.</p>
+      </div>
+      <div class="pricing-grid reveal">
+        <div class="pricing-card">
+          <p class="pricing-plan">Básico</p>
+          <div class="pricing-price">R$97</div>
+          <p class="pricing-period">por mês · cobrado mensalmente</p>
+          <p class="pricing-desc">Para o corretor que está começando a organizar seu negócio e quer sair das planilhas.</p>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li class="pricing-feature"><span class="feature-check">✓</span>Até 200 leads no pipeline</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Dashboard e pipeline visual</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Catálogo de imóveis (até 30)</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Agenda de visitas</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Suporte por e-mail</li>
+          </ul>
+          <a href="/login" class="pricing-cta pricing-cta-ghost">Começar grátis</a>
+        </div>
+        <div class="pricing-card featured">
+          <div class="pricing-badge">Mais popular</div>
+          <p class="pricing-plan">Pro</p>
+          <div class="pricing-price">R$197</div>
+          <p class="pricing-period">por mês · cobrado mensalmente</p>
+          <p class="pricing-desc">Para o corretor que quer automatizar a qualificação e nunca mais perder um lead por demora.</p>
+          <div class="pricing-divider"></div>
+          <ul class="pricing-features">
+            <li class="pricing-feature"><span class="feature-check">✓</span>Leads ilimitados</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Tudo do plano Básico</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Integração WhatsApp (Meta API)</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Agente IA 24h</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Catálogo ilimitado de imóveis</li>
+            <li class="pricing-feature"><span class="feature-check">✓</span>Suporte prioritário via chat</li>
+          </ul>
+          <a href="/login" class="pricing-cta pricing-cta-gold">Começar grátis por 14 dias</a>
+        </div>
+      </div>
+      <p style="text-align:center; font-size:13px; color:var(--text-3); margin-top:1.5rem;">
+        Sem cartão de crédito para o trial. Cancele a qualquer momento.
+      </p>
+    </div>
+  </section>
+
+  <section id="faq" style="background:var(--bg-2); border-top:1px solid var(--border);">
+    <div class="container">
+      <div class="section-header reveal" style="text-align:center; margin-left:auto; margin-right:auto;">
+        <p class="section-label" style="text-align:center;">FAQ</p>
+        <h2 class="section-title">Perguntas frequentes</h2>
+      </div>
+      <div class="faq-list reveal">
+        <div class="faq-item">
+          <button class="faq-question">Preciso de conhecimento técnico para usar?<span class="faq-icon">+</span></button>
+          <div class="faq-answer">Não. O LeadHouse foi pensado para corretores, não para técnicos. Se você sabe usar o WhatsApp, consegue usar o LeadHouse. A configuração inicial leva menos de 10 minutos.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question">Como funciona a integração com o WhatsApp?<span class="faq-icon">+</span></button>
+          <div class="faq-answer">Usamos a Meta Cloud API oficial. Você conecta seu número de WhatsApp Business ao painel e, a partir daí, todos os leads que chegam pelo WhatsApp entram automaticamente no seu pipeline com a temperatura já definida pelo agente IA.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question">Meus dados e os dados dos meus clientes são seguros?<span class="faq-icon">+</span></button>
+          <div class="faq-answer">Sim. Todos os dados são armazenados no Supabase (PostgreSQL) com criptografia em repouso e em trânsito. Seguimos as diretrizes da LGPD e nunca compartilhamos dados com terceiros.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question">Posso cancelar a qualquer momento?<span class="faq-icon">+</span></button>
+          <div class="faq-answer">Sim, sem burocracia. Você cancela direto no painel com um clique. Não há multa, fidelidade ou cobrança extra. Seu acesso continua até o fim do período já pago.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question">O plano Básico tem suporte ao WhatsApp?<span class="faq-icon">+</span></button>
+          <div class="faq-answer">Não. A integração com WhatsApp e o agente IA são exclusivos do plano Pro. No plano Básico você pode cadastrar leads manualmente ou via formulário, mas a automação fica disponível só no Pro.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-final">
+    <div class="container">
+      <p class="section-label" style="text-align:center;">Comece hoje</p>
+      <h2 class="section-title reveal">Seu próximo cliente<br>já está esperando resposta.</h2>
+      <p class="section-sub reveal">Cada hora sem sistema é lead esquecido. Teste o LeadHouse gratuitamente por 14 dias — sem cartão de crédito.</p>
+      <div class="reveal">
+        <a href="/login" class="btn-primary" style="font-size:15px; padding:15px 36px;">Criar minha conta grátis</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <a href="#" class="footer-logo">LeadHouse</a>
+        <ul class="footer-links">
+          <li><a href="#">Termos de uso</a></li>
+          <li><a href="#">Privacidade</a></li>
+          <li><a href="#">Contato</a></li>
+        </ul>
+        <p class="footer-copy">© 2026 LeadHouse. Todos os direitos reservados.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.faq-item');
+        const isOpen = item.classList.contains('open');
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+        if (!isOpen) item.classList.add('open');
+      });
+    });
+  </script>
+</body>
+</html>
