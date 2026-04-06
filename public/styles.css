@@ -1037,6 +1037,233 @@ select.form-input {
 }
 
 /* ============================================
+   Pipeline Section
+   ============================================ */
+.pipeline-section {
+    margin-bottom: 2rem;
+}
+
+.pipeline-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.pipeline-header__title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--text-white);
+    letter-spacing: 0.3px;
+}
+
+.pipeline-header__ts {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+}
+
+/* Pipeline grid */
+.pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+/* Pipe card */
+.pipe-card {
+    background: #161616;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.pipe-card:hover {
+    border-color: rgba(255,255,255,0.12);
+}
+
+.pipe-card__accent {
+    height: 3px;
+}
+
+.pipe-card__accent--hot { background: #C0392B; }
+.pipe-card__accent--warm { background: #C9A84C; }
+.pipe-card__accent--cold { background: #2F80C2; }
+
+.pipe-card__body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+/* Badge */
+.pipe-card__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    margin-bottom: 1rem;
+}
+
+.pipe-badge__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.pipe-badge--hot {
+    background: rgba(192,57,43,0.13);
+    color: #E87A7A;
+}
+
+.pipe-badge--hot .pipe-badge__dot { background: #C0392B; }
+
+.pipe-badge--warm {
+    background: rgba(201,168,76,0.12);
+    color: #E8C97A;
+}
+
+.pipe-badge--warm .pipe-badge__dot { background: #C9A84C; }
+
+.pipe-badge--cold {
+    background: rgba(47,128,194,0.13);
+    color: #7ABDE8;
+}
+
+.pipe-badge--cold .pipe-badge__dot { background: #2F80C2; }
+
+/* Number */
+.pipe-card__number {
+    font-family: var(--font-display);
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: #F0EDE6;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.pipe-card__sublabel {
+    font-size: 0.72rem;
+    color: #5A5650;
+    margin-top: 0.35rem;
+    letter-spacing: 0.2px;
+}
+
+.pipe-card__divider {
+    height: 0.5px;
+    background: rgba(255,255,255,0.07);
+    margin: 1rem 0;
+}
+
+/* Meta rows */
+.pipe-card__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0;
+    font-size: 0.75rem;
+}
+
+.pipe-card__meta span:first-child {
+    color: #5A5650;
+}
+
+.pipe-card__meta span:last-child {
+    color: #9A9488;
+    font-weight: 500;
+}
+
+/* Skeleton loading */
+.skeleton-text {
+    color: transparent;
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    display: inline-block;
+    min-width: 24px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Distribution bar */
+.pipe-distrib {
+    background: #161616;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+}
+
+.pipe-distrib__bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    gap: 2px;
+    margin-bottom: 0.85rem;
+}
+
+.pipe-distrib__seg {
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    min-width: 4px;
+}
+
+.pipe-distrib__seg--hot { background: #C0392B; }
+.pipe-distrib__seg--warm { background: #C9A84C; }
+.pipe-distrib__seg--cold { background: #2F80C2; }
+
+.pipe-distrib__legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pipe-distrib__total {
+    font-size: 0.75rem;
+    color: #9A9488;
+    font-weight: 500;
+}
+
+.pipe-distrib__labels {
+    display: flex;
+    gap: 1.25rem;
+}
+
+.pipe-distrib__label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: #5A5650;
+}
+
+.pipe-distrib__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.pipe-distrib__dot--hot { background: #C0392B; }
+.pipe-distrib__dot--warm { background: #C9A84C; }
+.pipe-distrib__dot--cold { background: #2F80C2; }
+
+/* ============================================
+   Viz Section (Chart)
+   ============================================ */
+.dash-viz--single {
+    grid-template-columns: 1fr;
+}
+
+/* ============================================
    Viz Section (Chart + Funnel)
    ============================================ */
 .dash-viz {
@@ -1113,57 +1340,7 @@ select.form-input {
     text-transform: capitalize;
 }
 
-/* Funnel */
-.viz-funnel {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding-top: 4px;
-}
-
-.funnel-row {
-    display: grid;
-    grid-template-columns: 60px 1fr 40px 30px;
-    align-items: center;
-    gap: 10px;
-}
-
-.funnel-label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.funnel-bar-wrap {
-    height: 24px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.funnel-bar {
-    height: 100%;
-    border-radius: 4px;
-    min-width: 4px;
-    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.funnel--quente { background: #8A3232; }
-.funnel--morno { background: #8A6D0A; }
-.funnel--frio { background: #2D5A7A; }
-
-.funnel-pct {
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    font-weight: 600;
-    text-align: right;
-}
-
-.funnel-count {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-align: right;
-}
+/* Funnel removido — substituido pelo Pipeline */
 
 /* ============================================
    Table Row Temperature Tints
@@ -1434,6 +1611,9 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .stat-card--highlight { grid-column: span 2; }
     .stat-card--highlight .stat-card__value { font-size: 2rem; }
     .stat-card__value { font-size: 1.6rem; }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .pipe-distrib__legend { flex-direction: column; gap: 0.5rem; }
+    .pipe-distrib__labels { gap: 0.75rem; }
     .dash-viz { grid-template-columns: 1fr; }
     .leads-toolbar { flex-direction: column; align-items: stretch; }
     .search-input { width: 100%; }

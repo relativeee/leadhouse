@@ -75,24 +75,6 @@
             <div class="stat-card__trend" id="trendTotal"></div>
         </div>
         <div class="stat-card">
-            <div class="stat-card__label">Leads Quentes</div>
-            <div class="stat-card__value" id="totalQuentes">--</div>
-            <div class="stat-card__detail">Prontos para contato</div>
-            <div class="stat-card__trend" id="trendQuentes"></div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__label">Leads Mornos</div>
-            <div class="stat-card__value" id="totalMornos">--</div>
-            <div class="stat-card__detail">Em qualificacao</div>
-            <div class="stat-card__trend" id="trendMornos"></div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card__label">Leads Frios</div>
-            <div class="stat-card__value" id="totalFrios">--</div>
-            <div class="stat-card__detail">Inicio de conversa</div>
-            <div class="stat-card__trend" id="trendFrios"></div>
-        </div>
-        <div class="stat-card">
             <div class="stat-card__label">Imoveis</div>
             <div class="stat-card__value" id="totalImoveis">--</div>
             <div class="stat-card__detail">No catalogo</div>
@@ -104,15 +86,78 @@
         </div>
     </section>
 
-    <!-- Visualizacao: Grafico + Funil -->
-    <section class="dash-viz">
+    <!-- Pipeline de Leads -->
+    <section class="pipeline-section">
+        <div class="pipeline-header">
+            <div class="pipeline-header__title">Pipeline de leads</div>
+            <div class="pipeline-header__ts" id="pipelineTs"></div>
+        </div>
+
+        <div class="pipeline-grid" id="pipelineGrid">
+            <!-- Quente -->
+            <div class="pipe-card">
+                <div class="pipe-card__accent pipe-card__accent--hot"></div>
+                <div class="pipe-card__body">
+                    <div class="pipe-card__badge pipe-badge--hot"><span class="pipe-badge__dot"></span>Prontos para comprar</div>
+                    <div class="pipe-card__number" id="pipeQuente"><span class="skeleton-text">0</span></div>
+                    <div class="pipe-card__sublabel">Leads qualificados</div>
+                    <div class="pipe-card__divider"></div>
+                    <div class="pipe-card__meta"><span>Contato urgente</span><span>Ate 2h</span></div>
+                    <div class="pipe-card__meta"><span>Orcamento confirmado</span><span>Sim</span></div>
+                    <div class="pipe-card__meta"><span>Visitas agendadas</span><span id="pipeVisQuente">0</span></div>
+                </div>
+            </div>
+            <!-- Morno -->
+            <div class="pipe-card">
+                <div class="pipe-card__accent pipe-card__accent--warm"></div>
+                <div class="pipe-card__body">
+                    <div class="pipe-card__badge pipe-badge--warm"><span class="pipe-badge__dot"></span>Em qualificacao</div>
+                    <div class="pipe-card__number" id="pipeMorno"><span class="skeleton-text">0</span></div>
+                    <div class="pipe-card__sublabel">Leads em nutricao</div>
+                    <div class="pipe-card__divider"></div>
+                    <div class="pipe-card__meta"><span>Retorno sugerido</span><span>3 a 7 dias</span></div>
+                    <div class="pipe-card__meta"><span>Interesse confirmado</span><span>Parcial</span></div>
+                    <div class="pipe-card__meta"><span>Propostas enviadas</span><span id="pipeProMorno">0</span></div>
+                </div>
+            </div>
+            <!-- Frio -->
+            <div class="pipe-card">
+                <div class="pipe-card__accent pipe-card__accent--cold"></div>
+                <div class="pipe-card__body">
+                    <div class="pipe-card__badge pipe-badge--cold"><span class="pipe-badge__dot"></span>Inicio de conversa</div>
+                    <div class="pipe-card__number" id="pipeFrio"><span class="skeleton-text">0</span></div>
+                    <div class="pipe-card__sublabel">Leads frios</div>
+                    <div class="pipe-card__divider"></div>
+                    <div class="pipe-card__meta"><span>Retorno sugerido</span><span>+14 dias</span></div>
+                    <div class="pipe-card__meta"><span>Interesse confirmado</span><span>Nao</span></div>
+                    <div class="pipe-card__meta"><span>Em descoberta</span><span id="pipeDescFrio">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de distribuicao -->
+        <div class="pipe-distrib">
+            <div class="pipe-distrib__bar" id="pipeDistribBar">
+                <div class="pipe-distrib__seg pipe-distrib__seg--hot" id="pipeSegHot" style="width:33%"></div>
+                <div class="pipe-distrib__seg pipe-distrib__seg--warm" id="pipeSegWarm" style="width:34%"></div>
+                <div class="pipe-distrib__seg pipe-distrib__seg--cold" id="pipeSegCold" style="width:33%"></div>
+            </div>
+            <div class="pipe-distrib__legend">
+                <span class="pipe-distrib__total" id="pipeDistribTotal">0 leads no total</span>
+                <span class="pipe-distrib__labels">
+                    <span class="pipe-distrib__label"><span class="pipe-distrib__dot pipe-distrib__dot--hot"></span><span id="pipeDistPctHot">0%</span> quentes</span>
+                    <span class="pipe-distrib__label"><span class="pipe-distrib__dot pipe-distrib__dot--warm"></span><span id="pipeDistPctWarm">0%</span> mornos</span>
+                    <span class="pipe-distrib__label"><span class="pipe-distrib__dot pipe-distrib__dot--cold"></span><span id="pipeDistPctCold">0%</span> frios</span>
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Grafico ultimos 7 dias -->
+    <section class="dash-viz dash-viz--single">
         <div class="viz-card">
             <div class="viz-card__title">Leads captados — ultimos 7 dias</div>
             <div class="viz-chart" id="chartBarras"></div>
-        </div>
-        <div class="viz-card">
-            <div class="viz-card__title">Distribuicao por temperatura</div>
-            <div class="viz-funnel" id="funnelViz"></div>
         </div>
     </section>
 
@@ -646,36 +691,26 @@ async function carregarDashboard() {
             mornos: allLeads.filter(l => l.temperatura === 'morno').length,
             frios: allLeads.filter(l => l.temperatura === 'frio').length,
         };
+        const visitasAgendadas = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada');
         document.getElementById('totalLeads').textContent = counts.total;
-        document.getElementById('totalQuentes').textContent = counts.quentes;
-        document.getElementById('totalMornos').textContent = counts.mornos;
-        document.getElementById('totalFrios').textContent = counts.frios;
         document.getElementById('totalImoveis').textContent = imv.length;
-        document.getElementById('totalVisitas').textContent = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada').length;
+        document.getElementById('totalVisitas').textContent = visitasAgendadas.length;
 
+        renderPipeline(counts, visitasAgendadas.length);
         renderTrends(counts);
         renderChart(allLeads);
-        renderFunnel(counts);
         renderDashLeads();
     } catch (err) {
         console.error(err);
         dashLeads = [];
         setStatus(false);
-        const counts = {
-            total: dashLeads.length,
-            quentes: dashLeads.filter(l => l.temperatura === 'quente').length,
-            mornos: dashLeads.filter(l => l.temperatura === 'morno').length,
-            frios: dashLeads.filter(l => l.temperatura === 'frio').length,
-        };
-        document.getElementById('totalLeads').textContent = counts.total;
-        document.getElementById('totalQuentes').textContent = counts.quentes;
-        document.getElementById('totalMornos').textContent = counts.mornos;
-        document.getElementById('totalFrios').textContent = counts.frios;
+        const counts = { total: 0, quentes: 0, mornos: 0, frios: 0 };
+        document.getElementById('totalLeads').textContent = 0;
         document.getElementById('totalImoveis').textContent = 0;
         document.getElementById('totalVisitas').textContent = 0;
+        renderPipeline(counts, 0);
         renderTrends(counts);
         renderChart(dashLeads);
-        renderFunnel(counts);
         renderDashLeads();
     }
 }
@@ -1139,36 +1174,38 @@ function renderChart(leads) {
     `).join('');
 }
 
-// ── Funil de temperatura ──
-function renderFunnel(counts) {
-    const container = document.getElementById('funnelViz');
-    if (!container) return;
+// ── Pipeline de leads ──
+function renderPipeline(counts, visitasCount) {
+    const total = counts.total || 0;
+    const t = total || 1;
+    const pctQ = Math.round((counts.quentes / t) * 100);
+    const pctM = Math.round((counts.mornos / t) * 100);
+    const pctF = Math.round((counts.frios / t) * 100);
 
-    const total = counts.total || 1;
-    const pctQ = Math.round((counts.quentes / total) * 100);
-    const pctM = Math.round((counts.mornos / total) * 100);
-    const pctF = Math.round((counts.frios / total) * 100);
+    // Numeros nos cards
+    document.getElementById('pipeQuente').textContent = counts.quentes;
+    document.getElementById('pipeMorno').textContent = counts.mornos;
+    document.getElementById('pipeFrio').textContent = counts.frios;
 
-    container.innerHTML = `
-        <div class="funnel-row">
-            <div class="funnel-label">Quente</div>
-            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--quente" style="width:${pctQ}%"></div></div>
-            <div class="funnel-pct">${pctQ}%</div>
-            <div class="funnel-count">${counts.quentes}</div>
-        </div>
-        <div class="funnel-row">
-            <div class="funnel-label">Morno</div>
-            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--morno" style="width:${pctM}%"></div></div>
-            <div class="funnel-pct">${pctM}%</div>
-            <div class="funnel-count">${counts.mornos}</div>
-        </div>
-        <div class="funnel-row">
-            <div class="funnel-label">Frio</div>
-            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--frio" style="width:${pctF}%"></div></div>
-            <div class="funnel-pct">${pctF}%</div>
-            <div class="funnel-count">${counts.frios}</div>
-        </div>
-    `;
+    // Meta dinamicas
+    document.getElementById('pipeVisQuente').textContent = visitasCount;
+    document.getElementById('pipeProMorno').textContent = counts.mornos;
+    document.getElementById('pipeDescFrio').textContent = counts.frios;
+
+    // Barra de distribuicao
+    const minW = total > 0 ? 4 : 33;
+    document.getElementById('pipeSegHot').style.width = (total > 0 ? Math.max(pctQ, 4) : 33) + '%';
+    document.getElementById('pipeSegWarm').style.width = (total > 0 ? Math.max(pctM, 4) : 34) + '%';
+    document.getElementById('pipeSegCold').style.width = (total > 0 ? Math.max(pctF, 4) : 33) + '%';
+
+    document.getElementById('pipeDistribTotal').textContent = total + ' lead' + (total !== 1 ? 's' : '') + ' no total';
+    document.getElementById('pipeDistPctHot').textContent = pctQ + '%';
+    document.getElementById('pipeDistPctWarm').textContent = pctM + '%';
+    document.getElementById('pipeDistPctCold').textContent = pctF + '%';
+
+    // Timestamp
+    const now = new Date();
+    document.getElementById('pipelineTs').textContent = 'Atualizado as ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 // ── Acao rapida: agendar visita a partir do dash ──
