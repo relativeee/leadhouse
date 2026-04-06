@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadHouse — Gestao Imobiliaria</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Sidebar + Layout ── -->
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar__logo">
+        <img src="/logo.svg" alt="LeadHouse" class="sidebar__logo-img">
+        <div>
+            <div class="sidebar__title">LeadHouse</div>
+            <div class="sidebar__subtitle">Gestao Imobiliaria</div>
+        </div>
+    </div>
+    <nav class="sidebar__nav">
+        <button class="sidebar__item sidebar__item--active" onclick="trocarAba('dashboard', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Dashboard
+        </button>
+        <button class="sidebar__item" onclick="trocarAba('imoveis', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Imoveis
+        </button>
+        <button class="sidebar__item" onclick="trocarAba('leads', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            Cadastro de Leads
+        </button>
+        <button class="sidebar__item" onclick="trocarAba('visitas', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Agenda de Visitas
+        </button>
+        <button class="sidebar__item sidebar__item--ai" onclick="trocarAba('agente', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Agente IA
+        </button>
+    </nav>
+    <div class="sidebar__footer">
+        <div class="sidebar__status">
+            <span class="header__status-dot" id="statusDot"></span>
+            <span id="statusText">Conectado</span>
+        </div>
+    </div>
+</aside>
+
+<!-- ── Botao mobile para abrir sidebar ── -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+
+<div class="main-content">
+
+<!-- ============================================
+     ABA: DASHBOARD
+     ============================================ -->
+<main class="dashboard" id="aba-dashboard">
+
+    <!-- Stats -->
+    <section class="stats">
+        <div class="stat-card">
+            <div class="stat-card__label">Total de Leads</div>
+            <div class="stat-card__value" id="totalLeads">--</div>
+            <div class="stat-card__detail">WhatsApp + Manual</div>
+        </div>
+        <div class="stat-card stat-card--quente">
+            <div class="stat-card__label">Leads Quentes</div>
+            <div class="stat-card__value" id="totalQuentes">--</div>
+            <div class="stat-card__detail">Prontos para contato</div>
+        </div>
+        <div class="stat-card stat-card--morno">
+            <div class="stat-card__label">Leads Mornos</div>
+            <div class="stat-card__value" id="totalMornos">--</div>
+            <div class="stat-card__detail">Em qualificacao</div>
+        </div>
+        <div class="stat-card stat-card--frio">
+            <div class="stat-card__label">Leads Frios</div>
+            <div class="stat-card__value" id="totalFrios">--</div>
+            <div class="stat-card__detail">Inicio de conversa</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__label">Imoveis Cadastrados</div>
+            <div class="stat-card__value" id="totalImoveis">--</div>
+            <div class="stat-card__detail">No catalogo</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__label">Visitas Agendadas</div>
+            <div class="stat-card__value" id="totalVisitas">--</div>
+            <div class="stat-card__detail">Pendentes</div>
+        </div>
+    </section>
+
+    <!-- Leads Table -->
+    <section>
+        <div class="section-title">Leads Recentes (WhatsApp)</div>
+        <div class="leads-container">
+            <div class="leads-toolbar">
+                <div class="leads-toolbar__filters">
+                    <button class="filter-btn filter-btn--active" onclick="filtrarDash('todos', this)">Todos</button>
+                    <button class="filter-btn filter-btn--quente" onclick="filtrarDash('quente', this)">Quentes</button>
+                    <button class="filter-btn filter-btn--morno" onclick="filtrarDash('morno', this)">Mornos</button>
+                    <button class="filter-btn filter-btn--frio" onclick="filtrarDash('frio', this)">Frios</button>
+                </div>
+                <input type="text" class="search-input" placeholder="Buscar lead..." id="searchDash" oninput="renderDashLeads()">
+            </div>
+            <div class="leads-table-wrapper">
+                <table class="leads-table">
+                    <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Temperatura</th><th>Msgs</th><th>Atualizado</th></tr></thead>
+                    <tbody id="dashLeadsBody"></tbody>
+                </table>
+            </div>
+            <div class="empty-state" id="dashEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum lead encontrado</div></div>
+        </div>
+    </section>
+</main>
+
+<!-- ============================================
+     ABA: IMOVEIS
+     ============================================ -->
+<main class="dashboard" id="aba-imoveis" style="display:none;">
+
+    <div class="section-title">Cadastro de Imoveis</div>
+
+    <!-- Formulario -->
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group form-group--full">
+                <label class="form-label">Titulo *</label>
+                <input type="text" class="form-input" id="imvTitulo" placeholder="Ex: Apto 3 quartos vista mar">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tipo *</label>
+                <select class="form-input" id="imvTipo">
+                    <option value="">Selecione...</option>
+                    <option>Apartamento</option>
+                    <option>Casa</option>
+                    <option>Terreno</option>
+                    <option>Sala Comercial</option>
+                    <option>Galpao</option>
+                    <option>Cobertura</option>
+                    <option>Flat</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="imvStatus">
+                    <option value="disponivel">Disponivel</option>
+                    <option value="reservado">Reservado</option>
+                    <option value="vendido">Vendido</option>
+                    <option value="alugado">Alugado</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Endereco</label>
+                <input type="text" class="form-input" id="imvEndereco" placeholder="Rua, numero">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bairro</label>
+                <input type="text" class="form-input" id="imvBairro" placeholder="Bairro">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cidade</label>
+                <input type="text" class="form-input" id="imvCidade" placeholder="Cidade">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Valor (R$)</label>
+                <input type="text" class="form-input" id="imvValor" placeholder="Ex: 450.000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Quartos</label>
+                <input type="number" class="form-input" id="imvQuartos" placeholder="0" min="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Area (m2)</label>
+                <input type="text" class="form-input" id="imvArea" placeholder="Ex: 85">
+            </div>
+            <div class="form-group form-group--full">
+                <label class="form-label">Descricao</label>
+                <textarea class="form-input form-textarea" id="imvDescricao" placeholder="Detalhes do imovel..."></textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--primary" onclick="salvarImovel()">Cadastrar Imovel</button>
+            <button class="btn btn--ghost" onclick="limparFormImovel()">Limpar</button>
+        </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="leads-container" style="margin-top:1.5rem;">
+        <div class="leads-toolbar">
+            <div class="section-title" style="margin:0;">Imoveis Cadastrados</div>
+            <input type="text" class="search-input" placeholder="Buscar imovel..." id="searchImovel" oninput="renderImoveis()">
+        </div>
+        <div class="leads-table-wrapper">
+            <table class="leads-table">
+                <thead><tr><th>Titulo</th><th>Tipo</th><th>Bairro</th><th>Cidade</th><th>Valor</th><th>Quartos</th><th>Status</th><th>Acoes</th></tr></thead>
+                <tbody id="imoveisBody"></tbody>
+            </table>
+        </div>
+        <div class="empty-state" id="imoveisEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum imovel cadastrado</div></div>
+    </div>
+</main>
+
+<!-- ============================================
+     ABA: CADASTRO DE LEADS
+     ============================================ -->
+<main class="dashboard" id="aba-leads" style="display:none;">
+
+    <div class="section-title">Cadastro de Leads</div>
+
+    <!-- Formulario -->
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-input" id="ldNome" placeholder="Nome completo">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Telefone *</label>
+                <input type="text" class="form-input" id="ldTelefone" placeholder="(83) 99999-0000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" id="ldEmail" placeholder="email@exemplo.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Objetivo</label>
+                <select class="form-input" id="ldObjetivo">
+                    <option value="">Selecione...</option>
+                    <option>Comprar</option>
+                    <option>Alugar</option>
+                    <option>Vender</option>
+                    <option>Investir</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tipo de Imovel</label>
+                <select class="form-input" id="ldTipoImovel">
+                    <option value="">Selecione...</option>
+                    <option>Apartamento</option>
+                    <option>Casa</option>
+                    <option>Terreno</option>
+                    <option>Sala Comercial</option>
+                    <option>Cobertura</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bairro</label>
+                <input type="text" class="form-input" id="ldBairro" placeholder="Bairro de interesse">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Faixa de Valor</label>
+                <input type="text" class="form-input" id="ldFaixaValor" placeholder="Ex: R$ 300-500mil">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Pagamento</label>
+                <select class="form-input" id="ldPagamento">
+                    <option value="">Selecione...</option>
+                    <option>A vista</option>
+                    <option>Financiamento</option>
+                    <option>FGTS</option>
+                    <option>Consorcio</option>
+                    <option>Permuta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Prazo</label>
+                <select class="form-input" id="ldPrazo">
+                    <option value="">Selecione...</option>
+                    <option>Imediato</option>
+                    <option>30 dias</option>
+                    <option>3 meses</option>
+                    <option>6 meses</option>
+                    <option>1 ano</option>
+                    <option>Sem pressa</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Temperatura</label>
+                <select class="form-input" id="ldTemperatura">
+                    <option value="frio">Frio</option>
+                    <option value="morno">Morno</option>
+                    <option value="quente">Quente</option>
+                </select>
+            </div>
+            <div class="form-group form-group--full">
+                <label class="form-label">Observacoes</label>
+                <textarea class="form-input form-textarea" id="ldObservacoes" placeholder="Anotacoes sobre o lead..."></textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--primary" onclick="salvarLead()">Cadastrar Lead</button>
+            <button class="btn btn--ghost" onclick="limparFormLead()">Limpar</button>
+        </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="leads-container" style="margin-top:1.5rem;">
+        <div class="leads-toolbar">
+            <div class="section-title" style="margin:0;">Leads Cadastrados</div>
+            <input type="text" class="search-input" placeholder="Buscar lead..." id="searchLead" oninput="renderLeadsManuais()">
+        </div>
+        <div class="leads-table-wrapper">
+            <table class="leads-table">
+                <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Faixa Valor</th><th>Temperatura</th><th>Criado</th><th>Acoes</th></tr></thead>
+                <tbody id="leadsManuaisBody"></tbody>
+            </table>
+        </div>
+        <div class="empty-state" id="leadsManEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum lead cadastrado manualmente</div></div>
+    </div>
+</main>
+
+<!-- ============================================
+     ABA: AGENDA DE VISITAS
+     ============================================ -->
+<main class="dashboard" id="aba-visitas" style="display:none;">
+
+    <div class="section-title">Agenda de Visitas</div>
+
+    <!-- Formulario -->
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">Nome do Lead *</label>
+                <input type="text" class="form-input" id="vsLeadNome" placeholder="Nome do cliente">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Telefone do Lead</label>
+                <input type="text" class="form-input" id="vsLeadTelefone" placeholder="(83) 99999-0000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Imovel</label>
+                <input type="text" class="form-input" id="vsImovelTitulo" placeholder="Titulo ou codigo do imovel">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Endereco da Visita</label>
+                <input type="text" class="form-input" id="vsEndereco" placeholder="Endereco completo">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Data *</label>
+                <input type="date" class="form-input" id="vsData">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Horario *</label>
+                <input type="time" class="form-input" id="vsHorario">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Corretor</label>
+                <input type="text" class="form-input" id="vsCorretor" placeholder="Nome do corretor">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="vsStatus">
+                    <option value="agendada">Agendada</option>
+                    <option value="confirmada">Confirmada</option>
+                    <option value="realizada">Realizada</option>
+                    <option value="cancelada">Cancelada</option>
+                    <option value="reagendada">Reagendada</option>
+                </select>
+            </div>
+            <div class="form-group form-group--full">
+                <label class="form-label">Observacoes</label>
+                <textarea class="form-input form-textarea" id="vsObservacoes" placeholder="Notas sobre a visita..."></textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn--primary" onclick="salvarVisita()">Agendar Visita</button>
+            <button class="btn btn--ghost" onclick="limparFormVisita()">Limpar</button>
+        </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="leads-container" style="margin-top:1.5rem;">
+        <div class="leads-toolbar">
+            <div class="leads-toolbar__filters">
+                <button class="filter-btn filter-btn--active" onclick="filtrarVisita('todos', this)">Todas</button>
+                <button class="filter-btn" onclick="filtrarVisita('agendada', this)">Agendadas</button>
+                <button class="filter-btn" onclick="filtrarVisita('confirmada', this)">Confirmadas</button>
+                <button class="filter-btn" onclick="filtrarVisita('realizada', this)">Realizadas</button>
+                <button class="filter-btn" onclick="filtrarVisita('cancelada', this)">Canceladas</button>
+            </div>
+            <input type="text" class="search-input" placeholder="Buscar visita..." id="searchVisita" oninput="renderVisitas()">
+        </div>
+        <div class="leads-table-wrapper">
+            <table class="leads-table">
+                <thead><tr><th>Lead</th><th>Imovel</th><th>Data</th><th>Horario</th><th>Corretor</th><th>Status</th><th>Acoes</th></tr></thead>
+                <tbody id="visitasBody"></tbody>
+            </table>
+        </div>
+        <div class="empty-state" id="visitasEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhuma visita agendada</div></div>
+    </div>
+</main>
+
+<!-- ============================================
+     ABA: AGENTE IA
+     ============================================ -->
+<main class="dashboard" id="aba-agente" style="display:none;">
+
+    <div class="section-title">Agente IA — Matching Leads &amp; Imoveis</div>
+
+    <div class="ai-panel">
+        <div class="ai-panel__intro">
+            <div class="ai-panel__icon">&#129302;</div>
+            <div>
+                <h3 class="ai-panel__title">Analise Inteligente</h3>
+                <p class="ai-panel__desc">O agente cruza todos os leads (WhatsApp + manuais) com os imoveis cadastrados e gera um resumo executivo: quem quer o que, quais matches existem, e quais acoes o corretor deve tomar.</p>
+            </div>
+        </div>
+
+        <div class="ai-panel__actions">
+            <button class="btn btn--primary btn--lg" id="btnGerarResumo" onclick="gerarResumoIA()">
+                <span id="btnResumoTexto">Gerar Resumo com IA</span>
+                <span id="btnResumoLoading" style="display:none;" class="loading-dots">Analisando<span>.</span><span>.</span><span>.</span></span>
+            </button>
+            <span class="ai-panel__hint" id="resumoTimestamp"></span>
+        </div>
+
+        <div class="ai-panel__result" id="aiResult" style="display:none;">
+            <div class="ai-panel__result-header">
+                <span>Resultado da Analise</span>
+                <button class="btn btn--ghost btn--sm" onclick="copiarResumo()">Copiar</button>
+            </div>
+            <div class="ai-panel__result-body markdown" id="aiResultBody"></div>
+        </div>
+
+        <div class="ai-panel__error" id="aiError" style="display:none;">
+            <span id="aiErrorMsg"></span>
+        </div>
+
+        <div class="ai-panel__tips">
+            <div class="ai-panel__tip-title">Dicas para melhor resultado:</div>
+            <ul class="ai-panel__tip-list">
+                <li>Cadastre imoveis com bairro, valor e tipo preenchidos</li>
+                <li>Leads com mais dados geram matches mais precisos</li>
+                <li>Leads quentes sao priorizados nas recomendacoes</li>
+                <li>O agente considera visitas ja agendadas para evitar duplicatas</li>
+            </ul>
+        </div>
+    </div>
+
+</main>
+
+<!-- ── Modal Generico ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal__header">
+            <div class="modal__title" id="modalTitle">Detalhes</div>
+            <button class="modal__close" onclick="fecharModal()">&times;</button>
+        </div>
+        <div id="modalContent"></div>
+    </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Footer ── -->
+<footer class="footer">LeadHouse &mdash; Gestao imobiliaria inteligente</footer>
+
+</div><!-- /main-content -->
+</div><!-- /layout -->
+
+<script>
+// ═══════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════
+let dashLeads = [];
+let dashFiltro = 'todos';
+let imoveisData = [];
+let leadsManuaisData = [];
+let visitasData = [];
+let visitaFiltro = 'todos';
+
+// ═══════════════════════════════════════════════
+// NAVEGACAO POR ABAS
+// ═══════════════════════════════════════════════
+function trocarAba(aba, btn) {
+    document.querySelectorAll('.dashboard').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.sidebar__item').forEach(t => t.classList.remove('sidebar__item--active'));
+    document.getElementById('aba-' + aba).style.display = 'block';
+    btn.classList.add('sidebar__item--active');
+
+    // Fecha sidebar no mobile
+    document.getElementById('sidebar').classList.remove('sidebar--open');
+
+    if (aba === 'dashboard') carregarDashboard();
+    if (aba === 'imoveis') carregarImoveis();
+    if (aba === 'leads') carregarLeadsManuais();
+    if (aba === 'visitas') carregarVisitas();
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function toast(msg, tipo) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast toast--' + (tipo || 'info') + ' toast--show';
+    setTimeout(() => el.classList.remove('toast--show'), 3000);
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+function capitalize(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
+function formatarTelefone(tel) {
+    if (!tel || tel.length < 10) return tel || '--';
+    const limpo = tel.replace(/\D/g, '');
+    if (limpo.length === 13) return `(${limpo.slice(2,4)}) ${limpo.slice(4,9)}-${limpo.slice(9)}`;
+    if (limpo.length === 11) return `(${limpo.slice(0,2)}) ${limpo.slice(2,7)}-${limpo.slice(7)}`;
+    return tel;
+}
+function formatarData(d) {
+    if (!d) return '--';
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+}
+
+async function apiCall(method, url, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    return res.json();
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+async function carregarDashboard() {
+    try {
+        const [wpp, manual, imv, vis] = await Promise.all([
+            fetch('/api/leads').then(r => r.json()).catch(() => []),
+            fetch('/api/leads-manual').then(r => r.json()).catch(() => []),
+            fetch('/api/imoveis').then(r => r.json()).catch(() => []),
+            fetch('/api/visitas').then(r => r.json()).catch(() => []),
+        ]);
+        dashLeads = wpp.length ? wpp : gerarDadosDemo();
+        const allLeads = [...dashLeads, ...manual.map(l => ({ ...l, totalMensagens: 0, ultimaAtualizacao: l.criadoEm }))];
+        setStatus(wpp.length > 0 || manual.length > 0);
+
+        document.getElementById('totalLeads').textContent = allLeads.length;
+        document.getElementById('totalQuentes').textContent = allLeads.filter(l => l.temperatura === 'quente').length;
+        document.getElementById('totalMornos').textContent = allLeads.filter(l => l.temperatura === 'morno').length;
+        document.getElementById('totalFrios').textContent = allLeads.filter(l => l.temperatura === 'frio').length;
+        document.getElementById('totalImoveis').textContent = imv.length;
+        document.getElementById('totalVisitas').textContent = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada').length;
+
+        renderDashLeads();
+    } catch (err) {
+        console.error(err);
+        dashLeads = gerarDadosDemo();
+        setStatus(false);
+        document.getElementById('totalLeads').textContent = dashLeads.length;
+        document.getElementById('totalQuentes').textContent = dashLeads.filter(l => l.temperatura === 'quente').length;
+        document.getElementById('totalMornos').textContent = dashLeads.filter(l => l.temperatura === 'morno').length;
+        document.getElementById('totalFrios').textContent = dashLeads.filter(l => l.temperatura === 'frio').length;
+        document.getElementById('totalImoveis').textContent = 0;
+        document.getElementById('totalVisitas').textContent = 0;
+        renderDashLeads();
+    }
+}
+
+function gerarDadosDemo() {
+    return [
+        { telefone: '5583999001122', nome: 'Maria Silva', objetivo: 'comprar', tipo_imovel: 'apartamento', bairro: 'Manaira', faixa_valor: 'R$ 300-500mil', pagamento: 'financiamento', prazo: 'urgente', temperatura: 'quente', proximo_passo: 'Agendar visita', resumo: 'Procura apto 3 quartos em Manaira, financiamento aprovado.', totalMensagens: 12, ultimaAtualizacao: '03/04/2026 10:30' },
+        { telefone: '5583999334455', nome: 'Joao Oliveira', objetivo: 'alugar', tipo_imovel: 'casa', bairro: 'Altiplano', faixa_valor: 'R$ 2-3mil/mes', pagamento: 'nao informado', prazo: '3 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes de casas', resumo: 'Quer casa no Altiplano para alugar, sem pressa.', totalMensagens: 6, ultimaAtualizacao: '02/04/2026 15:45' },
+        { telefone: '5583999556677', nome: 'Ana Costa', objetivo: 'comprar', tipo_imovel: 'terreno', bairro: 'nao informado', faixa_valor: 'nao informado', pagamento: 'nao informado', prazo: 'nao informado', temperatura: 'frio', proximo_passo: 'Perguntar orcamento e localizacao', resumo: 'Apenas perguntou sobre terrenos disponiveis.', totalMensagens: 2, ultimaAtualizacao: '02/04/2026 09:10' },
+        { telefone: '5583999778899', nome: 'Carlos Mendes', objetivo: 'comprar', tipo_imovel: 'apartamento', bairro: 'Tambau', faixa_valor: 'R$ 500-800mil', pagamento: 'a vista', prazo: 'imediato', temperatura: 'quente', proximo_passo: 'Agendar visita amanha', resumo: 'Investidor, quer apto de frente pro mar.', totalMensagens: 8, ultimaAtualizacao: '03/04/2026 08:20' },
+        { telefone: '5583999990011', nome: 'Lucia Ferreira', objetivo: 'alugar', tipo_imovel: 'apartamento', bairro: 'Centro', faixa_valor: 'R$ 1-2mil/mes', pagamento: 'nao informado', prazo: '6 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes no centro', resumo: 'Estudante, procura apto pequeno no centro.', totalMensagens: 4, ultimaAtualizacao: '01/04/2026 18:00' },
+    ];
+}
+
+function renderDashLeads() {
+    const tbody = document.getElementById('dashLeadsBody');
+    const busca = (document.getElementById('searchDash').value || '').toLowerCase();
+    let filtrados = dashLeads;
+    if (dashFiltro !== 'todos') filtrados = filtrados.filter(l => l.temperatura === dashFiltro);
+    if (busca) filtrados = filtrados.filter(l => (l.nome||'').toLowerCase().includes(busca) || (l.telefone||'').includes(busca) || (l.bairro||'').toLowerCase().includes(busca));
+
+    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('dashEmpty').style.display = 'block'; return; }
+    document.getElementById('dashEmpty').style.display = 'none';
+
+    tbody.innerHTML = filtrados.map((lead, i) => `
+        <tr onclick="abrirModalLead(${dashLeads.indexOf(lead)})" style="cursor:pointer">
+            <td><strong>${esc(lead.nome || 'Sem nome')}</strong></td>
+            <td>${formatarTelefone(lead.telefone)}</td>
+            <td>${esc(capitalize(lead.objetivo))}</td>
+            <td>${esc(capitalize(lead.bairro))}</td>
+            <td><span class="badge badge--${lead.temperatura}"><span class="badge__dot"></span>${capitalize(lead.temperatura)}</span></td>
+            <td>${lead.totalMensagens || '--'}</td>
+            <td>${esc(lead.ultimaAtualizacao || '--')}</td>
+        </tr>`).join('');
+}
+
+function filtrarDash(tipo, btn) {
+    dashFiltro = tipo;
+    document.querySelectorAll('#aba-dashboard .filter-btn').forEach(b => b.classList.remove('filter-btn--active'));
+    btn.classList.add('filter-btn--active');
+    renderDashLeads();
+}
+
+function abrirModalLead(index) {
+    const lead = dashLeads[index]; if (!lead) return;
+    const campos = [['Nome',lead.nome],['Telefone',formatarTelefone(lead.telefone)],['Objetivo',lead.objetivo],['Tipo de Imovel',lead.tipo_imovel],['Bairro',lead.bairro],['Faixa de Valor',lead.faixa_valor],['Pagamento',lead.pagamento],['Prazo',lead.prazo],['Temperatura',lead.temperatura],['Proximo Passo',lead.proximo_passo],['Resumo',lead.resumo],['Total Mensagens',lead.totalMensagens],['Atualizado',lead.ultimaAtualizacao]];
+    document.getElementById('modalTitle').textContent = lead.nome || 'Detalhes do Lead';
+    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${l==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'nao informado')}</div></div>`).join('');
+    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+// ═══════════════════════════════════════════════
+// IMOVEIS
+// ═══════════════════════════════════════════════
+async function carregarImoveis() {
+    try { imoveisData = await apiCall('GET', '/api/imoveis'); } catch(e) { imoveisData = []; }
+    renderImoveis();
+}
+
+function renderImoveis() {
+    const tbody = document.getElementById('imoveisBody');
+    const busca = (document.getElementById('searchImovel').value || '').toLowerCase();
+    let filtrados = imoveisData;
+    if (busca) filtrados = filtrados.filter(i => (i.titulo||'').toLowerCase().includes(busca) || (i.bairro||'').toLowerCase().includes(busca) || (i.tipo||'').toLowerCase().includes(busca));
+
+    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('imoveisEmpty').style.display = 'block'; return; }
+    document.getElementById('imoveisEmpty').style.display = 'none';
+
+    tbody.innerHTML = filtrados.map(im => `
+        <tr>
+            <td><strong>${esc(im.titulo)}</strong></td>
+            <td>${esc(im.tipo)}</td>
+            <td>${esc(im.bairro || '--')}</td>
+            <td>${esc(im.cidade || '--')}</td>
+            <td>${esc(im.valor ? 'R$ ' + im.valor : '--')}</td>
+            <td>${esc(im.quartos || '--')}</td>
+            <td><span class="badge badge--status-${im.status}">${capitalize(im.status)}</span></td>
+            <td class="td-acoes">
+                <button class="btn-icon" title="Ver detalhes" onclick="verImovel(${im.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirImovel(${im.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+            </td>
+        </tr>`).join('');
+}
+
+async function salvarImovel() {
+    const body = {
+        titulo: document.getElementById('imvTitulo').value.trim(),
+        tipo: document.getElementById('imvTipo').value,
+        status: document.getElementById('imvStatus').value,
+        endereco: document.getElementById('imvEndereco').value.trim(),
+        bairro: document.getElementById('imvBairro').value.trim(),
+        cidade: document.getElementById('imvCidade').value.trim(),
+        valor: document.getElementById('imvValor').value.trim(),
+        quartos: document.getElementById('imvQuartos').value,
+        area: document.getElementById('imvArea').value.trim(),
+        descricao: document.getElementById('imvDescricao').value.trim(),
+    };
+    if (!body.titulo || !body.tipo) return toast('Preencha titulo e tipo do imovel', 'erro');
+    try {
+        await apiCall('POST', '/api/imoveis', body);
+        toast('Imovel cadastrado com sucesso!', 'sucesso');
+        limparFormImovel();
+        carregarImoveis();
+    } catch(e) { toast('Erro ao cadastrar imovel', 'erro'); }
+}
+
+function limparFormImovel() {
+    ['imvTitulo','imvTipo','imvEndereco','imvBairro','imvCidade','imvValor','imvQuartos','imvArea','imvDescricao'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('imvStatus').value = 'disponivel';
+}
+
+function verImovel(id) {
+    const im = imoveisData.find(i => i.id === id); if (!im) return;
+    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereco',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descricao',im.descricao],['Cadastrado em',im.criadoEm]];
+    document.getElementById('modalTitle').textContent = im.titulo;
+    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(v||'--')}</div></div>`).join('');
+    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+async function excluirImovel(id) {
+    if (!confirm('Excluir este imovel?')) return;
+    try { await apiCall('DELETE', '/api/imoveis/' + id); toast('Imovel excluido', 'sucesso'); carregarImoveis(); }
+    catch(e) { toast('Erro ao excluir', 'erro'); }
+}
+
+// ═══════════════════════════════════════════════
+// LEADS MANUAIS
+// ═══════════════════════════════════════════════
+async function carregarLeadsManuais() {
+    try { leadsManuaisData = await apiCall('GET', '/api/leads-manual'); } catch(e) { leadsManuaisData = []; }
+    renderLeadsManuais();
+}
+
+function renderLeadsManuais() {
+    const tbody = document.getElementById('leadsManuaisBody');
+    const busca = (document.getElementById('searchLead').value || '').toLowerCase();
+    let filtrados = leadsManuaisData;
+    if (busca) filtrados = filtrados.filter(l => (l.nome||'').toLowerCase().includes(busca) || (l.telefone||'').includes(busca) || (l.bairro||'').toLowerCase().includes(busca));
+
+    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('leadsManEmpty').style.display = 'block'; return; }
+    document.getElementById('leadsManEmpty').style.display = 'none';
+
+    tbody.innerHTML = filtrados.map(l => `
+        <tr>
+            <td><strong>${esc(l.nome)}</strong></td>
+            <td>${formatarTelefone(l.telefone)}</td>
+            <td>${esc(capitalize(l.objetivo) || '--')}</td>
+            <td>${esc(l.bairro || '--')}</td>
+            <td>${esc(l.faixa_valor || '--')}</td>
+            <td><span class="badge badge--${l.temperatura}"><span class="badge__dot"></span>${capitalize(l.temperatura)}</span></td>
+            <td>${esc(l.criadoEm || '--')}</td>
+            <td class="td-acoes">
+                <button class="btn-icon" title="Ver detalhes" onclick="verLeadManual(${l.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirLeadManual(${l.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+            </td>
+        </tr>`).join('');
+}
+
+async function salvarLead() {
+    const body = {
+        nome: document.getElementById('ldNome').value.trim(),
+        telefone: document.getElementById('ldTelefone').value.trim(),
+        email: document.getElementById('ldEmail').value.trim(),
+        objetivo: document.getElementById('ldObjetivo').value,
+        tipo_imovel: document.getElementById('ldTipoImovel').value,
+        bairro: document.getElementById('ldBairro').value.trim(),
+        faixa_valor: document.getElementById('ldFaixaValor').value.trim(),
+        pagamento: document.getElementById('ldPagamento').value,
+        prazo: document.getElementById('ldPrazo').value,
+        temperatura: document.getElementById('ldTemperatura').value,
+        observacoes: document.getElementById('ldObservacoes').value.trim(),
+    };
+    if (!body.nome || !body.telefone) return toast('Preencha nome e telefone do lead', 'erro');
+    try {
+        await apiCall('POST', '/api/leads-manual', body);
+        toast('Lead cadastrado com sucesso!', 'sucesso');
+        limparFormLead();
+        carregarLeadsManuais();
+    } catch(e) { toast('Erro ao cadastrar lead', 'erro'); }
+}
+
+function limparFormLead() {
+    ['ldNome','ldTelefone','ldEmail','ldBairro','ldFaixaValor','ldObservacoes'].forEach(id => document.getElementById(id).value = '');
+    ['ldObjetivo','ldTipoImovel','ldPagamento','ldPrazo'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('ldTemperatura').value = 'frio';
+}
+
+function verLeadManual(id) {
+    const l = leadsManuaisData.find(x => x.id === id); if (!l) return;
+    const campos = [['Nome',l.nome],['Telefone',formatarTelefone(l.telefone)],['E-mail',l.email],['Objetivo',l.objetivo],['Tipo de Imovel',l.tipo_imovel],['Bairro',l.bairro],['Faixa de Valor',l.faixa_valor],['Pagamento',l.pagamento],['Prazo',l.prazo],['Temperatura',l.temperatura],['Observacoes',l.observacoes],['Cadastrado em',l.criadoEm]];
+    document.getElementById('modalTitle').textContent = l.nome;
+    document.getElementById('modalContent').innerHTML = campos.map(([lb,v]) => `<div class="modal__field"><div class="modal__label">${lb}</div><div class="modal__value">${lb==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'--')}</div></div>`).join('');
+    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+async function excluirLeadManual(id) {
+    if (!confirm('Excluir este lead?')) return;
+    try { await apiCall('DELETE', '/api/leads-manual/' + id); toast('Lead excluido', 'sucesso'); carregarLeadsManuais(); }
+    catch(e) { toast('Erro ao excluir', 'erro'); }
+}
+
+// ═══════════════════════════════════════════════
+// VISITAS
+// ═══════════════════════════════════════════════
+async function carregarVisitas() {
+    try { visitasData = await apiCall('GET', '/api/visitas'); } catch(e) { visitasData = []; }
+    renderVisitas();
+}
+
+function renderVisitas() {
+    const tbody = document.getElementById('visitasBody');
+    const busca = (document.getElementById('searchVisita').value || '').toLowerCase();
+    let filtrados = visitasData;
+    if (visitaFiltro !== 'todos') filtrados = filtrados.filter(v => v.status === visitaFiltro);
+    if (busca) filtrados = filtrados.filter(v => (v.lead_nome||'').toLowerCase().includes(busca) || (v.imovel_titulo||'').toLowerCase().includes(busca) || (v.corretor||'').toLowerCase().includes(busca));
+
+    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('visitasEmpty').style.display = 'block'; return; }
+    document.getElementById('visitasEmpty').style.display = 'none';
+
+    tbody.innerHTML = filtrados.map(v => `
+        <tr>
+            <td><strong>${esc(v.lead_nome)}</strong></td>
+            <td>${esc(v.imovel_titulo || '--')}</td>
+            <td>${formatarData(v.data)}</td>
+            <td>${esc(v.horario)}</td>
+            <td>${esc(v.corretor || '--')}</td>
+            <td><span class="badge badge--visit-${v.status}">${capitalize(v.status)}</span></td>
+            <td class="td-acoes">
+                <button class="btn-icon" title="Ver detalhes" onclick="verVisita(${v.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                ${v.status === 'agendada' ? `<button class="btn-icon btn-icon--success" title="Confirmar" onclick="atualizarStatusVisita(${v.id},'confirmada')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
+                ${v.status !== 'cancelada' && v.status !== 'realizada' ? `<button class="btn-icon btn-icon--danger" title="Cancelar" onclick="atualizarStatusVisita(${v.id},'cancelada')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirVisita(${v.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+            </td>
+        </tr>`).join('');
+}
+
+function filtrarVisita(tipo, btn) {
+    visitaFiltro = tipo;
+    document.querySelectorAll('#aba-visitas .filter-btn').forEach(b => b.classList.remove('filter-btn--active'));
+    btn.classList.add('filter-btn--active');
+    renderVisitas();
+}
+
+async function salvarVisita() {
+    const body = {
+        lead_nome: document.getElementById('vsLeadNome').value.trim(),
+        lead_telefone: document.getElementById('vsLeadTelefone').value.trim(),
+        imovel_titulo: document.getElementById('vsImovelTitulo').value.trim(),
+        endereco: document.getElementById('vsEndereco').value.trim(),
+        data: document.getElementById('vsData').value,
+        horario: document.getElementById('vsHorario').value,
+        corretor: document.getElementById('vsCorretor').value.trim(),
+        status: document.getElementById('vsStatus').value,
+        observacoes: document.getElementById('vsObservacoes').value.trim(),
+    };
+    if (!body.lead_nome || !body.data || !body.horario) return toast('Preencha lead, data e horario', 'erro');
+    try {
+        await apiCall('POST', '/api/visitas', body);
+        toast('Visita agendada com sucesso!', 'sucesso');
+        limparFormVisita();
+        carregarVisitas();
+    } catch(e) { toast('Erro ao agendar visita', 'erro'); }
+}
+
+function limparFormVisita() {
+    ['vsLeadNome','vsLeadTelefone','vsImovelTitulo','vsEndereco','vsData','vsHorario','vsCorretor','vsObservacoes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('vsStatus').value = 'agendada';
+}
+
+function verVisita(id) {
+    const v = visitasData.find(x => x.id === id); if (!v) return;
+    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereco',v.endereco],['Data',formatarData(v.data)],['Horario',v.horario],['Corretor',v.corretor],['Status',v.status],['Observacoes',v.observacoes],['Criado em',v.criadoEm]];
+    document.getElementById('modalTitle').textContent = 'Visita - ' + v.lead_nome;
+    document.getElementById('modalContent').innerHTML = campos.map(([l,val]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(val||'--')}</div></div>`).join('');
+    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+async function atualizarStatusVisita(id, status) {
+    try { await apiCall('PUT', '/api/visitas/' + id, { status }); toast('Status atualizado', 'sucesso'); carregarVisitas(); }
+    catch(e) { toast('Erro ao atualizar', 'erro'); }
+}
+
+async function excluirVisita(id) {
+    if (!confirm('Excluir esta visita?')) return;
+    try { await apiCall('DELETE', '/api/visitas/' + id); toast('Visita excluida', 'sucesso'); carregarVisitas(); }
+    catch(e) { toast('Erro ao excluir', 'erro'); }
+}
+
+// ═══════════════════════════════════════════════
+// MODAL & STATUS
+// ═══════════════════════════════════════════════
+function fecharModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('modalOverlay').classList.remove('modal-overlay--open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+function setStatus(online) {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    dot.className = online ? 'header__status-dot' : 'header__status-dot header__status-dot--offline';
+    text.textContent = online ? 'Conectado' : 'Modo Demo';
+}
+
+// ═══════════════════════════════════════════════
+// AGENTE IA
+// ═══════════════════════════════════════════════
+let ultimoResumo = '';
+
+async function gerarResumoIA() {
+    const btn = document.getElementById('btnGerarResumo');
+    const textoEl = document.getElementById('btnResumoTexto');
+    const loadingEl = document.getElementById('btnResumoLoading');
+    const resultEl = document.getElementById('aiResult');
+    const errorEl = document.getElementById('aiError');
+
+    btn.disabled = true;
+    textoEl.style.display = 'none';
+    loadingEl.style.display = 'inline';
+    errorEl.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/agente/resumo', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.erro || 'Erro desconhecido');
+
+        ultimoResumo = data.resumo;
+        document.getElementById('aiResultBody').innerHTML = renderMarkdown(data.resumo);
+        document.getElementById('resumoTimestamp').textContent = 'Gerado em: ' + data.geradoEm;
+        resultEl.style.display = 'block';
+        toast('Resumo gerado com sucesso!', 'sucesso');
+    } catch (err) {
+        document.getElementById('aiErrorMsg').textContent = err.message;
+        errorEl.style.display = 'block';
+        toast('Erro ao gerar resumo', 'erro');
+    } finally {
+        btn.disabled = false;
+        textoEl.style.display = 'inline';
+        loadingEl.style.display = 'none';
+    }
+}
+
+function copiarResumo() {
+    if (!ultimoResumo) return;
+    navigator.clipboard.writeText(ultimoResumo).then(() => toast('Copiado!', 'sucesso')).catch(() => toast('Erro ao copiar', 'erro'));
+}
+
+function renderMarkdown(text) {
+    return text
+        .replace(/### (.*)/g, '<h3>$1</h3>')
+        .replace(/## (.*)/g, '<h2>$1</h2>')
+        .replace(/# (.*)/g, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^- (.*)/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+        .replace(/<\/ul>\s*<ul>/g, '')
+        .replace(/^(\d+)\. (.*)/gm, '<li>$2</li>')
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/^/, '<p>')
+        .replace(/$/, '</p>')
+        .replace(/<p><h/g, '<h')
+        .replace(/<\/h(\d)><\/p>/g, '</h$1>')
+        .replace(/<p><ul>/g, '<ul>')
+        .replace(/<\/ul><\/p>/g, '</ul>')
+        .replace(/<p><\/p>/g, '');
+}
+
+// ═══════════════════════════════════════════════
+// SIDEBAR MOBILE
+// ═══════════════════════════════════════════════
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('sidebar--open');
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+carregarDashboard();
+setInterval(carregarDashboard, 30000);
+</script>
+
+</body>
+</html>
