@@ -7,12 +7,18 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
-const { extrairMensagem, enviarMensagem, notificarCorretor } = require('./services/whatsapp');
-const { gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude');
-const { salvarLead } = require('./services/sheets');
-const { validarEAjustarLead } = require('./utils/leadScoring');
 const db = require('./services/supabase');
 const { registrar, login, authMiddleware } = require('./services/auth');
+const { validarEAjustarLead } = require('./utils/leadScoring');
+
+// Servicos opcionais (dependem de env vars externas)
+let extrairMensagem, enviarMensagem, notificarCorretor;
+let gerarResposta, extrairDadosLead, gerarResumoMatching;
+let salvarLead;
+
+try { ({ extrairMensagem, enviarMensagem, notificarCorretor } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
+try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
+try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
 const app = express();
 app.use(express.json());
@@ -107,6 +113,7 @@ app.get('/webhook', (req, res) => {
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 
+  if (!extrairMensagem) return;
   const dados = extrairMensagem(req.body);
   if (!dados) return;
 
@@ -327,6 +334,7 @@ app.post('/api/agente/resumo', async (req, res) => {
       db.listarVisitas(),
     ]);
 
+    if (!gerarResumoMatching) return res.status(503).json({ erro: 'Agente IA nao configurado. Adicione ANTHROPIC_API_KEY.' });
     const imoveisDisponiveis = todosImoveis.filter(i => i.status === 'disponivel' || i.status === 'reservado');
     const resumo = await gerarResumoMatching(todosLeads, imoveisDisponiveis, todasVisitas);
 
