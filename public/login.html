@@ -22,18 +22,31 @@
             overflow: hidden;
         }
 
-        /* Fundo sutil */
-        body::before {
+        body::before,
+        body::after {
             content: '';
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background:
-                radial-gradient(circle at 30% 40%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 70% 60%, rgba(43, 107, 26, 0.02) 0%, transparent 50%);
+            border-radius: 50%;
+            filter: blur(120px);
             z-index: 0;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        body::before {
+            width: 500px;
+            height: 500px;
+            top: -150px;
+            right: -100px;
+            background: radial-gradient(circle, rgba(201, 168, 76, 0.1), transparent 70%);
+        }
+
+        body::after {
+            width: 400px;
+            height: 400px;
+            bottom: -100px;
+            left: -80px;
+            background: radial-gradient(circle, rgba(47, 128, 194, 0.06), transparent 70%);
         }
 
         .login-container {
@@ -45,10 +58,13 @@
         }
 
         .login-card {
-            background: #141414;
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 16px;
+            background: rgba(20, 20, 20, 0.65);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
             padding: 3rem 2.5rem;
+            box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.4);
         }
 
         .login-logo {
@@ -106,8 +122,9 @@
             width: 100%;
             padding: 0.8rem 1rem;
             border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: #1A1A1A;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(26, 26, 26, 0.7);
+            backdrop-filter: blur(8px);
             color: #E0E0E0;
             font-size: 0.9rem;
             font-family: 'Inter', sans-serif;

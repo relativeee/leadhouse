@@ -8,11 +8,17 @@
 :root {
     /* Paleta escura premium */
     --bg-dark: #0A0A0A;
-    --bg-card: #141414;
-    --bg-card-hover: #1A1A1A;
-    --bg-elevated: #1E1E1E;
-    --bg-input: #1A1A1A;
-    --bg-sidebar: #0D0D0D;
+    --bg-card: rgba(22, 22, 22, 0.65);
+    --bg-card-solid: #161616;
+    --bg-card-hover: rgba(28, 28, 28, 0.7);
+    --bg-elevated: rgba(30, 30, 30, 0.75);
+    --bg-input: rgba(26, 26, 26, 0.8);
+    --bg-sidebar: rgba(13, 13, 13, 0.85);
+
+    /* Glass */
+    --glass-blur: 20px;
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shine: inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
 
     /* Acentos dourados */
     --gold: #C9A84C;
@@ -73,6 +79,35 @@ body {
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    position: relative;
+}
+
+/* Orbs de luz sutis no fundo (estilo Apple) */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+body::before {
+    width: 600px;
+    height: 600px;
+    top: -200px;
+    right: -150px;
+    background: radial-gradient(circle, rgba(201, 168, 76, 0.08), transparent 70%);
+}
+
+body::after {
+    width: 500px;
+    height: 500px;
+    bottom: -100px;
+    left: -100px;
+    background: radial-gradient(circle, rgba(47, 128, 194, 0.05), transparent 70%);
 }
 
 ::selection {
@@ -121,7 +156,9 @@ body {
     width: 260px;
     min-width: 260px;
     background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-right: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -218,7 +255,8 @@ body {
 
 .sidebar__item--active {
     color: var(--text-white);
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(8px);
     font-weight: 500;
 }
 
@@ -344,12 +382,15 @@ body {
 
 .stat-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: 1.5rem;
     transition: var(--transition);
     position: relative;
     overflow: hidden;
+    box-shadow: var(--glass-shine);
 }
 
 .stat-card::before {
@@ -448,10 +489,13 @@ body {
    ============================================ */
 .leads-container {
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     overflow: hidden;
     margin-bottom: 2rem;
+    box-shadow: var(--glass-shine);
 }
 
 .leads-toolbar {
@@ -671,13 +715,15 @@ body {
 
 .modal {
     background: var(--bg-elevated);
-    border: 1px solid var(--border-hover);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-lg);
     max-width: 540px;
     width: 92%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-lg), var(--glass-shine);
     padding: 2rem;
     animation: modalSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -747,9 +793,12 @@ body {
    ============================================ */
 .form-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     padding: 2rem;
+    box-shadow: var(--glass-shine);
 }
 
 .form-grid {
@@ -957,10 +1006,13 @@ select.form-input {
    ============================================ */
 .ai-panel__result {
     background: var(--bg-card);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     border: 1px solid var(--border-gold);
     border-radius: var(--radius-lg);
     overflow: hidden;
     margin-bottom: 1.5rem;
+    box-shadow: var(--glass-shine);
 }
 
 .ai-panel__result-header {
@@ -1016,21 +1068,27 @@ select.form-input {
 }
 
 .toast--sucesso {
-    background: var(--bg-elevated);
+    background: rgba(30, 30, 30, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     color: #7EC868;
     border: 1px solid rgba(43, 107, 26, 0.2);
     box-shadow: var(--shadow-md);
 }
 
 .toast--erro {
-    background: var(--bg-elevated);
+    background: rgba(30, 30, 30, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     color: #D48A8A;
     border: 1px solid rgba(138, 50, 50, 0.2);
     box-shadow: var(--shadow-md);
 }
 
 .toast--info {
-    background: var(--bg-elevated);
+    background: rgba(30, 30, 30, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
     color: var(--gold-light);
     border: 1px solid var(--border-gold);
     box-shadow: var(--shadow-md);
@@ -1074,15 +1132,19 @@ select.form-input {
 
 /* Pipe card */
 .pipe-card {
-    background: #161616;
-    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(22, 22, 22, 0.65);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     overflow: hidden;
     transition: var(--transition);
+    box-shadow: var(--glass-shine);
 }
 
 .pipe-card:hover {
-    border-color: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.14);
+    background: rgba(26, 26, 26, 0.75);
 }
 
 .pipe-card__accent {
@@ -1196,10 +1258,13 @@ select.form-input {
 
 /* Distribution bar */
 .pipe-distrib {
-    background: #161616;
-    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(22, 22, 22, 0.65);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem;
+    box-shadow: var(--glass-shine);
 }
 
 .pipe-distrib__bar {
@@ -1275,9 +1340,12 @@ select.form-input {
 
 .viz-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: 1.5rem;
+    box-shadow: var(--glass-shine);
 }
 
 .viz-card__title {
