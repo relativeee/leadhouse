@@ -767,13 +767,41 @@ body {
     grid-column: 1 / -1;
 }
 
-.form-label {
-    font-size: 0.62rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1.8px;
+/* Form hint */
+.form-hint {
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.2px;
+}
+
+/* Form sections */
+.form-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 0.5px solid var(--border);
+}
+
+.form-section--last {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.form-section__title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    letter-spacing: 0.2px;
+}
+
+.form-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.1px;
 }
 
 .form-input {
@@ -855,6 +883,41 @@ select.form-input {
 .btn--ghost:hover {
     border-color: var(--border-hover);
     color: var(--text-primary);
+}
+
+.btn--text {
+    background: none;
+    color: var(--text-muted);
+    padding: 0.7rem 1rem;
+    border: none;
+    text-transform: none;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+}
+
+.btn--text:hover {
+    color: var(--text-primary);
+}
+
+.btn--ghost-sm {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: var(--font-body);
+    margin-top: 1rem;
+    text-transform: none;
+    letter-spacing: 0.3px;
+}
+
+.btn--ghost-sm:hover {
+    border-color: var(--gold);
+    color: var(--gold);
 }
 
 .btn-icon {
@@ -1186,6 +1249,118 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ============================================
+   Detalhes Grid (Valor wider)
+   ============================================ */
+.form-grid--detalhes {
+    grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+}
+
+.form-group--valor { grid-column: auto; }
+.form-group--sm { grid-column: auto; }
+
+/* ============================================
+   Upload Area
+   ============================================ */
+.upload-area {
+    border: 1px dashed var(--border-hover);
+    border-radius: var(--radius-md);
+    padding: 2rem;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-area:hover,
+.upload-area--hover {
+    border-color: var(--gold);
+    background: rgba(201, 168, 76, 0.03);
+}
+
+.upload-area__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+}
+
+.upload-area__content svg {
+    opacity: 0.3;
+    margin-bottom: 0.25rem;
+}
+
+.upload-area__text {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.upload-area__hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.upload-area__preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+}
+
+.upload-area__preview img {
+    max-height: 160px;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+}
+
+.upload-area__remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    line-height: 1;
+}
+
+.upload-area__remove:hover {
+    background: rgba(138, 50, 50, 0.15);
+    border-color: rgba(138, 50, 50, 0.3);
+    color: #D48A8A;
+}
+
+/* ============================================
+   Form Validation
+   ============================================ */
+.form-error {
+    display: block;
+    font-size: 0.72rem;
+    color: #D48A8A;
+    margin-top: 0.3rem;
+    min-height: 0;
+    letter-spacing: 0.2px;
+}
+
+.form-input--error {
+    border-color: rgba(138, 50, 50, 0.5) !important;
+}
+
+/* ============================================
    Empty State
    ============================================ */
 .empty-state {
@@ -1202,10 +1377,22 @@ tr:hover .td-acoes--row .btn-icon:hover {
     color: var(--text-muted);
 }
 
+.empty-state__svg {
+    opacity: 0.15;
+    margin-bottom: 1rem;
+}
+
 .empty-state__text {
     font-size: 0.88rem;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     letter-spacing: 0.3px;
+}
+
+.empty-state__sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    letter-spacing: 0.2px;
 }
 
 /* ============================================
@@ -1252,6 +1439,7 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .search-input { width: 100%; }
     .form-card { padding: 1.25rem; }
     .form-grid { grid-template-columns: 1fr; }
+    .form-grid--detalhes { grid-template-columns: 1fr 1fr; }
     .form-actions { flex-direction: column; }
     .btn { width: 100%; text-align: center; }
     .td-acoes { flex-wrap: wrap; }

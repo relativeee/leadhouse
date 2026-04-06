@@ -148,66 +148,110 @@
     <div class="section-title">Cadastro de Imoveis</div>
 
     <!-- Formulario -->
-    <div class="form-card">
-        <div class="form-grid">
-            <div class="form-group form-group--full">
-                <label class="form-label">Titulo *</label>
-                <input type="text" class="form-input" id="imvTitulo" placeholder="Ex: Apto 3 quartos vista mar">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tipo *</label>
-                <select class="form-input" id="imvTipo">
-                    <option value="">Selecione...</option>
-                    <option>Apartamento</option>
-                    <option>Casa</option>
-                    <option>Terreno</option>
-                    <option>Sala Comercial</option>
-                    <option>Galpao</option>
-                    <option>Cobertura</option>
-                    <option>Flat</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Status</label>
-                <select class="form-input" id="imvStatus">
-                    <option value="disponivel">Disponivel</option>
-                    <option value="reservado">Reservado</option>
-                    <option value="vendido">Vendido</option>
-                    <option value="alugado">Alugado</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Endereco</label>
-                <input type="text" class="form-input" id="imvEndereco" placeholder="Rua, numero">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Bairro</label>
-                <input type="text" class="form-input" id="imvBairro" placeholder="Bairro">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Cidade</label>
-                <input type="text" class="form-input" id="imvCidade" placeholder="Cidade">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Valor (R$)</label>
-                <input type="text" class="form-input" id="imvValor" placeholder="Ex: 450.000">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Quartos</label>
-                <input type="number" class="form-input" id="imvQuartos" placeholder="0" min="0">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Area (m2)</label>
-                <input type="text" class="form-input" id="imvArea" placeholder="Ex: 85">
-            </div>
-            <div class="form-group form-group--full">
-                <label class="form-label">Descricao</label>
-                <textarea class="form-input form-textarea" id="imvDescricao" placeholder="Detalhes do imovel..."></textarea>
+    <div class="form-card" id="formImovelCard">
+        <div class="form-hint">* Campos obrigatorios</div>
+
+        <!-- Secao: Identificacao -->
+        <div class="form-section">
+            <div class="form-section__title">Identificacao</div>
+            <div class="form-grid">
+                <div class="form-group form-group--full">
+                    <label class="form-label">Titulo *</label>
+                    <input type="text" class="form-input" id="imvTitulo" placeholder="Ex: Apto 3 quartos vista mar">
+                    <span class="form-error" id="errTitulo"></span>
+                </div>
+                <div class="form-group form-group--full">
+                    <label class="form-label">Foto do imovel</label>
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('imvFoto').click()" ondragover="event.preventDefault();this.classList.add('upload-area--hover')" ondragleave="this.classList.remove('upload-area--hover')" ondrop="handleDrop(event)">
+                        <input type="file" id="imvFoto" accept="image/*" style="display:none" onchange="handleFotoSelect(this)">
+                        <div class="upload-area__content" id="uploadContent">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            <div class="upload-area__text">Arraste uma foto ou clique para selecionar</div>
+                            <div class="upload-area__hint">JPG, PNG ou WebP</div>
+                        </div>
+                        <div class="upload-area__preview" id="uploadPreview" style="display:none">
+                            <img id="previewImg" src="" alt="Preview">
+                            <button class="upload-area__remove" onclick="event.stopPropagation();removerFoto()" title="Remover">&times;</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Secao: Localizacao -->
+        <div class="form-section">
+            <div class="form-section__title">Localizacao</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Endereco</label>
+                    <input type="text" class="form-input" id="imvEndereco" placeholder="Rua, numero">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bairro</label>
+                    <input type="text" class="form-input" id="imvBairro" placeholder="Bairro">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Cidade</label>
+                    <input type="text" class="form-input" id="imvCidade" placeholder="Cidade">
+                </div>
+            </div>
+        </div>
+
+        <!-- Secao: Detalhes -->
+        <div class="form-section">
+            <div class="form-section__title">Detalhes</div>
+            <div class="form-grid form-grid--detalhes">
+                <div class="form-group">
+                    <label class="form-label">Tipo *</label>
+                    <select class="form-input" id="imvTipo">
+                        <option value="">Selecione...</option>
+                        <option>Apartamento</option>
+                        <option>Casa</option>
+                        <option>Terreno</option>
+                        <option>Sala Comercial</option>
+                        <option>Galpao</option>
+                        <option>Cobertura</option>
+                        <option>Flat</option>
+                    </select>
+                    <span class="form-error" id="errTipo"></span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-input" id="imvStatus">
+                        <option value="disponivel">Disponivel</option>
+                        <option value="reservado">Reservado</option>
+                        <option value="vendido">Vendido</option>
+                        <option value="alugado">Alugado</option>
+                    </select>
+                </div>
+                <div class="form-group form-group--valor">
+                    <label class="form-label">Valor (R$)</label>
+                    <input type="text" class="form-input" id="imvValor" placeholder="Ex: 450.000">
+                </div>
+                <div class="form-group form-group--sm">
+                    <label class="form-label">Quartos</label>
+                    <input type="number" class="form-input" id="imvQuartos" placeholder="0" min="0">
+                </div>
+                <div class="form-group form-group--sm">
+                    <label class="form-label">Area (m2)</label>
+                    <input type="text" class="form-input" id="imvArea" placeholder="Ex: 85">
+                </div>
+            </div>
+        </div>
+
+        <!-- Secao: Descricao -->
+        <div class="form-section form-section--last">
+            <div class="form-section__title">Descricao</div>
+            <div class="form-grid">
+                <div class="form-group form-group--full">
+                    <textarea class="form-input form-textarea" id="imvDescricao" placeholder="Detalhes do imovel, diferenciais, acabamentos..."></textarea>
+                </div>
+            </div>
+        </div>
+
         <div class="form-actions">
             <button class="btn btn--primary" onclick="salvarImovel()">Cadastrar Imovel</button>
-            <button class="btn btn--ghost" onclick="limparFormImovel()">Limpar</button>
+            <button class="btn btn--text" onclick="limparFormImovel()">Limpar</button>
         </div>
     </div>
 
@@ -223,7 +267,12 @@
                 <tbody id="imoveisBody"></tbody>
             </table>
         </div>
-        <div class="empty-state" id="imoveisEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum imovel cadastrado</div></div>
+        <div class="empty-state empty-state--imoveis" id="imoveisEmpty" style="display:none;">
+            <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <div class="empty-state__text">Nenhum imovel cadastrado ainda</div>
+            <div class="empty-state__sub">Cadastre seu primeiro imovel no formulario acima</div>
+            <button class="btn btn--ghost-sm" onclick="document.getElementById('formImovelCard').scrollIntoView({behavior:'smooth'})">Cadastrar imovel</button>
+        </div>
     </div>
 </main>
 
@@ -724,9 +773,29 @@ function renderImoveis() {
 }
 
 async function salvarImovel() {
+    // Limpa erros anteriores
+    document.querySelectorAll('.form-error').forEach(e => e.textContent = '');
+    document.querySelectorAll('.form-input--error').forEach(e => e.classList.remove('form-input--error'));
+
+    const titulo = document.getElementById('imvTitulo');
+    const tipo = document.getElementById('imvTipo');
+    let valido = true;
+
+    if (!titulo.value.trim()) {
+        document.getElementById('errTitulo').textContent = 'Titulo e obrigatorio';
+        titulo.classList.add('form-input--error');
+        valido = false;
+    }
+    if (!tipo.value) {
+        document.getElementById('errTipo').textContent = 'Selecione o tipo';
+        tipo.classList.add('form-input--error');
+        valido = false;
+    }
+    if (!valido) return;
+
     const body = {
-        titulo: document.getElementById('imvTitulo').value.trim(),
-        tipo: document.getElementById('imvTipo').value,
+        titulo: titulo.value.trim(),
+        tipo: tipo.value,
         status: document.getElementById('imvStatus').value,
         endereco: document.getElementById('imvEndereco').value.trim(),
         bairro: document.getElementById('imvBairro').value.trim(),
@@ -736,7 +805,6 @@ async function salvarImovel() {
         area: document.getElementById('imvArea').value.trim(),
         descricao: document.getElementById('imvDescricao').value.trim(),
     };
-    if (!body.titulo || !body.tipo) return toast('Preencha titulo e tipo do imovel', 'erro');
     try {
         await apiCall('POST', '/api/imoveis', body);
         toast('Imovel cadastrado com sucesso!', 'sucesso');
@@ -748,6 +816,41 @@ async function salvarImovel() {
 function limparFormImovel() {
     ['imvTitulo','imvTipo','imvEndereco','imvBairro','imvCidade','imvValor','imvQuartos','imvArea','imvDescricao'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('imvStatus').value = 'disponivel';
+    document.querySelectorAll('.form-error').forEach(e => e.textContent = '');
+    document.querySelectorAll('.form-input--error').forEach(e => e.classList.remove('form-input--error'));
+    removerFoto();
+}
+
+// ── Upload de foto ──
+function handleFotoSelect(input) {
+    if (input.files && input.files[0]) mostrarPreview(input.files[0]);
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadArea').classList.remove('upload-area--hover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        document.getElementById('imvFoto').files = e.dataTransfer.files;
+        mostrarPreview(e.dataTransfer.files[0]);
+    }
+}
+
+function mostrarPreview(file) {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadContent').style.display = 'none';
+        document.getElementById('uploadPreview').style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removerFoto() {
+    document.getElementById('imvFoto').value = '';
+    document.getElementById('previewImg').src = '';
+    document.getElementById('uploadContent').style.display = 'flex';
+    document.getElementById('uploadPreview').style.display = 'none';
 }
 
 function verImovel(id) {
