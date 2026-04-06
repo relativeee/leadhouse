@@ -18,12 +18,11 @@
     { "src": "/webhook(.*)", "dest": "/server.js" },
     { "src": "/health", "dest": "/server.js" },
     { "src": "/login", "dest": "/public/login.html" },
-    { "src": "/dashboard", "dest": "/public/index.html" },
     { "src": "/(.*\\.css)", "dest": "/public/$1" },
     { "src": "/(.*\\.svg)", "dest": "/public/$1" },
     { "src": "/(.*\\.js)", "dest": "/public/$1", "headers": { "Content-Type": "application/javascript" } },
     { "src": "/(.*\\.html)", "dest": "/public/$1" },
-    { "src": "/", "dest": "/public/landing.html" },
+    { "src": "/", "dest": "/public/index.html" },
     { "src": "/(.*)", "dest": "/server.js" }
   ]
 }
