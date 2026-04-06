@@ -273,7 +273,7 @@
         <div class="login-logo">
             <img src="/logo.svg" alt="LeadHouse">
             <div class="login-logo__title">LeadHouse</div>
-            <div class="login-logo__subtitle">Gestao Imobiliaria</div>
+            <div class="login-logo__subtitle">Gestão Imobiliária</div>
         </div>
 
         <div class="login-divider"></div>
@@ -305,19 +305,19 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Senha</label>
-                <input type="password" class="form-input" id="regSenha" placeholder="Minimo 6 caracteres" required minlength="6" autocomplete="new-password">
+                <input type="password" class="form-input" id="regSenha" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
             </div>
             <button type="submit" class="btn-login" id="btnRegister">Criar Conta</button>
         </form>
 
         <div class="login-toggle">
             <button id="toggleBtn" onclick="toggleForm()">
-                Nao tem conta? <span>Criar conta</span>
+                Não tem conta? <span>Criar conta</span>
             </button>
         </div>
     </div>
 
-    <div class="login-footer">LeadHouse &mdash; Gestao imobiliaria inteligente</div>
+    <div class="login-footer">LeadHouse &mdash; Gestão imobiliária inteligente</div>
 </div>
 
 <script>
@@ -427,8 +427,8 @@ function toggleForm() {
     document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
     document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
     document.getElementById('toggleBtn').innerHTML = isLogin
-        ? 'Nao tem conta? <span>Criar conta</span>'
-        : 'Ja tem conta? <span>Entrar</span>';
+        ? 'Não tem conta? <span>Criar conta</span>'
+        : 'Já tem conta? <span>Entrar</span>';
 }
 </script>
 

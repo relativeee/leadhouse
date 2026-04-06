@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeadHouse — Gestao Imobiliaria</title>
+    <title>LeadHouse — Gestão Imobiliária</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
         <img src="/logo.svg" alt="LeadHouse" class="sidebar__logo-img">
         <div>
             <div class="sidebar__title">LeadHouse</div>
-            <div class="sidebar__subtitle">Gestao Imobiliaria</div>
+            <div class="sidebar__subtitle">Gestão Imobiliária</div>
         </div>
     </div>
     <nav class="sidebar__nav">
@@ -77,7 +77,7 @@
         <div class="stat-card">
             <div class="stat-card__label">Imoveis</div>
             <div class="stat-card__value" id="totalImoveis">--</div>
-            <div class="stat-card__detail">No catalogo</div>
+            <div class="stat-card__detail">No catálogo</div>
         </div>
         <div class="stat-card">
             <div class="stat-card__label">Visitas</div>
@@ -103,7 +103,7 @@
                     <div class="pipe-card__sublabel">Leads qualificados</div>
                     <div class="pipe-card__divider"></div>
                     <div class="pipe-card__meta"><span>Contato urgente</span><span>Ate 2h</span></div>
-                    <div class="pipe-card__meta"><span>Orcamento confirmado</span><span>Sim</span></div>
+                    <div class="pipe-card__meta"><span>Orçamento confirmado</span><span>Sim</span></div>
                     <div class="pipe-card__meta"><span>Visitas agendadas</span><span id="pipeVisQuente">0</span></div>
                 </div>
             </div>
@@ -111,9 +111,9 @@
             <div class="pipe-card">
                 <div class="pipe-card__accent pipe-card__accent--warm"></div>
                 <div class="pipe-card__body">
-                    <div class="pipe-card__badge pipe-badge--warm"><span class="pipe-badge__dot"></span>Em qualificacao</div>
+                    <div class="pipe-card__badge pipe-badge--warm"><span class="pipe-badge__dot"></span>Em qualificação</div>
                     <div class="pipe-card__number" id="pipeMorno"><span class="skeleton-text">0</span></div>
-                    <div class="pipe-card__sublabel">Leads em nutricao</div>
+                    <div class="pipe-card__sublabel">Leads em nutrição</div>
                     <div class="pipe-card__divider"></div>
                     <div class="pipe-card__meta"><span>Retorno sugerido</span><span>3 a 7 dias</span></div>
                     <div class="pipe-card__meta"><span>Interesse confirmado</span><span>Parcial</span></div>
@@ -124,7 +124,7 @@
             <div class="pipe-card">
                 <div class="pipe-card__accent pipe-card__accent--cold"></div>
                 <div class="pipe-card__body">
-                    <div class="pipe-card__badge pipe-badge--cold"><span class="pipe-badge__dot"></span>Inicio de conversa</div>
+                    <div class="pipe-card__badge pipe-badge--cold"><span class="pipe-badge__dot"></span>Início de conversa</div>
                     <div class="pipe-card__number" id="pipeFrio"><span class="skeleton-text">0</span></div>
                     <div class="pipe-card__sublabel">Leads frios</div>
                     <div class="pipe-card__divider"></div>
@@ -176,7 +176,7 @@
             </div>
             <div class="leads-table-wrapper">
                 <table class="leads-table">
-                    <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Temperatura</th><th>Engajamento</th><th>Atualizado</th><th>Acoes</th></tr></thead>
+                    <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Temperatura</th><th>Engajamento</th><th>Atualizado</th><th>Ações</th></tr></thead>
                     <tbody id="dashLeadsBody"></tbody>
                 </table>
             </div>
@@ -190,23 +190,23 @@
      ============================================ -->
 <main class="dashboard" id="aba-imoveis" style="display:none;">
 
-    <div class="section-title">Cadastro de Imoveis</div>
+    <div class="section-title">Cadastro de Imóveis</div>
 
     <!-- Formulario -->
     <div class="form-card" id="formImovelCard">
-        <div class="form-hint">* Campos obrigatorios</div>
+        <div class="form-hint">* Campos obrigatórios</div>
 
-        <!-- Secao: Identificacao -->
+        <!-- Secao: Identificação -->
         <div class="form-section">
-            <div class="form-section__title">Identificacao</div>
+            <div class="form-section__title">Identificação</div>
             <div class="form-grid">
                 <div class="form-group form-group--full">
-                    <label class="form-label">Titulo *</label>
+                    <label class="form-label">Título *</label>
                     <input type="text" class="form-input" id="imvTitulo" placeholder="Ex: Apto 3 quartos vista mar">
                     <span class="form-error" id="errTitulo"></span>
                 </div>
                 <div class="form-group form-group--full">
-                    <label class="form-label">Foto do imovel</label>
+                    <label class="form-label">Foto do imóvel</label>
                     <div class="upload-area" id="uploadArea" onclick="document.getElementById('imvFoto').click()" ondragover="event.preventDefault();this.classList.add('upload-area--hover')" ondragleave="this.classList.remove('upload-area--hover')" ondrop="handleDrop(event)">
                         <input type="file" id="imvFoto" accept="image/*" style="display:none" onchange="handleFotoSelect(this)">
                         <div class="upload-area__content" id="uploadContent">
@@ -223,13 +223,13 @@
             </div>
         </div>
 
-        <!-- Secao: Localizacao -->
+        <!-- Secao: Localização -->
         <div class="form-section">
-            <div class="form-section__title">Localizacao</div>
+            <div class="form-section__title">Localização</div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Endereco</label>
-                    <input type="text" class="form-input" id="imvEndereco" placeholder="Rua, numero">
+                    <label class="form-label">Endereço</label>
+                    <input type="text" class="form-input" id="imvEndereco" placeholder="Rua, número">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Bairro</label>
@@ -254,7 +254,7 @@
                         <option>Casa</option>
                         <option>Terreno</option>
                         <option>Sala Comercial</option>
-                        <option>Galpao</option>
+                        <option>Galpão</option>
                         <option>Cobertura</option>
                         <option>Flat</option>
                     </select>
@@ -263,7 +263,7 @@
                 <div class="form-group">
                     <label class="form-label">Status</label>
                     <select class="form-input" id="imvStatus">
-                        <option value="disponivel">Disponivel</option>
+                        <option value="disponivel">Disponível</option>
                         <option value="reservado">Reservado</option>
                         <option value="vendido">Vendido</option>
                         <option value="alugado">Alugado</option>
@@ -284,18 +284,18 @@
             </div>
         </div>
 
-        <!-- Secao: Descricao -->
+        <!-- Secao: Descrição -->
         <div class="form-section form-section--last">
-            <div class="form-section__title">Descricao</div>
+            <div class="form-section__title">Descrição</div>
             <div class="form-grid">
                 <div class="form-group form-group--full">
-                    <textarea class="form-input form-textarea" id="imvDescricao" placeholder="Detalhes do imovel, diferenciais, acabamentos..."></textarea>
+                    <textarea class="form-input form-textarea" id="imvDescricao" placeholder="Detalhes do imóvel, diferenciais, acabamentos..."></textarea>
                 </div>
             </div>
         </div>
 
         <div class="form-actions">
-            <button class="btn btn--primary" onclick="salvarImovel()">Cadastrar Imovel</button>
+            <button class="btn btn--primary" onclick="salvarImovel()">Cadastrar Imóvel</button>
             <button class="btn btn--text" onclick="limparFormImovel()">Limpar</button>
         </div>
     </div>
@@ -303,20 +303,20 @@
     <!-- Lista -->
     <div class="leads-container" style="margin-top:1.5rem;">
         <div class="leads-toolbar">
-            <div class="section-title" style="margin:0;">Imoveis Cadastrados</div>
-            <input type="text" class="search-input" placeholder="Buscar imovel..." id="searchImovel" oninput="renderImoveis()">
+            <div class="section-title" style="margin:0;">Imóveis Cadastrados</div>
+            <input type="text" class="search-input" placeholder="Buscar imóvel..." id="searchImovel" oninput="renderImoveis()">
         </div>
         <div class="leads-table-wrapper">
             <table class="leads-table">
-                <thead><tr><th>Titulo</th><th>Tipo</th><th>Bairro</th><th>Cidade</th><th>Valor</th><th>Quartos</th><th>Status</th><th>Acoes</th></tr></thead>
+                <thead><tr><th>Título</th><th>Tipo</th><th>Bairro</th><th>Cidade</th><th>Valor</th><th>Quartos</th><th>Status</th><th>Ações</th></tr></thead>
                 <tbody id="imoveisBody"></tbody>
             </table>
         </div>
         <div class="empty-state empty-state--imoveis" id="imoveisEmpty" style="display:none;">
             <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <div class="empty-state__text">Nenhum imovel cadastrado ainda</div>
-            <div class="empty-state__sub">Cadastre seu primeiro imovel no formulario acima</div>
-            <button class="btn btn--ghost-sm" onclick="document.getElementById('formImovelCard').scrollIntoView({behavior:'smooth'})">Cadastrar imovel</button>
+            <div class="empty-state__text">Nenhum imóvel cadastrado ainda</div>
+            <div class="empty-state__sub">Cadastre seu primeiro imóvel no formulário acima</div>
+            <button class="btn btn--ghost-sm" onclick="document.getElementById('formImovelCard').scrollIntoView({behavior:'smooth'})">Cadastrar imóvel</button>
         </div>
     </div>
 </main>
@@ -354,7 +354,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Tipo de Imovel</label>
+                <label class="form-label">Tipo de Imóvel</label>
                 <select class="form-input" id="ldTipoImovel">
                     <option value="">Selecione...</option>
                     <option>Apartamento</option>
@@ -369,7 +369,7 @@
                 <input type="text" class="form-input" id="ldBairro" placeholder="Bairro de interesse">
             </div>
             <div class="form-group">
-                <label class="form-label">Faixa de Valor</label>
+                <label class="form-label">Faixa de valor</label>
                 <input type="text" class="form-input" id="ldFaixaValor" placeholder="Ex: R$ 300-500mil">
             </div>
             <div class="form-group">
@@ -379,7 +379,7 @@
                     <option>A vista</option>
                     <option>Financiamento</option>
                     <option>FGTS</option>
-                    <option>Consorcio</option>
+                    <option>Consórcio</option>
                     <option>Permuta</option>
                 </select>
             </div>
@@ -404,8 +404,8 @@
                 </select>
             </div>
             <div class="form-group form-group--full">
-                <label class="form-label">Observacoes</label>
-                <textarea class="form-input form-textarea" id="ldObservacoes" placeholder="Anotacoes sobre o lead..."></textarea>
+                <label class="form-label">Observações</label>
+                <textarea class="form-input form-textarea" id="ldObservações" placeholder="Anotações sobre o lead..."></textarea>
             </div>
         </div>
         <div class="form-actions">
@@ -422,7 +422,7 @@
         </div>
         <div class="leads-table-wrapper">
             <table class="leads-table">
-                <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Faixa Valor</th><th>Temperatura</th><th>Criado</th><th>Acoes</th></tr></thead>
+                <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Faixa Valor</th><th>Temperatura</th><th>Criado</th><th>Ações</th></tr></thead>
                 <tbody id="leadsManuaisBody"></tbody>
             </table>
         </div>
@@ -449,19 +449,19 @@
                 <input type="text" class="form-input" id="vsLeadTelefone" placeholder="(83) 99999-0000">
             </div>
             <div class="form-group">
-                <label class="form-label">Imovel</label>
-                <input type="text" class="form-input" id="vsImovelTitulo" placeholder="Titulo ou codigo do imovel">
+                <label class="form-label">Imóvel</label>
+                <input type="text" class="form-input" id="vsImovelTitulo" placeholder="Título ou código do imóvel">
             </div>
             <div class="form-group">
-                <label class="form-label">Endereco da Visita</label>
-                <input type="text" class="form-input" id="vsEndereco" placeholder="Endereco completo">
+                <label class="form-label">Endereço da visita</label>
+                <input type="text" class="form-input" id="vsEndereco" placeholder="Endereço completo">
             </div>
             <div class="form-group">
                 <label class="form-label">Data *</label>
                 <input type="date" class="form-input" id="vsData">
             </div>
             <div class="form-group">
-                <label class="form-label">Horario *</label>
+                <label class="form-label">Horário *</label>
                 <input type="time" class="form-input" id="vsHorario">
             </div>
             <div class="form-group">
@@ -479,7 +479,7 @@
                 </select>
             </div>
             <div class="form-group form-group--full">
-                <label class="form-label">Observacoes</label>
+                <label class="form-label">Observações</label>
                 <textarea class="form-input form-textarea" id="vsObservacoes" placeholder="Notas sobre a visita..."></textarea>
             </div>
         </div>
@@ -503,7 +503,7 @@
         </div>
         <div class="leads-table-wrapper">
             <table class="leads-table">
-                <thead><tr><th>Lead</th><th>Imovel</th><th>Data</th><th>Horario</th><th>Corretor</th><th>Status</th><th>Acoes</th></tr></thead>
+                <thead><tr><th>Lead</th><th>Imóvel</th><th>Data</th><th>Horário</th><th>Corretor</th><th>Status</th><th>Ações</th></tr></thead>
                 <tbody id="visitasBody"></tbody>
             </table>
         </div>
@@ -516,7 +516,7 @@
      ============================================ -->
 <main class="dashboard" id="aba-agente" style="display:none;">
 
-    <div class="section-title">Agente IA — Matching Leads &amp; Imoveis</div>
+    <div class="section-title">Agente IA — Matching Leads &amp; Imóveis</div>
 
     <div class="ai-panel">
         <div class="ai-panel__intro">
@@ -575,7 +575,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- ── Footer ── -->
-<footer class="footer">LeadHouse &mdash; Gestao imobiliaria inteligente</footer>
+<footer class="footer">LeadHouse &mdash; Gestão imobiliária inteligente</footer>
 
 </div><!-- /main-content -->
 </div><!-- /layout -->
@@ -718,10 +718,10 @@ async function carregarDashboard() {
 function gerarDadosDemo() {
     return [
         { telefone: '5583999001122', nome: 'Maria Silva', objetivo: 'comprar', tipo_imovel: 'apartamento', bairro: 'Manaira', faixa_valor: 'R$ 300-500mil', pagamento: 'financiamento', prazo: 'urgente', temperatura: 'quente', proximo_passo: 'Agendar visita', resumo: 'Procura apto 3 quartos em Manaira, financiamento aprovado.', totalMensagens: 12, ultimaAtualizacao: '03/04/2026 10:30' },
-        { telefone: '5583999334455', nome: 'Joao Oliveira', objetivo: 'alugar', tipo_imovel: 'casa', bairro: 'Altiplano', faixa_valor: 'R$ 2-3mil/mes', pagamento: 'nao informado', prazo: '3 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes de casas', resumo: 'Quer casa no Altiplano para alugar, sem pressa.', totalMensagens: 6, ultimaAtualizacao: '02/04/2026 15:45' },
-        { telefone: '5583999556677', nome: 'Ana Costa', objetivo: 'comprar', tipo_imovel: 'terreno', bairro: 'nao informado', faixa_valor: 'nao informado', pagamento: 'nao informado', prazo: 'nao informado', temperatura: 'frio', proximo_passo: 'Perguntar orcamento e localizacao', resumo: 'Apenas perguntou sobre terrenos disponiveis.', totalMensagens: 2, ultimaAtualizacao: '02/04/2026 09:10' },
+        { telefone: '5583999334455', nome: 'Joao Oliveira', objetivo: 'alugar', tipo_imovel: 'casa', bairro: 'Altiplano', faixa_valor: 'R$ 2-3mil/mes', pagamento: 'não informado', prazo: '3 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes de casas', resumo: 'Quer casa no Altiplano para alugar, sem pressa.', totalMensagens: 6, ultimaAtualizacao: '02/04/2026 15:45' },
+        { telefone: '5583999556677', nome: 'Ana Costa', objetivo: 'comprar', tipo_imovel: 'terreno', bairro: 'não informado', faixa_valor: 'não informado', pagamento: 'não informado', prazo: 'não informado', temperatura: 'frio', proximo_passo: 'Perguntar orcamento e localizacao', resumo: 'Apenas perguntou sobre terrenos disponiveis.', totalMensagens: 2, ultimaAtualizacao: '02/04/2026 09:10' },
         { telefone: '5583999778899', nome: 'Carlos Mendes', objetivo: 'comprar', tipo_imovel: 'apartamento', bairro: 'Tambau', faixa_valor: 'R$ 500-800mil', pagamento: 'a vista', prazo: 'imediato', temperatura: 'quente', proximo_passo: 'Agendar visita amanha', resumo: 'Investidor, quer apto de frente pro mar.', totalMensagens: 8, ultimaAtualizacao: '03/04/2026 08:20' },
-        { telefone: '5583999990011', nome: 'Lucia Ferreira', objetivo: 'alugar', tipo_imovel: 'apartamento', bairro: 'Centro', faixa_valor: 'R$ 1-2mil/mes', pagamento: 'nao informado', prazo: '6 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes no centro', resumo: 'Estudante, procura apto pequeno no centro.', totalMensagens: 4, ultimaAtualizacao: '01/04/2026 18:00' },
+        { telefone: '5583999990011', nome: 'Lucia Ferreira', objetivo: 'alugar', tipo_imovel: 'apartamento', bairro: 'Centro', faixa_valor: 'R$ 1-2mil/mes', pagamento: 'não informado', prazo: '6 meses', temperatura: 'morno', proximo_passo: 'Enviar opcoes no centro', resumo: 'Estudante, procura apto pequeno no centro.', totalMensagens: 4, ultimaAtualizacao: '01/04/2026 18:00' },
     ];
 }
 
@@ -768,9 +768,9 @@ function filtrarDash(tipo, btn) {
 
 function abrirModalLead(index) {
     const lead = dashLeads[index]; if (!lead) return;
-    const campos = [['Nome',lead.nome],['Telefone',formatarTelefone(lead.telefone)],['Objetivo',lead.objetivo],['Tipo de Imovel',lead.tipo_imovel],['Bairro',lead.bairro],['Faixa de Valor',lead.faixa_valor],['Pagamento',lead.pagamento],['Prazo',lead.prazo],['Temperatura',lead.temperatura],['Proximo Passo',lead.proximo_passo],['Resumo',lead.resumo],['Total Mensagens',lead.totalMensagens],['Atualizado',lead.ultimaAtualizacao]];
+    const campos = [['Nome',lead.nome],['Telefone',formatarTelefone(lead.telefone)],['Objetivo',lead.objetivo],['Tipo de Imóvel',lead.tipo_imovel],['Bairro',lead.bairro],['Faixa de valor',lead.faixa_valor],['Pagamento',lead.pagamento],['Prazo',lead.prazo],['Temperatura',lead.temperatura],['Próximo Passo',lead.proximo_passo],['Resumo',lead.resumo],['Total Mensagens',lead.totalMensagens],['Atualizado',lead.ultimaAtualizacao]];
     document.getElementById('modalTitle').textContent = lead.nome || 'Detalhes do Lead';
-    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${l==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'nao informado')}</div></div>`).join('');
+    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${l==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'não informado')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
 }
 
@@ -817,7 +817,7 @@ async function salvarImovel() {
     let valido = true;
 
     if (!titulo.value.trim()) {
-        document.getElementById('errTitulo').textContent = 'Titulo e obrigatorio';
+        document.getElementById('errTitulo').textContent = 'Título é obrigatório';
         titulo.classList.add('form-input--error');
         valido = false;
     }
@@ -842,10 +842,10 @@ async function salvarImovel() {
     };
     try {
         await apiCall('POST', '/api/imoveis', body);
-        toast('Imovel cadastrado com sucesso!', 'sucesso');
+        toast('Imóvel cadastrado com sucesso!', 'sucesso');
         limparFormImovel();
         carregarImoveis();
-    } catch(e) { toast('Erro ao cadastrar imovel', 'erro'); }
+    } catch(e) { toast('Erro ao cadastrar imóvel', 'erro'); }
 }
 
 function limparFormImovel() {
@@ -890,15 +890,15 @@ function removerFoto() {
 
 function verImovel(id) {
     const im = imoveisData.find(i => i.id === id); if (!im) return;
-    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereco',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descricao',im.descricao],['Cadastrado em',formatarTimestamp(im.created_at)]];
+    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereço',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descrição',im.descricao],['Cadastrado em',formatarTimestamp(im.created_at)]];
     document.getElementById('modalTitle').textContent = im.titulo;
     document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(v||'--')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
 }
 
 async function excluirImovel(id) {
-    if (!confirm('Excluir este imovel?')) return;
-    try { await apiCall('DELETE', '/api/imoveis/' + id); toast('Imovel excluido', 'sucesso'); carregarImoveis(); }
+    if (!confirm('Excluir este imóvel?')) return;
+    try { await apiCall('DELETE', '/api/imoveis/' + id); toast('Imóvel excluído', 'sucesso'); carregarImoveis(); }
     catch(e) { toast('Erro ao excluir', 'erro'); }
 }
 
@@ -947,7 +947,7 @@ async function salvarLead() {
         pagamento: document.getElementById('ldPagamento').value,
         prazo: document.getElementById('ldPrazo').value,
         temperatura: document.getElementById('ldTemperatura').value,
-        observacoes: document.getElementById('ldObservacoes').value.trim(),
+        observacoes: document.getElementById('ldObservações').value.trim(),
     };
     if (!body.nome || !body.telefone) return toast('Preencha nome e telefone do lead', 'erro');
     try {
@@ -959,14 +959,14 @@ async function salvarLead() {
 }
 
 function limparFormLead() {
-    ['ldNome','ldTelefone','ldEmail','ldBairro','ldFaixaValor','ldObservacoes'].forEach(id => document.getElementById(id).value = '');
+    ['ldNome','ldTelefone','ldEmail','ldBairro','ldFaixaValor','ldObservações'].forEach(id => document.getElementById(id).value = '');
     ['ldObjetivo','ldTipoImovel','ldPagamento','ldPrazo'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('ldTemperatura').value = 'frio';
 }
 
 function verLeadManual(id) {
     const l = leadsManuaisData.find(x => x.id === id); if (!l) return;
-    const campos = [['Nome',l.nome],['Telefone',formatarTelefone(l.telefone)],['E-mail',l.email],['Objetivo',l.objetivo],['Tipo de Imovel',l.tipo_imovel],['Bairro',l.bairro],['Faixa de Valor',l.faixa_valor],['Pagamento',l.pagamento],['Prazo',l.prazo],['Temperatura',l.temperatura],['Observacoes',l.observacoes],['Cadastrado em',l.criadoEm]];
+    const campos = [['Nome',l.nome],['Telefone',formatarTelefone(l.telefone)],['E-mail',l.email],['Objetivo',l.objetivo],['Tipo de Imóvel',l.tipo_imovel],['Bairro',l.bairro],['Faixa de valor',l.faixa_valor],['Pagamento',l.pagamento],['Prazo',l.prazo],['Temperatura',l.temperatura],['Observações',l.observacoes],['Cadastrado em',l.criadoEm]];
     document.getElementById('modalTitle').textContent = l.nome;
     document.getElementById('modalContent').innerHTML = campos.map(([lb,v]) => `<div class="modal__field"><div class="modal__label">${lb}</div><div class="modal__value">${lb==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'--')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
@@ -974,7 +974,7 @@ function verLeadManual(id) {
 
 async function excluirLeadManual(id) {
     if (!confirm('Excluir este lead?')) return;
-    try { await apiCall('DELETE', '/api/leads-manual/' + id); toast('Lead excluido', 'sucesso'); carregarLeadsManuais(); }
+    try { await apiCall('DELETE', '/api/leads-manual/' + id); toast('Lead excluído', 'sucesso'); carregarLeadsManuais(); }
     catch(e) { toast('Erro ao excluir', 'erro'); }
 }
 
@@ -1032,7 +1032,7 @@ async function salvarVisita() {
         status: document.getElementById('vsStatus').value,
         observacoes: document.getElementById('vsObservacoes').value.trim(),
     };
-    if (!body.lead_nome || !body.data || !body.horario) return toast('Preencha lead, data e horario', 'erro');
+    if (!body.lead_nome || !body.data || !body.horario) return toast('Preencha lead, data e horário', 'erro');
     try {
         await apiCall('POST', '/api/visitas', body);
         toast('Visita agendada com sucesso!', 'sucesso');
@@ -1048,7 +1048,7 @@ function limparFormVisita() {
 
 function verVisita(id) {
     const v = visitasData.find(x => x.id === id); if (!v) return;
-    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereco',v.endereco],['Data',formatarData(v.data)],['Horario',v.horario],['Corretor',v.corretor],['Status',v.status],['Observacoes',v.observacoes],['Criado em',formatarTimestamp(v.created_at)]];
+    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereço',v.endereco],['Data',formatarData(v.data)],['Horário',v.horario],['Corretor',v.corretor],['Status',v.status],['Observações',v.observacoes],['Criado em',formatarTimestamp(v.created_at)]];
     document.getElementById('modalTitle').textContent = 'Visita - ' + v.lead_nome;
     document.getElementById('modalContent').innerHTML = campos.map(([l,val]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(val||'--')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
@@ -1061,7 +1061,7 @@ async function atualizarStatusVisita(id, status) {
 
 async function excluirVisita(id) {
     if (!confirm('Excluir esta visita?')) return;
-    try { await apiCall('DELETE', '/api/visitas/' + id); toast('Visita excluida', 'sucesso'); carregarVisitas(); }
+    try { await apiCall('DELETE', '/api/visitas/' + id); toast('Visita excluída', 'sucesso'); carregarVisitas(); }
     catch(e) { toast('Erro ao excluir', 'erro'); }
 }
 
@@ -1087,7 +1087,7 @@ function setStatus(online) {
 }
 
 function limparDado(val) {
-    if (!val || val.toLowerCase() === 'nao informado' || val.toLowerCase() === 'não informado' || val.trim() === '') {
+    if (!val || val.toLowerCase() === 'não informado' || val.toLowerCase() === 'não informado' || val.trim() === '') {
         return '<span class="dado-vazio">Sem dados</span>';
     }
     return esc(capitalize(val));
@@ -1135,7 +1135,7 @@ function setTrend(id, diff) {
         el.textContent = '\u25BC ' + diff + ' esta semana';
     } else {
         el.className = 'stat-card__trend trend--neutral';
-        el.textContent = '= sem variacao';
+        el.textContent = '= sem variação';
     }
 }
 
