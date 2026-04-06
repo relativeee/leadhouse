@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadHouse — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #0A0A0A;
+            color: #E0E0E0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Fundo sutil */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(43, 107, 26, 0.02) 0%, transparent 50%);
+            z-index: 0;
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            padding: 1.5rem;
+        }
+
+        .login-card {
+            background: #141414;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 3rem 2.5rem;
+        }
+
+        .login-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .login-logo img {
+            height: 60px;
+            filter: brightness(0) invert(1);
+            opacity: 0.9;
+            margin-bottom: 1.25rem;
+        }
+
+        .login-logo__title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #F5F5F5;
+            letter-spacing: 1px;
+        }
+
+        .login-logo__subtitle {
+            font-size: 0.6rem;
+            color: #5A5A5A;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-top: 6px;
+        }
+
+        .login-divider {
+            width: 40px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #C9A84C, transparent);
+            margin: 0 auto 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #5A5A5A;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: #1A1A1A;
+            color: #E0E0E0;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .form-input:focus {
+            border-color: #C9A84C;
+            box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.15);
+        }
+
+        .form-input::placeholder {
+            color: #3A3A3A;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 8px;
+            background: #C9A84C;
+            color: #0A0A0A;
+            font-size: 0.78rem;
+            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 0.75rem;
+        }
+
+        .btn-login:hover {
+            background: #D4B86A;
+            box-shadow: 0 4px 20px rgba(201, 168, 76, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-error {
+            display: none;
+            background: rgba(138, 50, 50, 0.1);
+            border: 1px solid rgba(138, 50, 50, 0.2);
+            border-radius: 8px;
+            padding: 0.7rem 1rem;
+            font-size: 0.82rem;
+            color: #D48A8A;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .login-error--show {
+            display: block;
+            animation: shakeIn 0.4s ease both;
+        }
+
+        @keyframes shakeIn {
+            0% { transform: translateX(-8px); opacity: 0; }
+            25% { transform: translateX(6px); }
+            50% { transform: translateX(-4px); }
+            75% { transform: translateX(2px); }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.72rem;
+            color: #3A3A3A;
+            letter-spacing: 0.5px;
+        }
+
+        .login-footer a {
+            color: #C9A84C;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        .login-footer a:hover {
+            color: #D4B86A;
+        }
+
+        .login-toggle {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .login-toggle button {
+            background: none;
+            border: none;
+            color: #5A5A5A;
+            font-size: 0.78rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        .login-toggle button:hover {
+            color: #C9A84C;
+        }
+
+        .login-toggle button span {
+            color: #C9A84C;
+            font-weight: 600;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(10,10,10,0.2);
+            border-top-color: #0A0A0A;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .login-card { padding: 2rem 1.5rem; }
+            .login-logo img { height: 48px; }
+            .login-logo__title { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="/logo.svg" alt="LeadHouse">
+            <div class="login-logo__title">LeadHouse</div>
+            <div class="login-logo__subtitle">Gestao Imobiliaria</div>
+        </div>
+
+        <div class="login-divider"></div>
+
+        <div class="login-error" id="loginError"></div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" id="loginEmail" placeholder="seu@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Senha</label>
+                <input type="password" class="form-input" id="loginSenha" placeholder="Sua senha" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-login" id="btnLogin">Entrar</button>
+        </form>
+
+        <!-- Register Form (hidden) -->
+        <form id="registerForm" style="display:none;" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label class="form-label">Nome</label>
+                <input type="text" class="form-input" id="regNome" placeholder="Seu nome completo" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" id="regEmail" placeholder="seu@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Senha</label>
+                <input type="password" class="form-input" id="regSenha" placeholder="Minimo 6 caracteres" required minlength="6" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn-login" id="btnRegister">Criar Conta</button>
+        </form>
+
+        <div class="login-toggle">
+            <button id="toggleBtn" onclick="toggleForm()">
+                Nao tem conta? <span>Criar conta</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="login-footer">LeadHouse &mdash; Gestao imobiliaria inteligente</div>
+</div>
+
+<script>
+const SUPABASE_URL = '{{SUPABASE_URL}}';
+const SUPABASE_KEY = '{{SUPABASE_KEY}}';
+let isLogin = true;
+
+// Verifica se ja esta logado
+document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('lh_token');
+    if (token) {
+        const valid = await verificarToken(token);
+        if (valid) window.location.href = '/';
+    }
+});
+
+async function verificarToken(token) {
+    try {
+        const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        return res.ok;
+    } catch { return false; }
+}
+
+function showError(msg) {
+    const el = document.getElementById('loginError');
+    el.textContent = msg;
+    el.className = 'login-error login-error--show';
+}
+
+function hideError() {
+    document.getElementById('loginError').className = 'login-error';
+}
+
+function setLoading(btn, loading) {
+    if (loading) {
+        btn.disabled = true;
+        btn.dataset.text = btn.textContent;
+        btn.innerHTML = '<span class="spinner"></span>Aguarde...';
+    } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.text;
+    }
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    hideError();
+    const btn = document.getElementById('btnLogin');
+    setLoading(btn, true);
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: document.getElementById('loginEmail').value.trim(),
+                senha: document.getElementById('loginSenha').value,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao fazer login');
+
+        localStorage.setItem('lh_token', data.token);
+        localStorage.setItem('lh_user', JSON.stringify(data.user));
+        window.location.href = '/';
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    hideError();
+    const btn = document.getElementById('btnRegister');
+    setLoading(btn, true);
+
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nome: document.getElementById('regNome').value.trim(),
+                email: document.getElementById('regEmail').value.trim(),
+                senha: document.getElementById('regSenha').value,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao criar conta');
+
+        localStorage.setItem('lh_token', data.token);
+        localStorage.setItem('lh_user', JSON.stringify(data.user));
+        window.location.href = '/';
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+function toggleForm() {
+    isLogin = !isLogin;
+    hideError();
+    document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
+    document.getElementById('toggleBtn').innerHTML = isLogin
+        ? 'Nao tem conta? <span>Criar conta</span>'
+        : 'Ja tem conta? <span>Entrar</span>';
+}
+</script>
+
+</body>
+</html>

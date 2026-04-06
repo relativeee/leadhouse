@@ -44,10 +44,15 @@
         </button>
     </nav>
     <div class="sidebar__footer">
+        <div class="sidebar__user" id="sidebarUser"></div>
         <div class="sidebar__status">
             <span class="header__status-dot" id="statusDot"></span>
             <span id="statusText">Conectado</span>
         </div>
+        <button class="sidebar__logout" onclick="logout()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sair
+        </button>
     </div>
 </aside>
 
@@ -62,42 +67,58 @@
 <main class="dashboard" id="aba-dashboard">
 
     <!-- Stats -->
-    <section class="stats">
-        <div class="stat-card">
+    <section class="stats stats--hero">
+        <div class="stat-card stat-card--highlight">
             <div class="stat-card__label">Total de Leads</div>
             <div class="stat-card__value" id="totalLeads">--</div>
             <div class="stat-card__detail">WhatsApp + Manual</div>
+            <div class="stat-card__trend" id="trendTotal"></div>
         </div>
-        <div class="stat-card stat-card--quente">
+        <div class="stat-card">
             <div class="stat-card__label">Leads Quentes</div>
             <div class="stat-card__value" id="totalQuentes">--</div>
             <div class="stat-card__detail">Prontos para contato</div>
+            <div class="stat-card__trend" id="trendQuentes"></div>
         </div>
-        <div class="stat-card stat-card--morno">
+        <div class="stat-card">
             <div class="stat-card__label">Leads Mornos</div>
             <div class="stat-card__value" id="totalMornos">--</div>
             <div class="stat-card__detail">Em qualificacao</div>
+            <div class="stat-card__trend" id="trendMornos"></div>
         </div>
-        <div class="stat-card stat-card--frio">
+        <div class="stat-card">
             <div class="stat-card__label">Leads Frios</div>
             <div class="stat-card__value" id="totalFrios">--</div>
             <div class="stat-card__detail">Inicio de conversa</div>
+            <div class="stat-card__trend" id="trendFrios"></div>
         </div>
         <div class="stat-card">
-            <div class="stat-card__label">Imoveis Cadastrados</div>
+            <div class="stat-card__label">Imoveis</div>
             <div class="stat-card__value" id="totalImoveis">--</div>
             <div class="stat-card__detail">No catalogo</div>
         </div>
         <div class="stat-card">
-            <div class="stat-card__label">Visitas Agendadas</div>
+            <div class="stat-card__label">Visitas</div>
             <div class="stat-card__value" id="totalVisitas">--</div>
             <div class="stat-card__detail">Pendentes</div>
         </div>
     </section>
 
+    <!-- Visualizacao: Grafico + Funil -->
+    <section class="dash-viz">
+        <div class="viz-card">
+            <div class="viz-card__title">Leads captados — ultimos 7 dias</div>
+            <div class="viz-chart" id="chartBarras"></div>
+        </div>
+        <div class="viz-card">
+            <div class="viz-card__title">Distribuicao por temperatura</div>
+            <div class="viz-funnel" id="funnelViz"></div>
+        </div>
+    </section>
+
     <!-- Leads Table -->
     <section>
-        <div class="section-title">Leads Recentes (WhatsApp)</div>
+        <div class="section-title">Leads Recentes</div>
         <div class="leads-container">
             <div class="leads-toolbar">
                 <div class="leads-toolbar__filters">
@@ -110,7 +131,7 @@
             </div>
             <div class="leads-table-wrapper">
                 <table class="leads-table">
-                    <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Temperatura</th><th>Msgs</th><th>Atualizado</th></tr></thead>
+                    <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Temperatura</th><th>Engajamento</th><th>Atualizado</th><th>Acoes</th></tr></thead>
                     <tbody id="dashLeadsBody"></tbody>
                 </table>
             </div>
@@ -522,10 +543,35 @@ function formatarData(d) {
     return `${day}/${m}/${y}`;
 }
 
+function formatarTimestamp(ts) {
+    if (!ts) return '--';
+    return new Date(ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+function getToken() { return localStorage.getItem('lh_token'); }
+function getAuthHeaders() {
+    const h = { 'Content-Type': 'application/json' };
+    const t = getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+}
+
+function checkAuth() {
+    if (!getToken()) { window.location.href = '/login'; return false; }
+    return true;
+}
+
+function logout() {
+    localStorage.removeItem('lh_token');
+    localStorage.removeItem('lh_user');
+    window.location.href = '/login';
+}
+
 async function apiCall(method, url, body) {
-    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    const opts = { method, headers: getAuthHeaders() };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
+    if (res.status === 401) { logout(); return {}; }
     return res.json();
 }
 
@@ -534,34 +580,53 @@ async function apiCall(method, url, body) {
 // ═══════════════════════════════════════════════
 async function carregarDashboard() {
     try {
+        const h = { headers: getAuthHeaders() };
         const [wpp, manual, imv, vis] = await Promise.all([
-            fetch('/api/leads').then(r => r.json()).catch(() => []),
-            fetch('/api/leads-manual').then(r => r.json()).catch(() => []),
-            fetch('/api/imoveis').then(r => r.json()).catch(() => []),
-            fetch('/api/visitas').then(r => r.json()).catch(() => []),
+            fetch('/api/leads', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/leads-manual', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/imoveis', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
         dashLeads = wpp.length ? wpp : gerarDadosDemo();
         const allLeads = [...dashLeads, ...manual.map(l => ({ ...l, totalMensagens: 0, ultimaAtualizacao: l.criadoEm }))];
         setStatus(wpp.length > 0 || manual.length > 0);
 
-        document.getElementById('totalLeads').textContent = allLeads.length;
-        document.getElementById('totalQuentes').textContent = allLeads.filter(l => l.temperatura === 'quente').length;
-        document.getElementById('totalMornos').textContent = allLeads.filter(l => l.temperatura === 'morno').length;
-        document.getElementById('totalFrios').textContent = allLeads.filter(l => l.temperatura === 'frio').length;
+        const counts = {
+            total: allLeads.length,
+            quentes: allLeads.filter(l => l.temperatura === 'quente').length,
+            mornos: allLeads.filter(l => l.temperatura === 'morno').length,
+            frios: allLeads.filter(l => l.temperatura === 'frio').length,
+        };
+        document.getElementById('totalLeads').textContent = counts.total;
+        document.getElementById('totalQuentes').textContent = counts.quentes;
+        document.getElementById('totalMornos').textContent = counts.mornos;
+        document.getElementById('totalFrios').textContent = counts.frios;
         document.getElementById('totalImoveis').textContent = imv.length;
         document.getElementById('totalVisitas').textContent = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada').length;
 
+        renderTrends(counts);
+        renderChart(allLeads);
+        renderFunnel(counts);
         renderDashLeads();
     } catch (err) {
         console.error(err);
         dashLeads = gerarDadosDemo();
         setStatus(false);
-        document.getElementById('totalLeads').textContent = dashLeads.length;
-        document.getElementById('totalQuentes').textContent = dashLeads.filter(l => l.temperatura === 'quente').length;
-        document.getElementById('totalMornos').textContent = dashLeads.filter(l => l.temperatura === 'morno').length;
-        document.getElementById('totalFrios').textContent = dashLeads.filter(l => l.temperatura === 'frio').length;
+        const counts = {
+            total: dashLeads.length,
+            quentes: dashLeads.filter(l => l.temperatura === 'quente').length,
+            mornos: dashLeads.filter(l => l.temperatura === 'morno').length,
+            frios: dashLeads.filter(l => l.temperatura === 'frio').length,
+        };
+        document.getElementById('totalLeads').textContent = counts.total;
+        document.getElementById('totalQuentes').textContent = counts.quentes;
+        document.getElementById('totalMornos').textContent = counts.mornos;
+        document.getElementById('totalFrios').textContent = counts.frios;
         document.getElementById('totalImoveis').textContent = 0;
         document.getElementById('totalVisitas').textContent = 0;
+        renderTrends(counts);
+        renderChart(dashLeads);
+        renderFunnel(counts);
         renderDashLeads();
     }
 }
@@ -586,16 +651,28 @@ function renderDashLeads() {
     if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('dashEmpty').style.display = 'block'; return; }
     document.getElementById('dashEmpty').style.display = 'none';
 
-    tbody.innerHTML = filtrados.map((lead, i) => `
-        <tr onclick="abrirModalLead(${dashLeads.indexOf(lead)})" style="cursor:pointer">
+    tbody.innerHTML = filtrados.map((lead, i) => {
+        const idx = dashLeads.indexOf(lead);
+        const msgs = lead.totalMensagens || 0;
+        const engLevel = msgs >= 9 ? 'alto' : msgs >= 4 ? 'medio' : 'baixo';
+        const engPct = Math.min(msgs / 12 * 100, 100);
+        const bairro = limparDado(lead.bairro);
+        return `
+        <tr class="tr--${lead.temperatura}" onclick="abrirModalLead(${idx})" style="cursor:pointer">
             <td><strong>${esc(lead.nome || 'Sem nome')}</strong></td>
             <td>${formatarTelefone(lead.telefone)}</td>
             <td>${esc(capitalize(lead.objetivo))}</td>
-            <td>${esc(capitalize(lead.bairro))}</td>
+            <td>${bairro}</td>
             <td><span class="badge badge--${lead.temperatura}"><span class="badge__dot"></span>${capitalize(lead.temperatura)}</span></td>
-            <td>${lead.totalMensagens || '--'}</td>
+            <td><div class="engajamento"><div class="engajamento__bar"><div class="engajamento__fill engajamento--${engLevel}" style="width:${engPct}%"></div></div><span class="engajamento__num">${msgs}</span></div></td>
             <td>${esc(lead.ultimaAtualizacao || '--')}</td>
-        </tr>`).join('');
+            <td class="td-acoes td-acoes--row" onclick="event.stopPropagation()">
+                <button class="btn-icon" title="Ligar" onclick="window.open('tel:${lead.telefone}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></button>
+                <button class="btn-icon" title="Agendar visita" onclick="agendarVisitaRapida('${esc(lead.nome)}','${lead.telefone}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+                <button class="btn-icon" title="Ver detalhes" onclick="abrirModalLead(${idx})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </td>
+        </tr>`;
+    }).join('');
 }
 
 function filtrarDash(tipo, btn) {
@@ -675,7 +752,7 @@ function limparFormImovel() {
 
 function verImovel(id) {
     const im = imoveisData.find(i => i.id === id); if (!im) return;
-    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereco',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descricao',im.descricao],['Cadastrado em',im.criadoEm]];
+    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereco',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descricao',im.descricao],['Cadastrado em',formatarTimestamp(im.created_at)]];
     document.getElementById('modalTitle').textContent = im.titulo;
     document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(v||'--')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
@@ -833,7 +910,7 @@ function limparFormVisita() {
 
 function verVisita(id) {
     const v = visitasData.find(x => x.id === id); if (!v) return;
-    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereco',v.endereco],['Data',formatarData(v.data)],['Horario',v.horario],['Corretor',v.corretor],['Status',v.status],['Observacoes',v.observacoes],['Criado em',v.criadoEm]];
+    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereco',v.endereco],['Data',formatarData(v.data)],['Horario',v.horario],['Corretor',v.corretor],['Status',v.status],['Observacoes',v.observacoes],['Criado em',formatarTimestamp(v.created_at)]];
     document.getElementById('modalTitle').textContent = 'Visita - ' + v.lead_nome;
     document.getElementById('modalContent').innerHTML = campos.map(([l,val]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(val||'--')}</div></div>`).join('');
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
@@ -862,8 +939,140 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(
 function setStatus(online) {
     const dot = document.getElementById('statusDot');
     const text = document.getElementById('statusText');
-    dot.className = online ? 'header__status-dot' : 'header__status-dot header__status-dot--offline';
-    text.textContent = online ? 'Conectado' : 'Modo Demo';
+    if (online) {
+        dot.className = 'header__status-dot';
+        text.textContent = 'Conectado';
+    } else {
+        dot.className = 'header__status-dot header__status-dot--demo';
+        text.textContent = 'Demo';
+    }
+}
+
+function limparDado(val) {
+    if (!val || val.toLowerCase() === 'nao informado' || val.toLowerCase() === 'não informado' || val.trim() === '') {
+        return '<span class="dado-vazio">Sem dados</span>';
+    }
+    return esc(capitalize(val));
+}
+
+// ── Trends (variacao semanal simulada) ──
+function renderTrends(counts) {
+    // Salva contagens anteriores no localStorage para comparar
+    const prev = JSON.parse(localStorage.getItem('lh_prev_counts') || 'null');
+    const now = { total: counts.total, quentes: counts.quentes, mornos: counts.mornos, frios: counts.frios, ts: Date.now() };
+
+    if (prev && (Date.now() - prev.ts) < 7 * 24 * 60 * 60 * 1000) {
+        setTrend('trendTotal', now.total - prev.total);
+        setTrend('trendQuentes', now.quentes - prev.quentes);
+        setTrend('trendMornos', now.mornos - prev.mornos);
+        setTrend('trendFrios', now.frios - prev.frios);
+    } else {
+        // Primeira vez ou dados antigos, simula variacao demo
+        setTrend('trendTotal', 3);
+        setTrend('trendQuentes', 1);
+        setTrend('trendMornos', 2);
+        setTrend('trendFrios', 0);
+    }
+
+    localStorage.setItem('lh_prev_counts', JSON.stringify(now));
+}
+
+function setTrend(id, diff) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (diff > 0) {
+        el.className = 'stat-card__trend trend--up';
+        el.textContent = '\u25B2 +' + diff + ' esta semana';
+    } else if (diff < 0) {
+        el.className = 'stat-card__trend trend--down';
+        el.textContent = '\u25BC ' + diff + ' esta semana';
+    } else {
+        el.className = 'stat-card__trend trend--neutral';
+        el.textContent = '= sem variacao';
+    }
+}
+
+// ── Grafico de barras (ultimos 7 dias) ──
+function renderChart(leads) {
+    const container = document.getElementById('chartBarras');
+    if (!container) return;
+
+    const dias = [];
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        dias.push(d.toISOString().split('T')[0]);
+        labels.push(d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''));
+    }
+
+    // Conta leads por dia (usa ultimaAtualizacao ou created_at)
+    const contagens = dias.map(dia => {
+        return leads.filter(l => {
+            const lu = l.ultimaAtualizacao || l.created_at || '';
+            return lu.includes(dia.split('-').reverse().join('/').substring(0,5)) || lu.includes(dia);
+        }).length;
+    });
+
+    // Se tudo zero (demo), gera valores simulados
+    const max = Math.max(...contagens, 1);
+    const usarDemo = contagens.every(c => c === 0);
+    const valores = usarDemo ? [2, 3, 1, 4, 2, 5, 3] : contagens;
+    const maxV = Math.max(...valores, 1);
+
+    container.innerHTML = valores.map((v, i) => `
+        <div class="chart-col">
+            <div class="chart-bar-wrap">
+                <div class="chart-bar" style="height:${(v / maxV) * 100}%"><span class="chart-bar__val">${v}</span></div>
+            </div>
+            <div class="chart-label">${labels[i]}</div>
+        </div>
+    `).join('');
+}
+
+// ── Funil de temperatura ──
+function renderFunnel(counts) {
+    const container = document.getElementById('funnelViz');
+    if (!container) return;
+
+    const total = counts.total || 1;
+    const pctQ = Math.round((counts.quentes / total) * 100);
+    const pctM = Math.round((counts.mornos / total) * 100);
+    const pctF = Math.round((counts.frios / total) * 100);
+
+    container.innerHTML = `
+        <div class="funnel-row">
+            <div class="funnel-label">Quente</div>
+            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--quente" style="width:${pctQ}%"></div></div>
+            <div class="funnel-pct">${pctQ}%</div>
+            <div class="funnel-count">${counts.quentes}</div>
+        </div>
+        <div class="funnel-row">
+            <div class="funnel-label">Morno</div>
+            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--morno" style="width:${pctM}%"></div></div>
+            <div class="funnel-pct">${pctM}%</div>
+            <div class="funnel-count">${counts.mornos}</div>
+        </div>
+        <div class="funnel-row">
+            <div class="funnel-label">Frio</div>
+            <div class="funnel-bar-wrap"><div class="funnel-bar funnel--frio" style="width:${pctF}%"></div></div>
+            <div class="funnel-pct">${pctF}%</div>
+            <div class="funnel-count">${counts.frios}</div>
+        </div>
+    `;
+}
+
+// ── Acao rapida: agendar visita a partir do dash ──
+function agendarVisitaRapida(nome, telefone) {
+    // Muda para a aba de visitas e preenche os campos
+    const btn = document.querySelector('.sidebar__item[onclick*="visitas"]');
+    if (btn) trocarAba('visitas', btn);
+    setTimeout(() => {
+        const n = document.getElementById('vsLeadNome');
+        const t = document.getElementById('vsLeadTelefone');
+        if (n) n.value = nome;
+        if (t) t.value = formatarTelefone(telefone);
+    }, 100);
 }
 
 // ═══════════════════════════════════════════════
@@ -942,8 +1151,19 @@ function toggleSidebar() {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-carregarDashboard();
-setInterval(carregarDashboard, 30000);
+(function init() {
+    if (!checkAuth()) return;
+
+    // Mostrar nome do usuario na sidebar
+    try {
+        const user = JSON.parse(localStorage.getItem('lh_user') || '{}');
+        const el = document.getElementById('sidebarUser');
+        if (el && user.nome) el.textContent = user.nome;
+    } catch {}
+
+    carregarDashboard();
+    setInterval(carregarDashboard, 30000);
+})();
 </script>
 
 </body>
