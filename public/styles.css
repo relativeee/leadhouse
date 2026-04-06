@@ -1429,11 +1429,8 @@ tr:hover .td-acoes--row .btn-icon:hover {
    Detalhes Grid (Valor wider)
    ============================================ */
 .form-grid--detalhes {
-    grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
 }
-
-.form-group--valor { grid-column: auto; }
-.form-group--sm { grid-column: auto; }
 
 /* ============================================
    Upload Area
