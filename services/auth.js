@@ -25,13 +25,13 @@ async function registrar(nome, email, senha) {
   const { data, error } = await supabase
     .from('usuarios')
     .insert({ nome, email: email.toLowerCase(), senha_hash })
-    .select('id, nome, email')
+    .select('id, nome, email, plano')
     .single();
 
   if (error) throw error;
 
   const token = jwt.sign({ id: data.id, email: data.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return { token, user: { id: data.id, nome: data.nome, email: data.email } };
+  return { token, user: { id: data.id, nome: data.nome, email: data.email, plano: data.plano || null } };
 }
 
 async function login(email, senha) {
@@ -48,7 +48,7 @@ async function login(email, senha) {
   if (!senhaOk) throw new Error('E-mail ou senha incorretos');
 
   const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return { token, user: { id: user.id, nome: user.nome, email: user.email } };
+  return { token, user: { id: user.id, nome: user.nome, email: user.email, plano: user.plano || null } };
 }
 
 function verificarToken(token) {

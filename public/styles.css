@@ -292,6 +292,60 @@ body::after {
     border-top: 1px solid var(--border);
 }
 
+.sidebar__plan {
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.sidebar__plan--pro,
+.sidebar__plan--elite {
+    border-color: var(--gold-muted);
+    background: rgba(201, 168, 76, 0.04);
+}
+
+.sidebar__plan-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.sidebar__plan-name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-white);
+    margin-bottom: 0.5rem;
+}
+
+.sidebar__plan--pro .sidebar__plan-name,
+.sidebar__plan--elite .sidebar__plan-name {
+    color: var(--gold);
+}
+
+.sidebar__plan-cta {
+    display: inline-block;
+    font-size: 0.7rem;
+    color: var(--gold);
+    text-decoration: none;
+    border: 1px solid var(--gold-muted);
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: var(--transition-fast);
+    letter-spacing: 0.2px;
+}
+
+.sidebar__plan-cta:hover {
+    background: var(--gold);
+    color: #0A0A0A;
+    border-color: var(--gold);
+}
+
 .sidebar__user {
     font-size: 0.82rem;
     color: var(--text-primary);

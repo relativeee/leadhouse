@@ -44,6 +44,11 @@
         </button>
     </nav>
     <div class="sidebar__footer">
+        <div class="sidebar__plan" id="sidebarPlan">
+            <div class="sidebar__plan-label">Plano atual</div>
+            <div class="sidebar__plan-name" id="sidebarPlanName">—</div>
+            <a href="https://leadhouse-site.vercel.app/#planos" target="_blank" class="sidebar__plan-cta" id="sidebarPlanCta">Fazer upgrade</a>
+        </div>
         <div class="sidebar__user" id="sidebarUser"></div>
         <div class="sidebar__status">
             <span class="header__status-dot" id="statusDot"></span>
@@ -659,6 +664,32 @@ function logout() {
     localStorage.removeItem('lh_token');
     localStorage.removeItem('lh_user');
     window.location.href = '/login';
+}
+
+function renderPlano(plano) {
+    const nameEl = document.getElementById('sidebarPlanName');
+    const ctaEl  = document.getElementById('sidebarPlanCta');
+    const wrapEl = document.getElementById('sidebarPlan');
+    if (!nameEl || !ctaEl || !wrapEl) return;
+
+    const planos = {
+        start: { label: 'Start',  upgrade: 'Fazer upgrade' },
+        pro:   { label: 'Pro',    upgrade: 'Ver Elite' },
+        elite: { label: 'Elite',  upgrade: 'Gerenciar' },
+    };
+
+    const key = (plano || '').toLowerCase();
+    const info = planos[key];
+
+    if (info) {
+        nameEl.textContent = info.label;
+        ctaEl.textContent = info.upgrade;
+        wrapEl.classList.add('sidebar__plan--' + key);
+    } else {
+        nameEl.textContent = 'Gratuito';
+        ctaEl.textContent = 'Fazer upgrade';
+        wrapEl.classList.add('sidebar__plan--free');
+    }
 }
 
 async function apiCall(method, url, body) {
@@ -1300,11 +1331,12 @@ function toggleSidebar() {
 (function init() {
     if (!checkAuth()) return;
 
-    // Mostrar nome do usuario na sidebar
+    // Mostrar nome e plano do usuario na sidebar
     try {
         const user = JSON.parse(localStorage.getItem('lh_user') || '{}');
         const el = document.getElementById('sidebarUser');
         if (el && user.nome) el.textContent = user.nome;
+        renderPlano(user.plano);
     } catch {}
 
     carregarDashboard();
