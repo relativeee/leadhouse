@@ -666,6 +666,20 @@ function logout() {
     window.location.href = '/login';
 }
 
+async function refreshPlano() {
+    try {
+        const res = await fetch('/api/auth/me', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const user = await res.json();
+        // Atualiza nome e plano
+        const elNome = document.getElementById('sidebarUser');
+        if (elNome && user.nome) elNome.textContent = user.nome;
+        renderPlano(user.plano);
+        // Atualiza localStorage
+        localStorage.setItem('lh_user', JSON.stringify(user));
+    } catch {}
+}
+
 function renderPlano(plano) {
     const nameEl = document.getElementById('sidebarPlanName');
     const ctaEl  = document.getElementById('sidebarPlanCta');
@@ -1331,7 +1345,7 @@ function toggleSidebar() {
 (function init() {
     if (!checkAuth()) return;
 
-    // Mostrar nome e plano do usuario na sidebar
+    // Mostrar nome do usuario imediatamente (do localStorage)
     try {
         const user = JSON.parse(localStorage.getItem('lh_user') || '{}');
         const el = document.getElementById('sidebarUser');
@@ -1339,8 +1353,11 @@ function toggleSidebar() {
         renderPlano(user.plano);
     } catch {}
 
+    // Buscar plano atualizado do servidor (caso tenha mudado via webhook)
+    refreshPlano();
     carregarDashboard();
     setInterval(carregarDashboard, 30000);
+    setInterval(refreshPlano, 30000);
 })();
 </script>
 

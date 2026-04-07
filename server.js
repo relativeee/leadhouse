@@ -21,6 +21,66 @@ try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./ser
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
 const app = express();
+
+// ─────────────────────────────────────────────
+// Stripe webhook (precisa do raw body — antes do express.json)
+// ─────────────────────────────────────────────
+let stripe = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  }
+} catch (e) { console.warn('[Init] Stripe desabilitado:', e.message); }
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(503).send('Stripe nao configurado');
+
+  const sig = req.headers['stripe-signature'];
+  const whSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let event;
+
+  try {
+    event = whSecret
+      ? stripe.webhooks.constructEvent(req.body, sig, whSecret)
+      : JSON.parse(req.body.toString());
+  } catch (err) {
+    console.error('[Stripe] webhook signature invalida:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const email = (session.customer_email || session.customer_details?.email || '').toLowerCase();
+      const plan  = session.metadata?.plan || null;
+
+      if (email && plan) {
+        const { error } = await db.supabase
+          .from('usuarios')
+          .update({ plano: plan })
+          .eq('email', email);
+        if (error) console.error('[Stripe] erro ao atualizar plano:', error.message);
+        else console.log(`[Stripe] plano ${plan} ativado para ${email}`);
+      }
+    }
+
+    if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      const customer = await stripe.customers.retrieve(sub.customer);
+      const email = (customer.email || '').toLowerCase();
+      if (email) {
+        await db.supabase.from('usuarios').update({ plano: null }).eq('email', email);
+        console.log(`[Stripe] assinatura cancelada para ${email}`);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[Stripe] erro processando webhook:', err);
+    res.status(500).send('Erro interno');
+  }
+});
+
 app.use(express.json());
 
 // Login
@@ -77,8 +137,18 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-  res.json({ id: req.userId, email: req.userEmail });
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email, plano')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // ─────────────────────────────────────────────
