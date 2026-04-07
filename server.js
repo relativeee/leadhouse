@@ -51,15 +51,18 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const email = (session.customer_email || session.customer_details?.email || '').toLowerCase();
+      const rawEmail = (session.customer_email || session.customer_details?.email || '').toLowerCase();
+      const email = rawEmail.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const plan  = session.metadata?.plan || null;
 
       if (email && plan) {
-        const { error } = await db.supabase
+        const { data, error } = await db.supabase
           .from('usuarios')
           .update({ plano: plan })
-          .eq('email', email);
+          .eq('email', email)
+          .select('id, email');
         if (error) console.error('[Stripe] erro ao atualizar plano:', error.message);
+        else if (!data || data.length === 0) console.error(`[Stripe] nenhum usuario encontrado para ${email} (raw: ${rawEmail})`);
         else console.log(`[Stripe] plano ${plan} ativado para ${email}`);
       }
     }
@@ -67,7 +70,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object;
       const customer = await stripe.customers.retrieve(sub.customer);
-      const email = (customer.email || '').toLowerCase();
+      const email = (customer.email || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       if (email) {
         await db.supabase.from('usuarios').update({ plano: null }).eq('email', email);
         console.log(`[Stripe] assinatura cancelada para ${email}`);
