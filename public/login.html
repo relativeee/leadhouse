@@ -291,6 +291,22 @@
                 <input type="password" class="form-input" id="loginSenha" placeholder="Sua senha" required autocomplete="current-password">
             </div>
             <button type="submit" class="btn-login" id="btnLogin">Entrar</button>
+            <div style="text-align:center;margin-top:1rem">
+                <a href="#" onclick="showForgot(event)" style="color:#5A5A5A;font-size:0.78rem;text-decoration:none;transition:0.2s" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='#5A5A5A'">Esqueci minha senha</a>
+            </div>
+        </form>
+
+        <!-- Forgot Form (hidden) -->
+        <form id="forgotForm" style="display:none;" onsubmit="handleForgot(event)">
+            <p style="font-size:0.85rem;color:#888;margin-bottom:1.25rem;line-height:1.5">Digite seu e-mail e enviaremos um link para redefinir sua senha.</p>
+            <div class="form-group">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" id="forgotEmail" placeholder="seu@email.com" required autocomplete="email">
+            </div>
+            <button type="submit" class="btn-login" id="btnForgot">Enviar link</button>
+            <div style="text-align:center;margin-top:1rem">
+                <a href="#" onclick="showLogin(event)" style="color:#5A5A5A;font-size:0.78rem;text-decoration:none">← Voltar ao login</a>
+            </div>
         </form>
 
         <!-- Register Form (hidden) -->
@@ -414,6 +430,50 @@ async function handleRegister(e) {
         localStorage.setItem('lh_token', data.token);
         localStorage.setItem('lh_user', JSON.stringify(data.user));
         window.location.href = '/';
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        setLoading(btn, false);
+    }
+}
+
+function showForgot(e) {
+    if (e) e.preventDefault();
+    hideError();
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'block';
+    document.querySelector('.login-toggle').style.display = 'none';
+}
+
+function showLogin(e) {
+    if (e) e.preventDefault();
+    hideError();
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.querySelector('.login-toggle').style.display = 'block';
+    isLogin = true;
+}
+
+async function handleForgot(e) {
+    e.preventDefault();
+    hideError();
+    const btn = document.getElementById('btnForgot');
+    setLoading(btn, true);
+    try {
+        const res = await fetch('/api/auth/forgot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: document.getElementById('forgotEmail').value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao enviar link');
+        const el = document.getElementById('loginError');
+        el.textContent = 'Se o e-mail existir, voce recebera um link em instantes. Verifique sua caixa de entrada.';
+        el.style.background = 'rgba(50, 138, 80, 0.1)';
+        el.style.borderColor = 'rgba(50, 138, 80, 0.3)';
+        el.style.color = '#8AD4A0';
+        el.className = 'login-error login-error--show';
     } catch (err) {
         showError(err.message);
     } finally {

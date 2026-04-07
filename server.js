@@ -140,6 +140,106 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Esqueci a senha — gera token e envia email via Resend
+app.post('/api/auth/forgot', async (req, res) => {
+  try {
+    const rawEmail = (req.body.email || '').trim().toLowerCase();
+    const email = rawEmail.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!email) return res.status(400).json({ erro: 'E-mail obrigatorio' });
+
+    // Busca usuario (resposta sempre 200 pra nao vazar quem existe)
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (user) {
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+
+      await db.supabase.from('password_resets').insert({
+        user_id: user.id,
+        token,
+        expires_at: expiresAt,
+      });
+
+      const baseUrl = process.env.SITE_URL || `https://${req.headers.host}`;
+      const resetUrl = `${baseUrl}/reset.html?token=${token}`;
+
+      if (process.env.RESEND_API_KEY) {
+        try {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: 'LeadHouse <onboarding@resend.dev>',
+              to: [user.email],
+              subject: 'Redefinir sua senha — LeadHouse',
+              html: `
+                <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0A0A0A;color:#E0E0E0;border-radius:16px">
+                  <h1 style="font-family:'Playfair Display',Georgia,serif;color:#C9A84C;font-size:24px;margin:0 0 8px">LeadHouse</h1>
+                  <p style="color:#5A5A5A;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0 0 24px">Redefinicao de senha</p>
+                  <p style="font-size:15px;line-height:1.6">Ola ${user.nome || ''},</p>
+                  <p style="font-size:15px;line-height:1.6">Recebemos um pedido para redefinir a senha da sua conta. Clique no botao abaixo para criar uma nova senha:</p>
+                  <p style="margin:32px 0">
+                    <a href="${resetUrl}" style="display:inline-block;background:#C9A84C;color:#0A0A0A;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:13px">Redefinir senha</a>
+                  </p>
+                  <p style="font-size:13px;color:#888;line-height:1.6">Esse link expira em 1 hora. Se voce nao pediu essa redefinicao, ignore este email.</p>
+                  <p style="font-size:12px;color:#555;margin-top:32px;border-top:1px solid #222;padding-top:16px">LeadHouse — Gestao imobiliaria inteligente</p>
+                </div>
+              `,
+            }),
+          });
+        } catch (e) {
+          console.error('[Resend] erro ao enviar:', e.message);
+        }
+      } else {
+        console.log(`[Auth] reset link (Resend nao configurado): ${resetUrl}`);
+      }
+    }
+
+    res.json({ ok: true, mensagem: 'Se o e-mail existir, enviaremos instrucoes em instantes.' });
+  } catch (err) {
+    console.error('[forgot] erro:', err);
+    res.status(500).json({ erro: 'Erro ao processar pedido' });
+  }
+});
+
+// Reset — troca a senha usando o token
+app.post('/api/auth/reset', async (req, res) => {
+  try {
+    const { token, senha } = req.body;
+    if (!token || !senha) return res.status(400).json({ erro: 'Token e senha obrigatorios' });
+    if (senha.length < 6) return res.status(400).json({ erro: 'Senha deve ter no minimo 6 caracteres' });
+
+    const { data: reset } = await db.supabase
+      .from('password_resets')
+      .select('*')
+      .eq('token', token)
+      .maybeSingle();
+
+    if (!reset) return res.status(400).json({ erro: 'Token invalido' });
+    if (reset.used) return res.status(400).json({ erro: 'Token ja utilizado' });
+    if (new Date(reset.expires_at) < new Date()) return res.status(400).json({ erro: 'Token expirado' });
+
+    const bcrypt = require('bcryptjs');
+    const senha_hash = await bcrypt.hash(senha, 10);
+
+    await db.supabase.from('usuarios').update({ senha_hash }).eq('id', reset.user_id);
+    await db.supabase.from('password_resets').update({ used: true }).eq('token', token);
+
+    res.json({ ok: true, mensagem: 'Senha redefinida com sucesso' });
+  } catch (err) {
+    console.error('[reset] erro:', err);
+    res.status(500).json({ erro: 'Erro ao redefinir senha' });
+  }
+});
+
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
