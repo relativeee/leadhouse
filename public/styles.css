@@ -180,14 +180,8 @@ body::after {
 
 .sidebar__logo-img {
     height: 44px;
-    width: auto;
-    filter: brightness(0) invert(1);
-    opacity: 0.9;
+    width: 44px;
     transition: var(--transition);
-}
-
-.sidebar__logo:hover .sidebar__logo-img {
-    opacity: 1;
 }
 
 .sidebar__title {
