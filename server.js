@@ -203,8 +203,8 @@ app.post('/api/auth/forgot', async (req, res) => {
               subject: 'Redefinir sua senha — LeadHouse',
               html: `
                 <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0A0A0A;color:#E0E0E0;border-radius:16px">
-                  <h1 style="font-family:'Playfair Display',Georgia,serif;color:#C9A84C;font-size:24px;margin:0 0 8px">LeadHouse</h1>
-                  <p style="color:#5A5A5A;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0 0 24px">Redefinicao de senha</p>
+                  <p style="text-align:center;margin:0 0 16px"><img src="https://app.leadhouses.com.br/logo.png" alt="LeadHouse" width="120" style="display:inline-block;max-width:120px;height:auto"></p>
+                  <p style="color:#5A5A5A;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin:0 0 24px;text-align:center">Redefinicao de senha</p>
                   <p style="font-size:15px;line-height:1.6">Ola ${user.nome || ''},</p>
                   <p style="font-size:15px;line-height:1.6">Recebemos um pedido para redefinir a senha da sua conta. Clique no botao abaixo para criar uma nova senha:</p>
                   <p style="margin:32px 0">
