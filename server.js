@@ -261,6 +261,48 @@ app.post('/api/auth/reset', async (req, res) => {
   }
 });
 
+// Atualizar dados da conta (nome e/ou senha)
+app.put('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const { nome, senha_atual, senha_nova } = req.body;
+    const updates = {};
+
+    if (nome && nome.trim().length >= 2) {
+      updates.nome = nome.trim();
+    }
+
+    if (senha_nova) {
+      if (!senha_atual) return res.status(400).json({ erro: 'Informe a senha atual' });
+      if (senha_nova.length < 6) return res.status(400).json({ erro: 'Nova senha deve ter no minimo 6 caracteres' });
+
+      const { data: user } = await db.supabase
+        .from('usuarios')
+        .select('senha_hash')
+        .eq('id', req.userId)
+        .maybeSingle();
+      if (!user) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+
+      const bcrypt = require('bcryptjs');
+      const ok = await bcrypt.compare(senha_atual, user.senha_hash);
+      if (!ok) return res.status(401).json({ erro: 'Senha atual incorreta' });
+
+      updates.senha_hash = await bcrypt.hash(senha_nova, 10);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ erro: 'Nenhum campo para atualizar' });
+    }
+
+    const { error } = await db.supabase.from('usuarios').update(updates).eq('id', req.userId);
+    if (error) return res.status(500).json({ erro: error.message });
+
+    res.json({ ok: true, mensagem: 'Conta atualizada' });
+  } catch (err) {
+    console.error('[updateMe] erro:', err);
+    res.status(500).json({ erro: 'Erro ao atualizar conta' });
+  }
+});
+
 // Stripe Customer Portal — gerenciar plano (cancelar, upgrade, downgrade, cartao)
 app.post('/api/stripe/portal', authMiddleware, async (req, res) => {
   try {

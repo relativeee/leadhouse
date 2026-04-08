@@ -33,14 +33,20 @@
         <button class="sidebar__item" onclick="trocarAba('leads', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
             Cadastro de Leads
+            <span class="sidebar__badge" id="badgeLeads" style="display:none">0</span>
         </button>
         <button class="sidebar__item" onclick="trocarAba('visitas', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             Agenda de Visitas
+            <span class="sidebar__badge" id="badgeVisitas" style="display:none">0</span>
         </button>
         <button class="sidebar__item sidebar__item--ai" onclick="trocarAba('agente', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Agente IA
+        </button>
+        <button class="sidebar__item" onclick="trocarAba('conta', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Minha Conta
         </button>
     </nav>
     <div class="sidebar__footer">
@@ -565,6 +571,35 @@
 
 </main>
 
+<!-- ============================================
+     ABA: MINHA CONTA
+     ============================================ -->
+<main class="dashboard" id="aba-conta" style="display:none;">
+    <section class="pipeline-section" style="max-width:560px;margin:0 auto">
+        <div class="pipeline-header">
+            <div class="pipeline-header__title">Minha Conta</div>
+        </div>
+        <form id="formConta" onsubmit="salvarConta(event)" style="display:flex;flex-direction:column;gap:1rem;padding:1.5rem">
+            <div>
+                <label style="display:block;font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:0.4rem">Nome</label>
+                <input type="text" id="contaNome" required minlength="2" style="width:100%;padding:0.75rem 1rem;border:1px solid rgba(255,255,255,0.08);background:rgba(26,26,26,0.7);border-radius:8px;color:#E0E0E0;font-size:0.9rem;font-family:inherit">
+            </div>
+            <div>
+                <label style="display:block;font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:0.4rem">E-mail</label>
+                <input type="email" id="contaEmail" disabled style="width:100%;padding:0.75rem 1rem;border:1px solid rgba(255,255,255,0.05);background:rgba(20,20,20,0.5);border-radius:8px;color:#666;font-size:0.9rem;font-family:inherit">
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:1.25rem;margin-top:0.5rem">
+                <div style="font-size:0.78rem;color:#888;margin-bottom:1rem">Trocar senha (opcional)</div>
+                <div style="display:flex;flex-direction:column;gap:1rem">
+                    <input type="password" id="contaSenhaAtual" placeholder="Senha atual" autocomplete="current-password" style="width:100%;padding:0.75rem 1rem;border:1px solid rgba(255,255,255,0.08);background:rgba(26,26,26,0.7);border-radius:8px;color:#E0E0E0;font-size:0.9rem;font-family:inherit">
+                    <input type="password" id="contaSenhaNova" placeholder="Nova senha (mínimo 6 caracteres)" minlength="6" autocomplete="new-password" style="width:100%;padding:0.75rem 1rem;border:1px solid rgba(255,255,255,0.08);background:rgba(26,26,26,0.7);border-radius:8px;color:#E0E0E0;font-size:0.9rem;font-family:inherit">
+                </div>
+            </div>
+            <button type="submit" id="btnSalvarConta" style="margin-top:0.5rem;padding:0.85rem;border:none;border-radius:8px;background:#C9A84C;color:#0A0A0A;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer">Salvar alterações</button>
+        </form>
+    </section>
+</main>
+
 <!-- ── Modal Generico ── -->
 <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
     <div class="modal" onclick="event.stopPropagation()">
@@ -610,8 +645,107 @@ function trocarAba(aba, btn) {
 
     if (aba === 'dashboard') carregarDashboard();
     if (aba === 'imoveis') carregarImoveis();
-    if (aba === 'leads') carregarLeadsManuais();
-    if (aba === 'visitas') carregarVisitas();
+    if (aba === 'leads') { carregarLeadsManuais(); marcarLeadsVistos(); }
+    if (aba === 'visitas') { carregarVisitas(); marcarVisitasVistas(); }
+    if (aba === 'conta') carregarConta();
+}
+
+// ═══════════════════════════════════════════════
+// MINHA CONTA
+// ═══════════════════════════════════════════════
+async function carregarConta() {
+    try {
+        const res = await fetch('/api/auth/me', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const user = await res.json();
+        document.getElementById('contaNome').value = user.nome || '';
+        document.getElementById('contaEmail').value = user.email || '';
+        document.getElementById('contaSenhaAtual').value = '';
+        document.getElementById('contaSenhaNova').value = '';
+    } catch {}
+}
+
+async function salvarConta(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSalvarConta');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+    try {
+        const body = { nome: document.getElementById('contaNome').value };
+        const senhaNova = document.getElementById('contaSenhaNova').value;
+        if (senhaNova) {
+            body.senha_atual = document.getElementById('contaSenhaAtual').value;
+            body.senha_nova = senhaNova;
+        }
+        const res = await fetch('/api/auth/me', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao salvar');
+        toast('Conta atualizada com sucesso', 'success');
+        document.getElementById('contaSenhaAtual').value = '';
+        document.getElementById('contaSenhaNova').value = '';
+        refreshPlano();
+    } catch (err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+}
+
+// ═══════════════════════════════════════════════
+// NOTIFICACOES (badges nos itens da sidebar)
+// ═══════════════════════════════════════════════
+function marcarLeadsVistos() {
+    localStorage.setItem('lh_lastSeenLeads', new Date().toISOString());
+    const b = document.getElementById('badgeLeads');
+    if (b) b.style.display = 'none';
+}
+function marcarVisitasVistas() {
+    localStorage.setItem('lh_lastSeenVisitas', new Date().toISOString());
+    const b = document.getElementById('badgeVisitas');
+    if (b) b.style.display = 'none';
+}
+
+async function atualizarNotificacoes() {
+    try {
+        const headers = getAuthHeaders();
+        const [lr, vr, lmr] = await Promise.all([
+            fetch('/api/leads', { headers }).then(r => r.ok ? r.json() : []),
+            fetch('/api/visitas', { headers }).then(r => r.ok ? r.json() : []),
+            fetch('/api/leads-manual', { headers }).then(r => r.ok ? r.json() : []),
+        ]);
+        const lastLeads = localStorage.getItem('lh_lastSeenLeads');
+        const lastVisitas = localStorage.getItem('lh_lastSeenVisitas');
+
+        const todosLeads = [...(Array.isArray(lr) ? lr : []), ...(Array.isArray(lmr) ? lmr : [])];
+        const novosLeads = lastLeads
+            ? todosLeads.filter(l => new Date(l.created_at || 0) > new Date(lastLeads)).length
+            : todosLeads.length;
+
+        const hoje = new Date().toISOString().slice(0, 10);
+        const novasVisitas = (Array.isArray(vr) ? vr : []).filter(v => {
+            const data = (v.data_visita || '').slice(0, 10);
+            const isHoje = data === hoje;
+            const isNova = lastVisitas ? new Date(v.created_at || 0) > new Date(lastVisitas) : true;
+            return isHoje || isNova;
+        }).length;
+
+        const bL = document.getElementById('badgeLeads');
+        if (bL) {
+            if (novosLeads > 0) { bL.textContent = novosLeads > 99 ? '99+' : novosLeads; bL.style.display = 'inline-flex'; }
+            else { bL.style.display = 'none'; }
+        }
+        const bV = document.getElementById('badgeVisitas');
+        if (bV) {
+            if (novasVisitas > 0) { bV.textContent = novasVisitas > 99 ? '99+' : novasVisitas; bV.style.display = 'inline-flex'; }
+            else { bV.style.display = 'none'; }
+        }
+    } catch {}
 }
 
 // ═══════════════════════════════════════════════
@@ -1375,8 +1509,10 @@ function toggleSidebar() {
     // Buscar plano atualizado do servidor (caso tenha mudado via webhook)
     refreshPlano();
     carregarDashboard();
+    atualizarNotificacoes();
     setInterval(carregarDashboard, 30000);
     setInterval(refreshPlano, 30000);
+    setInterval(atualizarNotificacoes, 30000);
 })();
 </script>
 

@@ -281,6 +281,22 @@ body::after {
     color: var(--gold);
 }
 
+.sidebar__badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #C9A84C;
+    color: #0A0A0A;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
 .sidebar__footer {
     padding: 1.25rem 1.5rem;
     border-top: 1px solid var(--border);
