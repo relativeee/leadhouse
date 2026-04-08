@@ -183,7 +183,6 @@ body::after {
 .sidebar__logo-img {
     height: 80px;
     width: auto;
-    mix-blend-mode: lighten;
     transition: var(--transition);
 }
 

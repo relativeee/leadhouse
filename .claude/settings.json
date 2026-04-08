@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const fs=require\\('fs'\\);try{const sharp=require\\('sharp'\\);console.log\\('sharp available'\\);}catch\\(e\\){console.log\\('no sharp'\\);}\")"
+    ]
+  }
+}
