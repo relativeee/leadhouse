@@ -47,7 +47,7 @@
         <div class="sidebar__plan" id="sidebarPlan">
             <div class="sidebar__plan-label">Plano atual</div>
             <div class="sidebar__plan-name" id="sidebarPlanName">—</div>
-            <a href="https://leadhouse-site.vercel.app/#planos" target="_blank" class="sidebar__plan-cta" id="sidebarPlanCta">Fazer upgrade</a>
+            <a href="https://leadhouse-site.vercel.app/#planos" target="_blank" class="sidebar__plan-cta" id="sidebarPlanCta" onclick="handlePlanCta(event)">Fazer upgrade</a>
         </div>
         <div class="sidebar__user" id="sidebarUser"></div>
         <div class="sidebar__status">
@@ -687,9 +687,9 @@ function renderPlano(plano) {
     if (!nameEl || !ctaEl || !wrapEl) return;
 
     const planos = {
-        start: { label: 'Start',  upgrade: 'Fazer upgrade' },
-        pro:   { label: 'Pro',    upgrade: 'Ver Elite' },
-        elite: { label: 'Elite',  upgrade: 'Gerenciar' },
+        start: { label: 'Start' },
+        pro:   { label: 'Pro' },
+        elite: { label: 'Elite' },
     };
 
     const key = (plano || '').toLowerCase();
@@ -697,12 +697,31 @@ function renderPlano(plano) {
 
     if (info) {
         nameEl.textContent = info.label;
-        ctaEl.textContent = info.upgrade;
+        ctaEl.textContent = 'Gerenciar plano';
+        ctaEl.dataset.action = 'portal';
         wrapEl.classList.add('sidebar__plan--' + key);
     } else {
         nameEl.textContent = 'Gratuito';
         ctaEl.textContent = 'Fazer upgrade';
+        ctaEl.dataset.action = 'upgrade';
         wrapEl.classList.add('sidebar__plan--free');
+    }
+}
+
+async function handlePlanCta(e) {
+    const ctaEl = document.getElementById('sidebarPlanCta');
+    if (ctaEl?.dataset.action !== 'portal') return; // upgrade segue o link normal
+    e.preventDefault();
+    const original = ctaEl.textContent;
+    ctaEl.textContent = 'Abrindo...';
+    try {
+        const res = await fetch('/api/stripe/portal', { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao abrir portal');
+        window.location.href = data.url;
+    } catch (err) {
+        ctaEl.textContent = original;
+        alert(err.message);
     }
 }
 

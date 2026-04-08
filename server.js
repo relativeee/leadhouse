@@ -56,9 +56,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const plan  = session.metadata?.plan || null;
 
       if (email && plan) {
+        const update = { plano: plan };
+        if (session.customer) update.stripe_customer_id = session.customer;
         const { data, error } = await db.supabase
           .from('usuarios')
-          .update({ plano: plan })
+          .update(update)
           .eq('email', email)
           .select('id, email');
         if (error) console.error('[Stripe] erro ao atualizar plano:', error.message);
@@ -67,13 +69,32 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       }
     }
 
+    // Cliente trocou de plano (upgrade/downgrade) ou cancelou (cancel_at_period_end)
+    if (event.type === 'customer.subscription.updated') {
+      const sub = event.data.object;
+      const priceId = sub.items?.data?.[0]?.price?.id;
+      const PRICE_TO_PLAN = {
+        [process.env.STRIPE_START_PRICE_ID]: 'start',
+        [process.env.STRIPE_PRO_PRICE_ID]:   'pro',
+        [process.env.STRIPE_ELITE_PRICE_ID]: 'elite',
+      };
+      const plan = PRICE_TO_PLAN[priceId] || sub.metadata?.plan || null;
+      if (plan && sub.customer) {
+        // Se foi marcado pra cancelar no fim do periodo, mantem o plano ate la
+        const { error } = await db.supabase
+          .from('usuarios')
+          .update({ plano: plan })
+          .eq('stripe_customer_id', sub.customer);
+        if (error) console.error('[Stripe] erro update subscription:', error.message);
+        else console.log(`[Stripe] plano atualizado para ${plan} (customer ${sub.customer}, cancel_at_period_end=${sub.cancel_at_period_end})`);
+      }
+    }
+
     if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object;
-      const customer = await stripe.customers.retrieve(sub.customer);
-      const email = (customer.email || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (email) {
-        await db.supabase.from('usuarios').update({ plano: null }).eq('email', email);
-        console.log(`[Stripe] assinatura cancelada para ${email}`);
+      if (sub.customer) {
+        await db.supabase.from('usuarios').update({ plano: null }).eq('stripe_customer_id', sub.customer);
+        console.log(`[Stripe] assinatura encerrada para customer ${sub.customer}`);
       }
     }
 
@@ -240,11 +261,37 @@ app.post('/api/auth/reset', async (req, res) => {
   }
 });
 
+// Stripe Customer Portal — gerenciar plano (cancelar, upgrade, downgrade, cartao)
+app.post('/api/stripe/portal', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ erro: 'Stripe nao configurado' });
+
+    const { data: user, error } = await db.supabase
+      .from('usuarios')
+      .select('id, email, stripe_customer_id')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (error || !user) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+    if (!user.stripe_customer_id) return res.status(400).json({ erro: 'Voce ainda nao possui uma assinatura ativa' });
+
+    const baseUrl = process.env.SITE_URL || `https://${req.headers.host}`;
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: baseUrl + '/',
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('[portal] erro:', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano')
+      .select('id, nome, email, plano, stripe_customer_id')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
