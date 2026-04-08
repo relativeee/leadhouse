@@ -181,8 +181,10 @@ body::after {
 }
 
 .sidebar__logo-img {
-    height: 56px;
+    height: 80px;
     width: auto;
+    background: #0A0A0A;
+    mix-blend-mode: screen;
     transition: var(--transition);
 }
 
