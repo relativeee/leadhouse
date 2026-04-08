@@ -198,7 +198,7 @@ app.post('/api/auth/forgot', async (req, res) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              from: 'LeadHouse <onboarding@resend.dev>',
+              from: 'LeadHouse <noreply@leadhouses.com.br>',
               to: [user.email],
               subject: 'Redefinir sua senha — LeadHouse',
               html: `
