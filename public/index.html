@@ -78,23 +78,55 @@
      ============================================ -->
 <main class="dashboard" id="aba-dashboard">
 
-    <!-- Stats -->
+    <!-- Welcome bar -->
+    <section class="welcome">
+        <div>
+            <div class="welcome__greeting" id="welcomeGreeting">Bom dia</div>
+            <h1 class="welcome__title" id="welcomeName">—</h1>
+            <p class="welcome__phrase" id="welcomePhrase">Carregando seus resultados de hoje…</p>
+        </div>
+        <div class="welcome__live">
+            <span class="welcome__pulse"></span>
+            Atendimento ativo 24h
+        </div>
+    </section>
+
+    <!-- Stats focados em resultado -->
     <section class="stats stats--hero">
         <div class="stat-card stat-card--highlight">
-            <div class="stat-card__label">Total de Leads</div>
-            <div class="stat-card__value" id="totalLeads">--</div>
-            <div class="stat-card__detail">WhatsApp + Manual</div>
-            <div class="stat-card__trend" id="trendTotal"></div>
+            <div class="stat-card__icon">📩</div>
+            <div class="stat-card__label">Leads hoje</div>
+            <div class="stat-card__value" id="statLeadsHoje">--</div>
+            <div class="stat-card__detail" id="statLeadsHojeTrend">Novos contatos nas últimas 24h</div>
         </div>
         <div class="stat-card">
-            <div class="stat-card__label">Imoveis</div>
-            <div class="stat-card__value" id="totalImoveis">--</div>
-            <div class="stat-card__detail">No catálogo</div>
+            <div class="stat-card__icon">⚡</div>
+            <div class="stat-card__label">Respondidos automaticamente</div>
+            <div class="stat-card__value" id="statRespondidos">--</div>
+            <div class="stat-card__detail">A IA não deixou ninguém esperando</div>
         </div>
         <div class="stat-card">
-            <div class="stat-card__label">Visitas</div>
-            <div class="stat-card__value" id="totalVisitas">--</div>
-            <div class="stat-card__detail">Pendentes</div>
+            <div class="stat-card__icon">🔥</div>
+            <div class="stat-card__label">Leads qualificados</div>
+            <div class="stat-card__value" id="statQualificados">--</div>
+            <div class="stat-card__detail">Prontos pra fechar</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__icon">💰</div>
+            <div class="stat-card__label">Potenciais vendas</div>
+            <div class="stat-card__value" id="statPotenciais">--</div>
+            <div class="stat-card__detail">Visitas marcadas em aberto</div>
+        </div>
+    </section>
+
+    <!-- Barra de progresso de atendimento do dia -->
+    <section class="goal-bar">
+        <div class="goal-bar__head">
+            <div class="goal-bar__title" id="goalTitle">Você já respondeu 0% dos seus leads hoje</div>
+            <div class="goal-bar__sub" id="goalSub">Continue assim — cada resposta vira oportunidade</div>
+        </div>
+        <div class="goal-bar__track">
+            <div class="goal-bar__fill" id="goalFill" style="width:0%"></div>
         </div>
     </section>
 
@@ -1151,6 +1183,52 @@ async function apiCall(method, url, body) {
 // ═══════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════
+function isHoje(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const hoje = new Date();
+    return d.toDateString() === hoje.toDateString();
+}
+
+function renderWelcome(metrics) {
+    const hora = new Date().getHours();
+    let saudacao = 'Boa noite';
+    if (hora >= 5 && hora < 12) saudacao = 'Bom dia';
+    else if (hora >= 12 && hora < 18) saudacao = 'Boa tarde';
+    document.getElementById('welcomeGreeting').textContent = saudacao + ',';
+
+    let user = {};
+    try { user = JSON.parse(localStorage.getItem('lh_user') || '{}'); } catch {}
+    const primeiroNome = (user.nome || '').split(' ')[0] || 'corretor';
+    document.getElementById('welcomeName').textContent = primeiroNome;
+
+    const phraseEl = document.getElementById('welcomePhrase');
+    const { leadsHoje, qualificados, potenciais, respondidos } = metrics;
+    let frase;
+    if (qualificados >= 3) frase = `${qualificados} clientes estão prontos pra fechar agora.`;
+    else if (qualificados === 1 || qualificados === 2) frase = `${qualificados} cliente${qualificados>1?'s':''} pronto${qualificados>1?'s':''} pra fechar — não deixe esfriar.`;
+    else if (leadsHoje >= 5) frase = `Você teve ${leadsHoje} novos leads hoje. Bora qualificar?`;
+    else if (leadsHoje > 0) frase = `Você respondeu ${respondidos} lead${respondidos!==1?'s':''} automaticamente hoje.`;
+    else if (potenciais > 0) frase = `Você tem ${potenciais} oportunidade${potenciais>1?'s':''} em aberto.`;
+    else frase = `Seu atendimento está ativo 24h. Bora trazer mais leads?`;
+    phraseEl.textContent = frase;
+}
+
+function renderGoalBar(metrics) {
+    const { leadsHoje, respondidos } = metrics;
+    const pct = leadsHoje > 0 ? Math.round((respondidos / leadsHoje) * 100) : 0;
+    const fill = document.getElementById('goalFill');
+    const title = document.getElementById('goalTitle');
+    const sub = document.getElementById('goalSub');
+    fill.style.width = Math.max(pct, leadsHoje > 0 ? 4 : 0) + '%';
+    title.textContent = `Você já respondeu ${pct}% dos seus leads hoje`;
+    if (leadsHoje === 0) sub.textContent = 'Sem leads novos ainda — sua automação continua ativa.';
+    else if (pct >= 100) sub.textContent = 'Todo mundo atendido. Foco em fechar agora.';
+    else if (pct >= 60) sub.textContent = 'Tá indo bem — falta pouco pra zerar a fila.';
+    else sub.textContent = 'Continue assim — cada resposta vira oportunidade.';
+}
+
 async function carregarDashboard() {
     try {
         const h = { headers: getAuthHeaders() };
@@ -1171,10 +1249,21 @@ async function carregarDashboard() {
             frios: allLeads.filter(l => l.temperatura === 'frio').length,
         };
         const visitasAgendadas = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada');
-        document.getElementById('totalLeads').textContent = counts.total;
-        document.getElementById('totalImoveis').textContent = imv.length;
-        document.getElementById('totalVisitas').textContent = visitasAgendadas.length;
 
+        // Metricas focadas em resultado
+        const leadsHoje = allLeads.filter(l => isHoje(l.created_at) || isHoje(l.criadoEm) || isHoje(l.ultimaAtualizacao)).length;
+        const respondidos = wpp.filter(l => (l.totalMensagens || 0) > 0 && (isHoje(l.ultimaAtualizacao) || isHoje(l.created_at))).length;
+        const qualificados = counts.quentes;
+        const potenciais = visitasAgendadas.length;
+
+        const metrics = { leadsHoje, respondidos, qualificados, potenciais };
+        document.getElementById('statLeadsHoje').textContent = leadsHoje;
+        document.getElementById('statRespondidos').textContent = respondidos;
+        document.getElementById('statQualificados').textContent = qualificados;
+        document.getElementById('statPotenciais').textContent = potenciais;
+
+        renderWelcome(metrics);
+        renderGoalBar(metrics);
         renderPipeline(counts, visitasAgendadas.length);
         renderTrends(counts);
         renderChart(allLeads);
@@ -1184,9 +1273,13 @@ async function carregarDashboard() {
         dashLeads = [];
         setStatus(false);
         const counts = { total: 0, quentes: 0, mornos: 0, frios: 0 };
-        document.getElementById('totalLeads').textContent = 0;
-        document.getElementById('totalImoveis').textContent = 0;
-        document.getElementById('totalVisitas').textContent = 0;
+        const metrics = { leadsHoje: 0, respondidos: 0, qualificados: 0, potenciais: 0 };
+        document.getElementById('statLeadsHoje').textContent = 0;
+        document.getElementById('statRespondidos').textContent = 0;
+        document.getElementById('statQualificados').textContent = 0;
+        document.getElementById('statPotenciais').textContent = 0;
+        renderWelcome(metrics);
+        renderGoalBar(metrics);
         renderPipeline(counts, 0);
         renderTrends(counts);
         renderChart(dashLeads);
