@@ -672,6 +672,49 @@
 <!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
 
+<!-- ── Tela de bloqueio: usuario sem plano ── -->
+<div class="paywall" id="paywall" style="display:none">
+    <div class="paywall__inner">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.5" style="margin-bottom:1.5rem"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <h1>Escolha seu plano</h1>
+        <p>Pra acessar o LeadHouse e parar de perder vendas, escolha um plano abaixo. Você pode trocar ou cancelar quando quiser.</p>
+        <div class="paywall__planos" id="paywallPlanos">
+            <div class="plan-card" data-plan="start">
+                <div class="plan-card__name">Start</div>
+                <div class="plan-card__price">R$49,99<span>/mês</span></div>
+                <ul class="plan-card__list">
+                    <li>Até 50 leads</li>
+                    <li>Pipeline básico</li>
+                    <li>Suporte por e-mail</li>
+                </ul>
+                <button type="button" class="plan-card__btn" onclick="paywallAssinar('start')">Assinar Start</button>
+            </div>
+            <div class="plan-card plan-card--featured" data-plan="pro">
+                <div class="plan-card__badge">Mais popular</div>
+                <div class="plan-card__name">Pro</div>
+                <div class="plan-card__price">R$149,99<span>/mês</span></div>
+                <ul class="plan-card__list">
+                    <li>Leads ilimitados</li>
+                    <li>WhatsApp + IA 24h</li>
+                    <li>Suporte prioritário</li>
+                </ul>
+                <button type="button" class="plan-card__btn plan-card__btn--gold" onclick="paywallAssinar('pro')">Assinar Pro</button>
+            </div>
+            <div class="plan-card" data-plan="elite">
+                <div class="plan-card__name">Elite</div>
+                <div class="plan-card__price">R$249,99<span>/mês</span></div>
+                <ul class="plan-card__list">
+                    <li>Tudo do Pro</li>
+                    <li>Múltiplos corretores</li>
+                    <li>Gerente de conta</li>
+                </ul>
+                <button type="button" class="plan-card__btn" onclick="paywallAssinar('elite')">Assinar Elite</button>
+            </div>
+        </div>
+        <button type="button" class="paywall__logout" onclick="logout()">Sair da conta</button>
+    </div>
+</div>
+
 <!-- ── Footer ── -->
 <footer class="footer">LeadHouse &mdash; Gestão imobiliária inteligente</footer>
 
@@ -1016,6 +1059,22 @@ function logout() {
     window.location.href = '/login';
 }
 
+function paywallAssinar(plan) {
+    window.location.href = 'https://leadhouses.com.br/api/checkout?plan=' + plan;
+}
+
+function checkPaywall(plano) {
+    const paywall = document.getElementById('paywall');
+    if (!paywall) return;
+    if (!plano) {
+        paywall.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } else {
+        paywall.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
 async function refreshPlano() {
     try {
         const res = await fetch('/api/auth/me', { headers: getAuthHeaders() });
@@ -1025,6 +1084,7 @@ async function refreshPlano() {
         const elNome = document.getElementById('sidebarUser');
         if (elNome && user.nome) elNome.textContent = user.nome;
         renderPlano(user.plano);
+        checkPaywall(user.plano);
         // Atualiza localStorage
         localStorage.setItem('lh_user', JSON.stringify(user));
     } catch {}
@@ -1715,6 +1775,12 @@ function toggleSidebar() {
     } catch {}
 
     // Buscar plano atualizado do servidor (caso tenha mudado via webhook)
+    // Mostra paywall imediato baseado no localStorage (evita flicker)
+    try {
+        const cached = JSON.parse(localStorage.getItem('lh_user') || '{}');
+        if (!cached.plano) checkPaywall(null);
+    } catch {}
+
     refreshPlano();
     carregarDashboard();
     atualizarNotificacoes();

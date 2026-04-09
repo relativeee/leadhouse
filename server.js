@@ -695,11 +695,26 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────
 // Proteger todas as rotas /api (exceto auth e webhook)
 // ─────────────────────────────────────────────
-app.use('/api/imoveis', authMiddleware);
-app.use('/api/leads', authMiddleware);
-app.use('/api/leads-manual', authMiddleware);
-app.use('/api/visitas', authMiddleware);
-app.use('/api/agente', authMiddleware);
+// Middleware: bloqueia rotas se usuario nao tem plano ativo
+async function requirePlan(req, res, next) {
+  try {
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('plano')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user?.plano) return res.status(402).json({ erro: 'Plano necessario', code: 'NO_PLAN' });
+    next();
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+}
+
+app.use('/api/imoveis', authMiddleware, requirePlan);
+app.use('/api/leads', authMiddleware, requirePlan);
+app.use('/api/leads-manual', authMiddleware, requirePlan);
+app.use('/api/visitas', authMiddleware, requirePlan);
+app.use('/api/agente', authMiddleware, requirePlan);
 
 // ─────────────────────────────────────────────
 // GET /webhook — Verificacao do webhook (Meta)
