@@ -451,13 +451,28 @@ async function criarEventoGCal(userId, visita) {
 
     const access_token = await googleAccessToken(user.google_refresh_token);
 
-    // monta o datetime ISO (assume timezone America/Sao_Paulo)
-    // visita.data = '2026-04-15', visita.horario = '14:30'
-    const startIso = `${visita.data}T${visita.horario}:00`;
-    const [h, m] = visita.horario.split(':').map(Number);
-    const end = new Date(`${visita.data}T${visita.horario}:00`);
-    end.setMinutes(end.getMinutes() + 60); // 1h de duracao
-    const endIso = end.toISOString().slice(0, 19);
+    // Normaliza data — aceita "2026-04-12" ou "12/04/2026"
+    let dataIso = visita.data;
+    if (dataIso && dataIso.includes('/')) {
+      const [d, m, y] = dataIso.split('/');
+      dataIso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+    // Normaliza horario — aceita "14:30" ou "14:30:00"
+    let horaIso = (visita.horario || '00:00').slice(0, 5); // pega so HH:MM
+    if (!/^\d{2}:\d{2}$/.test(horaIso)) {
+      console.error('[google] horario invalido:', visita.horario);
+      return null;
+    }
+    const startIso = `${dataIso}T${horaIso}:00`;
+    const startDate = new Date(`${startIso}-03:00`); // explicito BRT
+    if (isNaN(startDate.getTime())) {
+      console.error('[google] data invalida:', { data: visita.data, horario: visita.horario, startIso });
+      return null;
+    }
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    const pad = n => String(n).padStart(2, '0');
+    const endLocal = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
+    const endIso = endLocal;
 
     const event = {
       summary: `Visita: ${visita.lead_nome}${visita.imovel_titulo ? ' — ' + visita.imovel_titulo : ''}`,
