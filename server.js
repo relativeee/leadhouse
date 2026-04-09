@@ -697,7 +697,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────
 // Limites por plano
 const PLAN_LIMITS = {
-  start: { maxLeads: 50, maxImoveis: 10, hasAI: false },
+  start: { maxLeads: 15, maxImoveis: 5, hasAI: false },
   pro:   { maxLeads: Infinity, maxImoveis: Infinity, hasAI: true },
   elite: { maxLeads: Infinity, maxImoveis: Infinity, hasAI: true },
 };
