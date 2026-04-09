@@ -1058,21 +1058,13 @@ function renderPlano(plano) {
     }
 }
 
-async function handlePlanCta(e) {
+function handlePlanCta(e) {
     const ctaEl = document.getElementById('sidebarPlanCta');
     if (ctaEl?.dataset.action !== 'portal') return; // upgrade segue o link normal
     e.preventDefault();
-    const original = ctaEl.textContent;
-    ctaEl.textContent = 'Abrindo...';
-    try {
-        const res = await fetch('/api/stripe/portal', { method: 'POST', headers: getAuthHeaders() });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.erro || 'Erro ao abrir portal');
-        window.location.href = data.url;
-    } catch (err) {
-        ctaEl.textContent = original;
-        alert(err.message);
-    }
+    // Abre a aba Minha Conta direto
+    const btnConta = document.querySelector('.sidebar__item[onclick*="conta"]');
+    if (btnConta) btnConta.click();
 }
 
 async function apiCall(method, url, body) {
