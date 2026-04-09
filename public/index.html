@@ -234,10 +234,26 @@
      ============================================ -->
 <main class="dashboard" id="aba-imoveis" style="display:none;">
 
-    <div class="section-title">Cadastro de Imóveis</div>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Imóveis</h1>
+            <p class="page-header__sub">Organize, acompanhe e conecte seu portfólio às oportunidades</p>
+        </div>
+        <button class="btn btn--primary page-header__cta" onclick="toggleForm('imoveis')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Adicionar imóvel</span>
+        </button>
+    </header>
+
+    <div class="stat-strip" id="imvStatStrip">
+        <div class="stat-mini"><div class="stat-mini__label">Total</div><div class="stat-mini__value" id="imvTotal">0</div></div>
+        <div class="stat-mini stat-mini--ok"><div class="stat-mini__label">Disponíveis</div><div class="stat-mini__value" id="imvDisp">0</div></div>
+        <div class="stat-mini stat-mini--warn"><div class="stat-mini__label">Reservados</div><div class="stat-mini__value" id="imvRes">0</div></div>
+        <div class="stat-mini stat-mini--gold"><div class="stat-mini__label">Vendidos</div><div class="stat-mini__value" id="imvVend">0</div></div>
+    </div>
 
     <!-- Formulario -->
-    <div class="form-card" id="formImovelCard">
+    <div class="form-card form-collapse is-collapsed" id="formImovelCard">
         <div class="form-hint">* Campos obrigatórios</div>
 
         <!-- Secao: Identificação -->
@@ -395,10 +411,26 @@
      ============================================ -->
 <main class="dashboard" id="aba-leads" style="display:none;">
 
-    <div class="section-title">Cadastro de Leads</div>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Leads</h1>
+            <p class="page-header__sub">Acompanhe, qualifique e avance oportunidades com mais controle</p>
+        </div>
+        <button class="btn btn--primary page-header__cta" onclick="toggleForm('leads')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Novo lead</span>
+        </button>
+    </header>
+
+    <div class="stat-strip">
+        <div class="stat-mini"><div class="stat-mini__label">Total</div><div class="stat-mini__value" id="ldTotal">0</div></div>
+        <div class="stat-mini stat-mini--quente"><div class="stat-mini__label">Quentes</div><div class="stat-mini__value" id="ldQuentes">0</div></div>
+        <div class="stat-mini stat-mini--warn"><div class="stat-mini__label">Mornos</div><div class="stat-mini__value" id="ldMornos">0</div></div>
+        <div class="stat-mini stat-mini--frio"><div class="stat-mini__label">Frios</div><div class="stat-mini__value" id="ldFrios">0</div></div>
+    </div>
 
     <!-- Formulario -->
-    <div class="form-card">
+    <div class="form-card form-collapse is-collapsed" id="formLeadCard">
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">Nome *</label>
@@ -529,10 +561,26 @@
      ============================================ -->
 <main class="dashboard" id="aba-visitas" style="display:none;">
 
-    <div class="section-title">Agenda de Visitas</div>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Agenda de visitas</h1>
+            <p class="page-header__sub">Organize confirmações, horários e visitas agendadas</p>
+        </div>
+        <button class="btn btn--primary page-header__cta" onclick="toggleForm('visitas')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Agendar visita</span>
+        </button>
+    </header>
+
+    <div class="stat-strip">
+        <div class="stat-mini stat-mini--gold"><div class="stat-mini__label">Hoje</div><div class="stat-mini__value" id="vsStatHoje">0</div></div>
+        <div class="stat-mini"><div class="stat-mini__label">Próximas 7 dias</div><div class="stat-mini__value" id="vsStatSemana">0</div></div>
+        <div class="stat-mini stat-mini--ok"><div class="stat-mini__label">Confirmadas</div><div class="stat-mini__value" id="vsStatConf">0</div></div>
+        <div class="stat-mini stat-mini--danger"><div class="stat-mini__label">Canceladas</div><div class="stat-mini__value" id="vsStatCanc">0</div></div>
+    </div>
 
     <!-- Formulario -->
-    <div class="form-card">
+    <div class="form-card form-collapse is-collapsed" id="formVisitaCard">
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">Nome do Lead *</label>
@@ -1419,6 +1467,19 @@ async function carregarImoveis() {
     renderImoveis();
 }
 
+function toggleForm(qual) {
+    const map = { imoveis: 'formImovelCard', leads: 'formLeadCard', visitas: 'formVisitaCard' };
+    const el = document.getElementById(map[qual]);
+    if (!el) return;
+    const opening = el.classList.contains('is-collapsed');
+    el.classList.toggle('is-collapsed');
+    if (opening) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+        const firstInput = el.querySelector('input, select, textarea');
+        if (firstInput) setTimeout(() => firstInput.focus(), 350);
+    }
+}
+
 let imovelFiltro = { status: 'todos' };
 function filtrarImovel(tipo, val, btn) {
     imovelFiltro[tipo] = val;
@@ -1468,6 +1529,18 @@ function renderImoveis() {
 
     document.getElementById('imvCount').textContent = `${imoveisData.length} ${imoveisData.length===1?'imóvel':'imóveis'}`;
 
+    // Stat strip
+    const sc = { total: imoveisData.length, disp: 0, res: 0, vend: 0 };
+    imoveisData.forEach(i => {
+        if (i.status === 'disponivel') sc.disp++;
+        else if (i.status === 'reservado') sc.res++;
+        else if (i.status === 'vendido') sc.vend++;
+    });
+    document.getElementById('imvTotal').textContent = sc.total;
+    document.getElementById('imvDisp').textContent = sc.disp;
+    document.getElementById('imvRes').textContent = sc.res;
+    document.getElementById('imvVend').textContent = sc.vend;
+
     if (!filtrados.length) { grid.innerHTML = ''; document.getElementById('imoveisEmpty').style.display = 'block'; return; }
     document.getElementById('imoveisEmpty').style.display = 'none';
 
@@ -1505,6 +1578,7 @@ function vincularImovelAVisita(titulo, endereco) {
     const btnVisitas = document.querySelector('.sidebar__item[onclick*="visitas"]');
     if (btnVisitas) btnVisitas.click();
     setTimeout(() => {
+        document.getElementById('formVisitaCard').classList.remove('is-collapsed');
         document.getElementById('vsImovelTitulo').value = titulo;
         if (endereco) document.getElementById('vsEndereco').value = endereco;
         document.getElementById('vsLeadNome').focus();
@@ -1548,6 +1622,7 @@ async function salvarImovel() {
         await apiCall('POST', '/api/imoveis', body);
         toast('Imóvel cadastrado com sucesso!', 'sucesso');
         limparFormImovel();
+        document.getElementById('formImovelCard').classList.add('is-collapsed');
         carregarImoveis();
     } catch(e) { toast('Erro ao cadastrar imóvel', 'erro'); }
 }
@@ -1639,6 +1714,10 @@ function renderLeadsManuais() {
     document.getElementById('cntQuente').textContent = cnt.quente;
     document.getElementById('cntMorno').textContent = cnt.morno;
     document.getElementById('cntFrio').textContent = cnt.frio;
+    document.getElementById('ldTotal').textContent = leadsManuaisData.length;
+    document.getElementById('ldQuentes').textContent = cnt.quente;
+    document.getElementById('ldMornos').textContent = cnt.morno;
+    document.getElementById('ldFrios').textContent = cnt.frio;
 
     let filtrados = leadsManuaisData.slice();
     if (leadFiltro.temp !== 'todos') filtrados = filtrados.filter(l => l.temperatura === leadFiltro.temp);
@@ -1688,6 +1767,7 @@ function agendarVisitaLead(nome, telefone) {
     const btnVisitas = document.querySelector('.sidebar__item[onclick*="visitas"]');
     if (btnVisitas) btnVisitas.click();
     setTimeout(() => {
+        document.getElementById('formVisitaCard').classList.remove('is-collapsed');
         document.getElementById('vsLeadNome').value = nome;
         document.getElementById('vsLeadTelefone').value = telefone;
         document.getElementById('vsData').focus();
@@ -1713,6 +1793,7 @@ async function salvarLead() {
         await apiCall('POST', '/api/leads-manual', body);
         toast('Lead cadastrado com sucesso!', 'sucesso');
         limparFormLead();
+        document.getElementById('formLeadCard').classList.add('is-collapsed');
         carregarLeadsManuais();
     } catch(e) { toast('Erro ao cadastrar lead', 'erro'); }
 }
@@ -1785,6 +1866,15 @@ function renderVisitas() {
     });
     document.getElementById('vsHoje').textContent = hojeC;
     document.getElementById('vsSemana').textContent = semC;
+    let confC = 0, cancC = 0;
+    visitasData.forEach(v => {
+        if (v.status === 'confirmada') confC++;
+        else if (v.status === 'cancelada') cancC++;
+    });
+    document.getElementById('vsStatHoje').textContent = hojeC;
+    document.getElementById('vsStatSemana').textContent = semC;
+    document.getElementById('vsStatConf').textContent = confC;
+    document.getElementById('vsStatCanc').textContent = cancC;
 
     if (!filtrados.length) { cont.innerHTML = ''; document.getElementById('visitasEmpty').style.display = 'block'; return; }
     document.getElementById('visitasEmpty').style.display = 'none';
@@ -1864,6 +1954,7 @@ async function salvarVisita() {
         await apiCall('POST', '/api/visitas', body);
         toast('Visita agendada com sucesso!', 'sucesso');
         limparFormVisita();
+        document.getElementById('formVisitaCard').classList.add('is-collapsed');
         carregarVisitas();
     } catch(e) { toast('Erro ao agendar visita', 'erro'); }
 }

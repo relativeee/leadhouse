@@ -2027,6 +2027,85 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ═══════════════════════════════════════════════
+   PAGE HEADER + STAT STRIP + COLLAPSIBLE FORM
+   ═══════════════════════════════════════════════ */
+.page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1.5rem; flex-wrap: wrap;
+    padding-bottom: 1.4rem; margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.page-header__title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem; font-weight: 600; color: #f5f5f5;
+    margin: 0; letter-spacing: -0.02em; line-height: 1.1;
+}
+.page-header__sub { color: #888; font-size: 0.9rem; margin: 0.5rem 0 0; max-width: 540px; }
+.page-header__cta {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.75rem 1.4rem !important;
+    box-shadow: 0 8px 24px rgba(201,169,97,0.18);
+}
+
+.stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+.stat-mini {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 0.95rem 1.1rem;
+    position: relative;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+.stat-mini::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: rgba(255,255,255,0.08);
+}
+.stat-mini--ok::before { background: linear-gradient(90deg, #4ee082, #2eb564); }
+.stat-mini--warn::before { background: linear-gradient(90deg, #ffb547, #e89017); }
+.stat-mini--gold::before { background: linear-gradient(90deg, #c9a961, #8a7338); }
+.stat-mini--danger::before { background: linear-gradient(90deg, #ff6b4a, #e54818); }
+.stat-mini--quente::before { background: linear-gradient(90deg, #ff6b4a, #e54818); box-shadow: 0 0 12px rgba(255,107,74,0.4); }
+.stat-mini--frio::before { background: linear-gradient(90deg, #5aa8e0, #3b7fb8); }
+.stat-mini:hover { border-color: rgba(201,169,97,0.3); transform: translateY(-2px); }
+.stat-mini__label {
+    font-size: 0.7rem; color: #888;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    font-weight: 600; margin-bottom: 0.45rem;
+}
+.stat-mini__value {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.85rem; font-weight: 700; color: #f3f3f3;
+    line-height: 1;
+}
+
+@media (max-width: 720px) {
+    .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    .page-header__title { font-size: 1.5rem; }
+}
+
+.form-collapse {
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    max-height: 4000px;
+    opacity: 1;
+}
+.form-collapse.is-collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border: none !important;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════
    PORTFOLIO / OPORTUNIDADES / AGENDA — UPGRADE
    ═══════════════════════════════════════════════ */
 .portfolio { margin-top: 1.5rem; }
