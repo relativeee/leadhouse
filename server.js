@@ -695,6 +695,16 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────
 // Proteger todas as rotas /api (exceto auth e webhook)
 // ─────────────────────────────────────────────
+// Limites por plano
+const PLAN_LIMITS = {
+  start: { maxLeads: 50, maxImoveis: 10, hasAI: false },
+  pro:   { maxLeads: Infinity, maxImoveis: Infinity, hasAI: true },
+  elite: { maxLeads: Infinity, maxImoveis: Infinity, hasAI: true },
+};
+function getPlanLimits(plano) {
+  return PLAN_LIMITS[(plano || '').toLowerCase()] || null;
+}
+
 // Middleware: bloqueia rotas se usuario nao tem plano ativo
 async function requirePlan(req, res, next) {
   try {
@@ -704,17 +714,27 @@ async function requirePlan(req, res, next) {
       .eq('id', req.userId)
       .maybeSingle();
     if (!user?.plano) return res.status(402).json({ erro: 'Plano necessario', code: 'NO_PLAN' });
+    req.userPlan = user.plano;
+    req.userLimits = getPlanLimits(user.plano);
     next();
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 }
 
+// Middleware: requer feature de IA (Pro+)
+function requireAI(req, res, next) {
+  if (!req.userLimits?.hasAI) {
+    return res.status(403).json({ erro: 'Agente IA disponivel apenas no plano Pro ou Elite', code: 'NEED_UPGRADE', requiredPlan: 'pro' });
+  }
+  next();
+}
+
 app.use('/api/imoveis', authMiddleware, requirePlan);
 app.use('/api/leads', authMiddleware, requirePlan);
 app.use('/api/leads-manual', authMiddleware, requirePlan);
 app.use('/api/visitas', authMiddleware, requirePlan);
-app.use('/api/agente', authMiddleware, requirePlan);
+app.use('/api/agente', authMiddleware, requirePlan, requireAI);
 
 // ─────────────────────────────────────────────
 // GET /webhook — Verificacao do webhook (Meta)
@@ -832,6 +852,17 @@ app.post('/api/imoveis', async (req, res) => {
   const { titulo, tipo } = req.body;
   if (!titulo || !tipo) return res.status(400).json({ erro: 'Titulo e tipo sao obrigatorios' });
   try {
+    // Checa limite do plano
+    if (req.userLimits && req.userLimits.maxImoveis !== Infinity) {
+      const atuais = await db.listarImoveis(req.userId);
+      if (atuais.length >= req.userLimits.maxImoveis) {
+        return res.status(403).json({
+          erro: `Limite de ${req.userLimits.maxImoveis} imóveis atingido. Faça upgrade para o plano Pro para cadastrar imóveis ilimitados.`,
+          code: 'LIMIT_REACHED',
+          requiredPlan: 'pro',
+        });
+      }
+    }
     const imovel = await db.criarImovel({
       titulo, tipo,
       status: req.body.status || 'disponivel',
@@ -886,6 +917,17 @@ app.post('/api/leads-manual', async (req, res) => {
   const { nome, telefone } = req.body;
   if (!nome || !telefone) return res.status(400).json({ erro: 'Nome e telefone sao obrigatorios' });
   try {
+    // Checa limite do plano (conta leads de todas as origens)
+    if (req.userLimits && req.userLimits.maxLeads !== Infinity) {
+      const todos = await db.listarLeads(null, req.userId);
+      if (todos.length >= req.userLimits.maxLeads) {
+        return res.status(403).json({
+          erro: `Limite de ${req.userLimits.maxLeads} leads atingido. Faça upgrade para o plano Pro para leads ilimitados.`,
+          code: 'LIMIT_REACHED',
+          requiredPlan: 'pro',
+        });
+      }
+    }
     const lead = await db.criarLead({
       nome, telefone,
       email: req.body.email || '',

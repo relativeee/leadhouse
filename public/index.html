@@ -1132,7 +1132,20 @@ async function apiCall(method, url, body) {
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(url, opts);
     if (res.status === 401) { logout(); return {}; }
-    return res.json();
+    if (res.status === 402) {
+        // sem plano — mostra paywall
+        checkPaywall(null);
+        return {};
+    }
+    const data = await res.json();
+    if (res.status === 403 && (data.code === 'LIMIT_REACHED' || data.code === 'NEED_UPGRADE')) {
+        toast(data.erro || 'Faça upgrade para continuar', 'error');
+        // abre Minha Conta pra facilitar upgrade
+        const btnConta = document.querySelector('.sidebar__item[onclick*="conta"]');
+        if (btnConta) setTimeout(() => btnConta.click(), 800);
+        return {};
+    }
+    return data;
 }
 
 // ═══════════════════════════════════════════════
@@ -1705,9 +1718,15 @@ async function gerarResumoIA() {
     errorEl.style.display = 'none';
 
     try {
-        const res = await fetch('/api/agente/resumo', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const res = await fetch('/api/agente/resumo', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() } });
         const data = await res.json();
 
+        if (res.status === 403 && (data.code === 'NEED_UPGRADE' || data.code === 'LIMIT_REACHED')) {
+            toast(data.erro, 'error');
+            const btnConta = document.querySelector('.sidebar__item[onclick*="conta"]');
+            if (btnConta) setTimeout(() => btnConta.click(), 800);
+            return;
+        }
         if (!res.ok) throw new Error(data.erro || 'Erro desconhecido');
 
         ultimoResumo = data.resumo;
