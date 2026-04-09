@@ -9,6 +9,8 @@ const path = require('path');
 const express = require('express');
 const db = require('./services/supabase');
 const { registrar, login, authMiddleware } = require('./services/auth');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'leadhouse_secret_2024_change_me';
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
@@ -306,6 +308,199 @@ app.put('/api/auth/me', authMiddleware, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────
+// Google Calendar — OAuth + criacao de eventos
+// ─────────────────────────────────────────────
+const GOOGLE_SCOPES = [
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid',
+].join(' ');
+
+function googleRedirectUri(req) {
+  const base = process.env.SITE_URL || `https://${req.headers.host}`;
+  return `${base}/api/google/callback`;
+}
+
+// Inicia o fluxo OAuth — gera link e redireciona
+// Aceita token via query param (?token=...) porque o navegador nao envia headers em redirect
+app.get('/api/google/auth', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).send('Google nao configurado');
+  const token = req.query.token;
+  if (!token) return res.status(401).send('Token nao fornecido');
+  let decoded;
+  try { decoded = jwt.verify(token, JWT_SECRET); }
+  catch { return res.status(401).send('Token invalido'); }
+
+  // assina o userId no state pra recuperar no callback
+  const state = jwt.sign({ uid: decoded.id }, JWT_SECRET, { expiresIn: '10m' });
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: googleRedirectUri(req),
+    response_type: 'code',
+    scope: GOOGLE_SCOPES,
+    access_type: 'offline',
+    prompt: 'consent',
+    state,
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// Callback do Google — troca code por tokens e salva refresh_token
+app.get('/api/google/callback', async (req, res) => {
+  try {
+    const { code, state, error } = req.query;
+    if (error) return res.redirect('/?google=error');
+    if (!code || !state) return res.status(400).send('Faltou code ou state');
+
+    let payload;
+    try { payload = jwt.verify(state, JWT_SECRET); }
+    catch { return res.status(400).send('State invalido'); }
+    const userId = payload.uid;
+
+    // Troca code por tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: googleRedirectUri(req),
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    if (!tokenRes.ok) {
+      console.error('[google] erro tokens:', tokens);
+      return res.redirect('/?google=error');
+    }
+
+    // Pega o email da conta
+    let google_email = null;
+    try {
+      const uiRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      const ui = await uiRes.json();
+      google_email = ui.email || null;
+    } catch {}
+
+    if (!tokens.refresh_token) {
+      console.warn('[google] sem refresh_token — usuario ja autorizou antes');
+    }
+
+    const update = { google_email };
+    if (tokens.refresh_token) update.google_refresh_token = tokens.refresh_token;
+
+    const { error: dbErr } = await db.supabase
+      .from('usuarios')
+      .update(update)
+      .eq('id', userId);
+    if (dbErr) {
+      console.error('[google] erro salvando token:', dbErr.message);
+      return res.redirect('/?google=error');
+    }
+
+    res.redirect('/?google=ok');
+  } catch (err) {
+    console.error('[google callback] erro:', err);
+    res.redirect('/?google=error');
+  }
+});
+
+// Desconectar Google
+app.post('/api/google/disconnect', authMiddleware, async (req, res) => {
+  try {
+    await db.supabase
+      .from('usuarios')
+      .update({ google_refresh_token: null, google_email: null })
+      .eq('id', req.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Helper: pega access_token a partir do refresh_token salvo
+async function googleAccessToken(refresh_token) {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || 'Erro ao renovar token Google');
+  return data.access_token;
+}
+
+// Helper: cria evento no GCal do usuario
+async function criarEventoGCal(userId, visita) {
+  try {
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('google_refresh_token')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!user?.google_refresh_token) return null;
+
+    const access_token = await googleAccessToken(user.google_refresh_token);
+
+    // monta o datetime ISO (assume timezone America/Sao_Paulo)
+    // visita.data = '2026-04-15', visita.horario = '14:30'
+    const startIso = `${visita.data}T${visita.horario}:00`;
+    const [h, m] = visita.horario.split(':').map(Number);
+    const end = new Date(`${visita.data}T${visita.horario}:00`);
+    end.setMinutes(end.getMinutes() + 60); // 1h de duracao
+    const endIso = end.toISOString().slice(0, 19);
+
+    const event = {
+      summary: `Visita: ${visita.lead_nome}${visita.imovel_titulo ? ' — ' + visita.imovel_titulo : ''}`,
+      description: [
+        visita.lead_telefone ? `Telefone: ${visita.lead_telefone}` : null,
+        visita.endereco ? `Endereco: ${visita.endereco}` : null,
+        visita.observacoes ? `Obs: ${visita.observacoes}` : null,
+        '',
+        'Agendado pelo LeadHouse',
+      ].filter(Boolean).join('\n'),
+      location: visita.endereco || undefined,
+      start: { dateTime: startIso, timeZone: 'America/Sao_Paulo' },
+      end:   { dateTime: endIso,   timeZone: 'America/Sao_Paulo' },
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'popup', minutes: 60 },
+          { method: 'popup', minutes: 10 },
+        ],
+      },
+    };
+
+    const evRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+    const evData = await evRes.json();
+    if (!evRes.ok) {
+      console.error('[google] erro criando evento:', evData);
+      return null;
+    }
+    console.log(`[google] evento criado: ${evData.id} para usuario ${userId}`);
+    return evData.id;
+  } catch (err) {
+    console.error('[google] criarEventoGCal:', err.message);
+    return null;
+  }
+}
+
 // Stripe Customer Portal — gerenciar plano (cancelar, upgrade, downgrade, cartao)
 app.post('/api/stripe/portal', authMiddleware, async (req, res) => {
   try {
@@ -336,7 +531,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id')
+      .select('id, nome, email, plano, stripe_customer_id, google_email')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
@@ -574,6 +769,10 @@ app.post('/api/visitas', async (req, res) => {
       observacoes: req.body.observacoes || '',
       status: req.body.status || 'agendada',
     }, req.userId);
+
+    // Cria evento no Google Calendar (se conectado) — em background
+    criarEventoGCal(req.userId, visita).catch(e => console.error('[gcal bg]', e.message));
+
     res.status(201).json(visita);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
