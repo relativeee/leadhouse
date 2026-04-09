@@ -344,25 +344,50 @@
         </div>
     </div>
 
-    <!-- Lista -->
-    <div class="leads-container" style="margin-top:1.5rem;">
-        <div class="leads-toolbar">
-            <div class="section-title" style="margin:0;">Imóveis Cadastrados</div>
-            <input type="text" class="search-input" placeholder="Buscar imóvel..." id="searchImovel" oninput="renderImoveis()">
+    <!-- Portfolio -->
+    <section class="portfolio">
+        <header class="portfolio__head">
+            <div>
+                <div class="portfolio__title">Seu portfólio</div>
+                <div class="portfolio__sub">Visualize, organize e conecte imóveis às suas oportunidades</div>
+            </div>
+            <div class="portfolio__count" id="imvCount">0 imóveis</div>
+        </header>
+
+        <div class="portfolio__toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" class="search-input search-input--icon" placeholder="Buscar por título, bairro, endereço…" id="searchImovel" oninput="renderImoveis()">
+            </div>
+            <div class="chip-row" id="imvStatusFilter">
+                <button class="chip chip--active" data-val="todos" onclick="filtrarImovel('status', 'todos', this)">Todos</button>
+                <button class="chip" data-val="disponivel" onclick="filtrarImovel('status', 'disponivel', this)">Disponível</button>
+                <button class="chip" data-val="reservado" onclick="filtrarImovel('status', 'reservado', this)">Reservado</button>
+                <button class="chip" data-val="vendido" onclick="filtrarImovel('status', 'vendido', this)">Vendido</button>
+                <button class="chip" data-val="alugado" onclick="filtrarImovel('status', 'alugado', this)">Alugado</button>
+            </div>
+            <select class="select-mini" id="imvTipoFilter" onchange="renderImoveis()">
+                <option value="">Todos os tipos</option>
+                <option>Apartamento</option><option>Casa</option><option>Terreno</option>
+                <option>Sala Comercial</option><option>Galpão</option><option>Cobertura</option><option>Flat</option>
+            </select>
+            <select class="select-mini" id="imvOrdem" onchange="renderImoveis()">
+                <option value="recente">Mais recentes</option>
+                <option value="valor_desc">Maior valor</option>
+                <option value="valor_asc">Menor valor</option>
+                <option value="titulo">A → Z</option>
+            </select>
         </div>
-        <div class="leads-table-wrapper">
-            <table class="leads-table">
-                <thead><tr><th>Título</th><th>Tipo</th><th>Bairro</th><th>Cidade</th><th>Valor</th><th>Quartos</th><th>Status</th><th>Ações</th></tr></thead>
-                <tbody id="imoveisBody"></tbody>
-            </table>
-        </div>
+
+        <div class="imv-grid" id="imoveisGrid"></div>
+
         <div class="empty-state empty-state--imoveis" id="imoveisEmpty" style="display:none;">
             <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <div class="empty-state__text">Nenhum imóvel cadastrado ainda</div>
-            <div class="empty-state__sub">Cadastre seu primeiro imóvel no formulário acima</div>
+            <div class="empty-state__text">Nenhum imóvel encontrado</div>
+            <div class="empty-state__sub">Adicione um novo imóvel ao seu portfólio para começar</div>
             <button class="btn btn--ghost-sm" onclick="document.getElementById('formImovelCard').scrollIntoView({behavior:'smooth'})">Cadastrar imóvel</button>
         </div>
-    </div>
+    </section>
 </main>
 
 <!-- ============================================
@@ -458,20 +483,45 @@
         </div>
     </div>
 
-    <!-- Lista -->
-    <div class="leads-container" style="margin-top:1.5rem;">
-        <div class="leads-toolbar">
-            <div class="section-title" style="margin:0;">Leads Cadastrados</div>
-            <input type="text" class="search-input" placeholder="Buscar lead..." id="searchLead" oninput="renderLeadsManuais()">
+    <!-- Oportunidades -->
+    <section class="portfolio">
+        <header class="portfolio__head">
+            <div>
+                <div class="portfolio__title">Suas oportunidades</div>
+                <div class="portfolio__sub">Nenhum lead deve se perder — organize, qualifique e feche</div>
+            </div>
+            <div class="lead-temps" id="leadTemps">
+                <span class="lead-temps__item"><span class="dot dot--quente"></span><b id="cntQuente">0</b> quentes</span>
+                <span class="lead-temps__item"><span class="dot dot--morno"></span><b id="cntMorno">0</b> mornos</span>
+                <span class="lead-temps__item"><span class="dot dot--frio"></span><b id="cntFrio">0</b> frios</span>
+            </div>
+        </header>
+
+        <div class="portfolio__toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" class="search-input search-input--icon" placeholder="Buscar por nome, telefone ou bairro…" id="searchLead" oninput="renderLeadsManuais()">
+            </div>
+            <div class="chip-row">
+                <button class="chip chip--active" data-val="todos" onclick="filtrarLead('temp', 'todos', this)">Todas</button>
+                <button class="chip chip--quente" data-val="quente" onclick="filtrarLead('temp', 'quente', this)">🔥 Quentes</button>
+                <button class="chip chip--morno" data-val="morno" onclick="filtrarLead('temp', 'morno', this)">Mornos</button>
+                <button class="chip chip--frio" data-val="frio" onclick="filtrarLead('temp', 'frio', this)">Frios</button>
+            </div>
+            <select class="select-mini" id="ldObjetivoFilter" onchange="renderLeadsManuais()">
+                <option value="">Todos os objetivos</option>
+                <option>Comprar</option><option>Alugar</option><option>Vender</option><option>Investir</option>
+            </select>
         </div>
-        <div class="leads-table-wrapper">
-            <table class="leads-table">
-                <thead><tr><th>Nome</th><th>Telefone</th><th>Objetivo</th><th>Bairro</th><th>Faixa Valor</th><th>Temperatura</th><th>Criado</th><th>Ações</th></tr></thead>
-                <tbody id="leadsManuaisBody"></tbody>
-            </table>
+
+        <div class="lead-grid" id="leadsManuaisGrid"></div>
+
+        <div class="empty-state" id="leadsManEmpty" style="display:none;">
+            <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            <div class="empty-state__text">Nenhum lead encontrado</div>
+            <div class="empty-state__sub">Cadastre seu primeiro lead — toda oportunidade começa aqui</div>
         </div>
-        <div class="empty-state" id="leadsManEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum lead cadastrado manualmente</div></div>
-    </div>
+    </section>
 </main>
 
 <!-- ============================================
@@ -533,26 +583,41 @@
         </div>
     </div>
 
-    <!-- Lista -->
-    <div class="leads-container" style="margin-top:1.5rem;">
-        <div class="leads-toolbar">
-            <div class="leads-toolbar__filters">
-                <button class="filter-btn filter-btn--active" onclick="filtrarVisita('todos', this)">Todas</button>
-                <button class="filter-btn" onclick="filtrarVisita('agendada', this)">Agendadas</button>
-                <button class="filter-btn" onclick="filtrarVisita('confirmada', this)">Confirmadas</button>
-                <button class="filter-btn" onclick="filtrarVisita('realizada', this)">Realizadas</button>
-                <button class="filter-btn" onclick="filtrarVisita('cancelada', this)">Canceladas</button>
+    <!-- Agenda -->
+    <section class="portfolio">
+        <header class="portfolio__head">
+            <div>
+                <div class="portfolio__title">Sua semana de visitas</div>
+                <div class="portfolio__sub">Cada visita é uma chance de fechamento — esteja preparado</div>
             </div>
-            <input type="text" class="search-input" placeholder="Buscar visita..." id="searchVisita" oninput="renderVisitas()">
+            <div class="visit-stats">
+                <span><b id="vsHoje">0</b> hoje</span>
+                <span><b id="vsSemana">0</b> esta semana</span>
+            </div>
+        </header>
+
+        <div class="portfolio__toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" class="search-input search-input--icon" placeholder="Buscar por lead, imóvel ou corretor…" id="searchVisita" oninput="renderVisitas()">
+            </div>
+            <div class="chip-row">
+                <button class="chip chip--active" onclick="filtrarVisita('todos', this)">Todas</button>
+                <button class="chip" onclick="filtrarVisita('agendada', this)">Agendadas</button>
+                <button class="chip" onclick="filtrarVisita('confirmada', this)">Confirmadas</button>
+                <button class="chip" onclick="filtrarVisita('realizada', this)">Realizadas</button>
+                <button class="chip" onclick="filtrarVisita('cancelada', this)">Canceladas</button>
+            </div>
         </div>
-        <div class="leads-table-wrapper">
-            <table class="leads-table">
-                <thead><tr><th>Lead</th><th>Imóvel</th><th>Data</th><th>Horário</th><th>Corretor</th><th>Status</th><th>Ações</th></tr></thead>
-                <tbody id="visitasBody"></tbody>
-            </table>
+
+        <div class="visit-timeline" id="visitasTimeline"></div>
+
+        <div class="empty-state" id="visitasEmpty" style="display:none;">
+            <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <div class="empty-state__text">Nenhuma visita por aqui</div>
+            <div class="empty-state__sub">Agende sua primeira visita e deixe o sistema lembrar você no Google Calendar</div>
         </div>
-        <div class="empty-state" id="visitasEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhuma visita agendada</div></div>
-    </div>
+    </section>
 </main>
 
 <!-- ============================================
@@ -1354,29 +1419,96 @@ async function carregarImoveis() {
     renderImoveis();
 }
 
-function renderImoveis() {
-    const tbody = document.getElementById('imoveisBody');
-    const busca = (document.getElementById('searchImovel').value || '').toLowerCase();
-    let filtrados = imoveisData;
-    if (busca) filtrados = filtrados.filter(i => (i.titulo||'').toLowerCase().includes(busca) || (i.bairro||'').toLowerCase().includes(busca) || (i.tipo||'').toLowerCase().includes(busca));
+let imovelFiltro = { status: 'todos' };
+function filtrarImovel(tipo, val, btn) {
+    imovelFiltro[tipo] = val;
+    if (btn) {
+        btn.parentElement.querySelectorAll('.chip').forEach(b => b.classList.remove('chip--active'));
+        btn.classList.add('chip--active');
+    }
+    renderImoveis();
+}
 
-    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('imoveisEmpty').style.display = 'block'; return; }
+function _imvIcon(tipo) {
+    const t = (tipo||'').toLowerCase();
+    if (t.includes('casa')) return '🏠';
+    if (t.includes('terreno')) return '🌳';
+    if (t.includes('sala') || t.includes('comercial')) return '🏢';
+    if (t.includes('galp')) return '🏭';
+    if (t.includes('cobert')) return '🌆';
+    return '🏬';
+}
+
+function _fmtValor(v) {
+    if (!v) return null;
+    const num = String(v).replace(/[^\d]/g,'');
+    if (!num) return v;
+    return 'R$ ' + Number(num).toLocaleString('pt-BR');
+}
+
+function renderImoveis() {
+    const grid = document.getElementById('imoveisGrid');
+    const busca = (document.getElementById('searchImovel').value || '').toLowerCase();
+    const tipoF = (document.getElementById('imvTipoFilter')?.value || '').toLowerCase();
+    const ordem = document.getElementById('imvOrdem')?.value || 'recente';
+
+    let filtrados = imoveisData.slice();
+    if (imovelFiltro.status !== 'todos') filtrados = filtrados.filter(i => (i.status||'disponivel') === imovelFiltro.status);
+    if (tipoF) filtrados = filtrados.filter(i => (i.tipo||'').toLowerCase() === tipoF);
+    if (busca) filtrados = filtrados.filter(i =>
+        (i.titulo||'').toLowerCase().includes(busca) ||
+        (i.bairro||'').toLowerCase().includes(busca) ||
+        (i.endereco||'').toLowerCase().includes(busca) ||
+        (i.tipo||'').toLowerCase().includes(busca));
+
+    const valNum = v => Number(String(v||'').replace(/[^\d]/g,'')) || 0;
+    if (ordem === 'valor_desc') filtrados.sort((a,b)=>valNum(b.valor)-valNum(a.valor));
+    else if (ordem === 'valor_asc') filtrados.sort((a,b)=>valNum(a.valor)-valNum(b.valor));
+    else if (ordem === 'titulo') filtrados.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||''));
+
+    document.getElementById('imvCount').textContent = `${imoveisData.length} ${imoveisData.length===1?'imóvel':'imóveis'}`;
+
+    if (!filtrados.length) { grid.innerHTML = ''; document.getElementById('imoveisEmpty').style.display = 'block'; return; }
     document.getElementById('imoveisEmpty').style.display = 'none';
 
-    tbody.innerHTML = filtrados.map(im => `
-        <tr>
-            <td><strong>${esc(im.titulo)}</strong></td>
-            <td>${esc(im.tipo)}</td>
-            <td>${esc(im.bairro || '--')}</td>
-            <td>${esc(im.cidade || '--')}</td>
-            <td>${esc(im.valor ? 'R$ ' + im.valor : '--')}</td>
-            <td>${esc(im.quartos || '--')}</td>
-            <td><span class="badge badge--status-${im.status}">${capitalize(im.status)}</span></td>
-            <td class="td-acoes">
-                <button class="btn-icon" title="Ver detalhes" onclick="verImovel(${im.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirImovel(${im.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-            </td>
-        </tr>`).join('');
+    grid.innerHTML = filtrados.map(im => {
+        const valor = _fmtValor(im.valor);
+        const status = im.status || 'disponivel';
+        return `
+        <article class="imv-card" onclick="verImovel(${im.id})">
+            <div class="imv-card__media imv-card__media--${status}">
+                <div class="imv-card__icon">${_imvIcon(im.tipo)}</div>
+                <span class="imv-card__status badge--status-${status}">${capitalize(status)}</span>
+            </div>
+            <div class="imv-card__body">
+                <div class="imv-card__type">${esc(im.tipo || 'Imóvel')}${im.bairro ? ' · ' + esc(im.bairro) : ''}</div>
+                <h3 class="imv-card__title">${esc(im.titulo)}</h3>
+                <div class="imv-card__meta">
+                    ${im.quartos ? `<span>🛏 ${esc(im.quartos)}</span>` : ''}
+                    ${im.area ? `<span>📐 ${esc(im.area)} m²</span>` : ''}
+                    ${im.cidade ? `<span>📍 ${esc(im.cidade)}</span>` : ''}
+                </div>
+                <div class="imv-card__foot">
+                    <div class="imv-card__price">${valor || '<span class="imv-card__price--na">A consultar</span>'}</div>
+                    <div class="imv-card__actions" onclick="event.stopPropagation()">
+                        <button class="btn-icon" title="Ver detalhes" onclick="verImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                        <button class="btn-icon" title="Agendar visita" onclick="vincularImovelAVisita('${esc(im.titulo)}','${esc(im.endereco||'')}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+                        <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+                    </div>
+                </div>
+            </div>
+        </article>`;
+    }).join('');
+}
+
+function vincularImovelAVisita(titulo, endereco) {
+    const btnVisitas = document.querySelector('.sidebar__item[onclick*="visitas"]');
+    if (btnVisitas) btnVisitas.click();
+    setTimeout(() => {
+        document.getElementById('vsImovelTitulo').value = titulo;
+        if (endereco) document.getElementById('vsEndereco').value = endereco;
+        document.getElementById('vsLeadNome').focus();
+    }, 100);
 }
 
 async function salvarImovel() {
@@ -1482,29 +1614,84 @@ async function carregarLeadsManuais() {
     renderLeadsManuais();
 }
 
-function renderLeadsManuais() {
-    const tbody = document.getElementById('leadsManuaisBody');
-    const busca = (document.getElementById('searchLead').value || '').toLowerCase();
-    let filtrados = leadsManuaisData;
-    if (busca) filtrados = filtrados.filter(l => (l.nome||'').toLowerCase().includes(busca) || (l.telefone||'').includes(busca) || (l.bairro||'').toLowerCase().includes(busca));
+let leadFiltro = { temp: 'todos' };
+function filtrarLead(tipo, val, btn) {
+    leadFiltro[tipo] = val;
+    if (btn) {
+        btn.parentElement.querySelectorAll('.chip').forEach(b => b.classList.remove('chip--active'));
+        btn.classList.add('chip--active');
+    }
+    renderLeadsManuais();
+}
 
-    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('leadsManEmpty').style.display = 'block'; return; }
+function _initials(nome) {
+    return (nome||'?').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
+}
+
+function renderLeadsManuais() {
+    const grid = document.getElementById('leadsManuaisGrid');
+    const busca = (document.getElementById('searchLead').value || '').toLowerCase();
+    const objF = (document.getElementById('ldObjetivoFilter')?.value || '').toLowerCase();
+
+    // Contadores por temperatura
+    const cnt = { quente: 0, morno: 0, frio: 0 };
+    leadsManuaisData.forEach(l => { if (cnt[l.temperatura] !== undefined) cnt[l.temperatura]++; });
+    document.getElementById('cntQuente').textContent = cnt.quente;
+    document.getElementById('cntMorno').textContent = cnt.morno;
+    document.getElementById('cntFrio').textContent = cnt.frio;
+
+    let filtrados = leadsManuaisData.slice();
+    if (leadFiltro.temp !== 'todos') filtrados = filtrados.filter(l => l.temperatura === leadFiltro.temp);
+    if (objF) filtrados = filtrados.filter(l => (l.objetivo||'').toLowerCase() === objF);
+    if (busca) filtrados = filtrados.filter(l =>
+        (l.nome||'').toLowerCase().includes(busca) ||
+        (l.telefone||'').includes(busca) ||
+        (l.bairro||'').toLowerCase().includes(busca));
+
+    // Ordena: quentes primeiro
+    const tempOrd = { quente: 0, morno: 1, frio: 2 };
+    filtrados.sort((a,b) => (tempOrd[a.temperatura]??9) - (tempOrd[b.temperatura]??9));
+
+    if (!filtrados.length) { grid.innerHTML = ''; document.getElementById('leadsManEmpty').style.display = 'block'; return; }
     document.getElementById('leadsManEmpty').style.display = 'none';
 
-    tbody.innerHTML = filtrados.map(l => `
-        <tr>
-            <td><strong>${esc(l.nome)}</strong></td>
-            <td>${formatarTelefone(l.telefone)}</td>
-            <td>${esc(capitalize(l.objetivo) || '--')}</td>
-            <td>${esc(l.bairro || '--')}</td>
-            <td>${esc(l.faixa_valor || '--')}</td>
-            <td><span class="badge badge--${l.temperatura}"><span class="badge__dot"></span>${capitalize(l.temperatura)}</span></td>
-            <td>${esc(l.criadoEm || '--')}</td>
-            <td class="td-acoes">
-                <button class="btn-icon" title="Ver detalhes" onclick="verLeadManual(${l.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirLeadManual(${l.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-            </td>
-        </tr>`).join('');
+    grid.innerHTML = filtrados.map(l => {
+        const tel = formatarTelefone(l.telefone);
+        const wapp = (l.telefone||'').replace(/\D/g,'');
+        return `
+        <article class="lead-card lead-card--${l.temperatura}" onclick="verLeadManual(${l.id})">
+            <div class="lead-card__stripe"></div>
+            <div class="lead-card__head">
+                <div class="lead-card__avatar">${_initials(l.nome)}</div>
+                <div class="lead-card__id">
+                    <h3 class="lead-card__name">${esc(l.nome)}</h3>
+                    <div class="lead-card__tel">${tel || '—'}</div>
+                </div>
+                <span class="badge badge--${l.temperatura} lead-card__temp"><span class="badge__dot"></span>${capitalize(l.temperatura)}</span>
+            </div>
+            <div class="lead-card__body">
+                ${l.objetivo ? `<div class="lead-card__row"><span>🎯</span> Quer <b>${esc(capitalize(l.objetivo))}</b>${l.tipo_imovel?` · ${esc(l.tipo_imovel)}`:''}</div>`:''}
+                ${l.bairro ? `<div class="lead-card__row"><span>📍</span> ${esc(l.bairro)}</div>`:''}
+                ${l.faixa_valor ? `<div class="lead-card__row"><span>💰</span> ${esc(l.faixa_valor)}</div>`:''}
+                ${l.prazo ? `<div class="lead-card__row"><span>⏱</span> ${esc(l.prazo)}</div>`:''}
+            </div>
+            <div class="lead-card__foot" onclick="event.stopPropagation()">
+                ${wapp ? `<a class="lead-card__btn lead-card__btn--wapp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener">WhatsApp</a>`:''}
+                <button class="lead-card__btn" onclick="agendarVisitaLead('${esc(l.nome)}','${esc(l.telefone||'')}')">Agendar visita</button>
+                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirLeadManual(${l.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+            </div>
+        </article>`;
+    }).join('');
+}
+
+function agendarVisitaLead(nome, telefone) {
+    const btnVisitas = document.querySelector('.sidebar__item[onclick*="visitas"]');
+    if (btnVisitas) btnVisitas.click();
+    setTimeout(() => {
+        document.getElementById('vsLeadNome').value = nome;
+        document.getElementById('vsLeadTelefone').value = telefone;
+        document.getElementById('vsData').focus();
+    }, 100);
 }
 
 async function salvarLead() {
@@ -1558,37 +1745,105 @@ async function carregarVisitas() {
     renderVisitas();
 }
 
-function renderVisitas() {
-    const tbody = document.getElementById('visitasBody');
-    const busca = (document.getElementById('searchVisita').value || '').toLowerCase();
-    let filtrados = visitasData;
-    if (visitaFiltro !== 'todos') filtrados = filtrados.filter(v => v.status === visitaFiltro);
-    if (busca) filtrados = filtrados.filter(v => (v.lead_nome||'').toLowerCase().includes(busca) || (v.imovel_titulo||'').toLowerCase().includes(busca) || (v.corretor||'').toLowerCase().includes(busca));
+function _parseVisitaData(s) {
+    if (!s) return null;
+    if (s.includes('/')) { const [d,m,y]=s.split('/'); return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T00:00:00`); }
+    return new Date(s + 'T00:00:00');
+}
 
-    if (!filtrados.length) { tbody.innerHTML = ''; document.getElementById('visitasEmpty').style.display = 'block'; return; }
+function _diaLabel(d) {
+    if (!d) return 'Sem data';
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+    const dt = new Date(d); dt.setHours(0,0,0,0);
+    if (dt.getTime() === hoje.getTime()) return 'Hoje';
+    if (dt.getTime() === amanha.getTime()) return 'Amanhã';
+    const diasSem = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+    const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    return `${diasSem[dt.getDay()]}, ${dt.getDate()} de ${meses[dt.getMonth()]}`;
+}
+
+function renderVisitas() {
+    const cont = document.getElementById('visitasTimeline');
+    const busca = (document.getElementById('searchVisita').value || '').toLowerCase();
+    let filtrados = visitasData.slice();
+    if (visitaFiltro !== 'todos') filtrados = filtrados.filter(v => v.status === visitaFiltro);
+    if (busca) filtrados = filtrados.filter(v =>
+        (v.lead_nome||'').toLowerCase().includes(busca) ||
+        (v.imovel_titulo||'').toLowerCase().includes(busca) ||
+        (v.corretor||'').toLowerCase().includes(busca));
+
+    // Stats hoje/semana (sobre todas)
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const fimSem = new Date(hoje); fimSem.setDate(fimSem.getDate()+7);
+    let hojeC=0, semC=0;
+    visitasData.forEach(v => {
+        const d = _parseVisitaData(v.data); if (!d) return;
+        d.setHours(0,0,0,0);
+        if (d.getTime() === hoje.getTime()) hojeC++;
+        if (d >= hoje && d < fimSem) semC++;
+    });
+    document.getElementById('vsHoje').textContent = hojeC;
+    document.getElementById('vsSemana').textContent = semC;
+
+    if (!filtrados.length) { cont.innerHTML = ''; document.getElementById('visitasEmpty').style.display = 'block'; return; }
     document.getElementById('visitasEmpty').style.display = 'none';
 
-    tbody.innerHTML = filtrados.map(v => `
-        <tr>
-            <td><strong>${esc(v.lead_nome)}</strong></td>
-            <td>${esc(v.imovel_titulo || '--')}</td>
-            <td>${formatarData(v.data)}</td>
-            <td>${esc(v.horario)}</td>
-            <td>${esc(v.corretor || '--')}</td>
-            <td><span class="badge badge--visit-${v.status}">${capitalize(v.status)}</span></td>
-            <td class="td-acoes">
-                <button class="btn-icon" title="Ver detalhes" onclick="verVisita(${v.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                ${v.status === 'agendada' ? `<button class="btn-icon btn-icon--success" title="Confirmar" onclick="atualizarStatusVisita(${v.id},'confirmada')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>` : ''}
-                ${v.status !== 'cancelada' && v.status !== 'realizada' ? `<button class="btn-icon btn-icon--danger" title="Cancelar" onclick="atualizarStatusVisita(${v.id},'cancelada')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
-                <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirVisita(${v.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-            </td>
-        </tr>`).join('');
+    // Agrupa por data, ordena cronologicamente
+    const grupos = {};
+    filtrados.forEach(v => {
+        const d = _parseVisitaData(v.data);
+        const key = d ? d.toISOString().slice(0,10) : 'sem-data';
+        if (!grupos[key]) grupos[key] = { data: d, items: [] };
+        grupos[key].items.push(v);
+    });
+    const chaves = Object.keys(grupos).sort((a,b)=>a.localeCompare(b));
+
+    cont.innerHTML = chaves.map(k => {
+        const g = grupos[k];
+        const items = g.items.sort((a,b)=>(a.horario||'').localeCompare(b.horario||''));
+        const eHoje = g.data && (new Date(g.data).setHours(0,0,0,0) === hoje.getTime());
+        return `
+        <div class="visit-day ${eHoje?'visit-day--today':''}">
+            <div class="visit-day__head">
+                <div class="visit-day__label">${_diaLabel(g.data)}</div>
+                <div class="visit-day__count">${items.length} ${items.length===1?'visita':'visitas'}</div>
+            </div>
+            <div class="visit-day__list">
+                ${items.map(v => {
+                    const wapp = (v.lead_telefone||'').replace(/\D/g,'');
+                    return `
+                <article class="visit-card visit-card--${v.status}" onclick="verVisita(${v.id})">
+                    <div class="visit-card__time">
+                        <div class="visit-card__hour">${esc((v.horario||'').slice(0,5))}</div>
+                        <span class="badge badge--visit-${v.status}">${capitalize(v.status)}</span>
+                    </div>
+                    <div class="visit-card__main">
+                        <div class="visit-card__lead">${esc(v.lead_nome)}</div>
+                        ${v.imovel_titulo ? `<div class="visit-card__imv">🏬 ${esc(v.imovel_titulo)}</div>`:''}
+                        ${v.endereco ? `<div class="visit-card__addr">📍 ${esc(v.endereco)}</div>`:''}
+                        ${v.corretor ? `<div class="visit-card__broker">👤 ${esc(v.corretor)}</div>`:''}
+                    </div>
+                    <div class="visit-card__actions" onclick="event.stopPropagation()">
+                        ${v.status === 'agendada' ? `<button class="btn-icon btn-icon--success" title="Confirmar" onclick="atualizarStatusVisita(${v.id},'confirmada')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>`:''}
+                        ${v.status === 'confirmada' ? `<button class="btn-icon btn-icon--success" title="Marcar como realizada" onclick="atualizarStatusVisita(${v.id},'realizada')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>`:''}
+                        ${wapp ? `<a class="btn-icon" title="WhatsApp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`:''}
+                        ${v.status !== 'cancelada' && v.status !== 'realizada' ? `<button class="btn-icon btn-icon--danger" title="Cancelar" onclick="atualizarStatusVisita(${v.id},'cancelada')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}
+                        <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirVisita(${v.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+                    </div>
+                </article>`;
+                }).join('')}
+            </div>
+        </div>`;
+    }).join('');
 }
 
 function filtrarVisita(tipo, btn) {
     visitaFiltro = tipo;
-    document.querySelectorAll('#aba-visitas .filter-btn').forEach(b => b.classList.remove('filter-btn--active'));
-    btn.classList.add('filter-btn--active');
+    if (btn) {
+        btn.parentElement.querySelectorAll('.chip').forEach(b => b.classList.remove('chip--active'));
+        btn.classList.add('chip--active');
+    }
     renderVisitas();
 }
 
