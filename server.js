@@ -464,15 +464,16 @@ async function criarEventoGCal(userId, visita) {
       return null;
     }
     const startIso = `${dataIso}T${horaIso}:00`;
-    const startDate = new Date(`${startIso}-03:00`); // explicito BRT
-    if (isNaN(startDate.getTime())) {
-      console.error('[google] data invalida:', { data: visita.data, horario: visita.horario, startIso });
-      return null;
+    // Soma 1h direto na string (mantem fuso local sem conversoes)
+    const [hh, mm] = horaIso.split(':').map(Number);
+    const endHour = String((hh + 1) % 24).padStart(2, '0');
+    let endDateStr = dataIso;
+    if (hh + 1 >= 24) {
+      const d = new Date(dataIso + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + 1);
+      endDateStr = d.toISOString().slice(0, 10);
     }
-    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-    const pad = n => String(n).padStart(2, '0');
-    const endLocal = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
-    const endIso = endLocal;
+    const endIso = `${endDateStr}T${endHour}:${String(mm).padStart(2,'0')}:00`;
 
     const event = {
       summary: `Visita: ${visita.lead_nome}${visita.imovel_titulo ? ' — ' + visita.imovel_titulo : ''}`,
