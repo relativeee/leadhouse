@@ -517,6 +517,141 @@ async function criarEventoGCal(userId, visita) {
   }
 }
 
+// ─────────────────────────────────────────────
+// Stripe — gerenciamento de plano in-app
+// ─────────────────────────────────────────────
+const STRIPE_PRICES = {
+  start: process.env.STRIPE_START_PRICE_ID,
+  pro:   process.env.STRIPE_PRO_PRICE_ID,
+  elite: process.env.STRIPE_ELITE_PRICE_ID,
+};
+
+// Helper: pega assinatura ativa do customer
+async function getActiveSubscription(customerId) {
+  if (!stripe || !customerId) return null;
+  const subs = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 5,
+  });
+  // pega a primeira ativa ou trialing ou em past_due
+  return subs.data.find(s => ['active', 'trialing', 'past_due'].includes(s.status)) || null;
+}
+
+// GET status detalhado da assinatura
+app.get('/api/stripe/subscription', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ erro: 'Stripe nao configurado' });
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('plano, stripe_customer_id')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+
+    if (!user.stripe_customer_id) {
+      return res.json({ plano: user.plano, has_subscription: false });
+    }
+
+    const sub = await getActiveSubscription(user.stripe_customer_id);
+    if (!sub) {
+      return res.json({ plano: user.plano, has_subscription: false });
+    }
+
+    res.json({
+      plano: user.plano,
+      has_subscription: true,
+      status: sub.status,
+      cancel_at_period_end: sub.cancel_at_period_end,
+      current_period_end: sub.current_period_end,
+      price_id: sub.items.data[0]?.price?.id,
+    });
+  } catch (err) {
+    console.error('[stripe sub]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Trocar plano (upgrade ou downgrade)
+app.post('/api/stripe/change-plan', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ erro: 'Stripe nao configurado' });
+    const { plan } = req.body;
+    if (!STRIPE_PRICES[plan]) return res.status(400).json({ erro: 'Plano invalido' });
+
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('id, email, stripe_customer_id, plano')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+    if (!user.stripe_customer_id) return res.status(400).json({ erro: 'Voce ainda nao possui uma assinatura. Assine um plano primeiro.' });
+
+    const sub = await getActiveSubscription(user.stripe_customer_id);
+    if (!sub) return res.status(400).json({ erro: 'Nenhuma assinatura ativa encontrada' });
+
+    const itemId = sub.items.data[0].id;
+    await stripe.subscriptions.update(sub.id, {
+      items: [{ id: itemId, price: STRIPE_PRICES[plan] }],
+      proration_behavior: 'create_prorations',
+      cancel_at_period_end: false, // se estava cancelando, reativa
+      metadata: { plan },
+    });
+
+    // Atualiza local imediatamente (webhook tambem vai disparar)
+    await db.supabase.from('usuarios').update({ plano: plan }).eq('id', req.userId);
+
+    res.json({ ok: true, plano: plan });
+  } catch (err) {
+    console.error('[stripe change-plan]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Cancelar (no fim do periodo)
+app.post('/api/stripe/cancel', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ erro: 'Stripe nao configurado' });
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('stripe_customer_id')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user?.stripe_customer_id) return res.status(400).json({ erro: 'Sem assinatura' });
+
+    const sub = await getActiveSubscription(user.stripe_customer_id);
+    if (!sub) return res.status(400).json({ erro: 'Nenhuma assinatura ativa' });
+
+    await stripe.subscriptions.update(sub.id, { cancel_at_period_end: true });
+    res.json({ ok: true, cancel_at_period_end: true });
+  } catch (err) {
+    console.error('[stripe cancel]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Reativar (desfaz cancel_at_period_end)
+app.post('/api/stripe/resume', authMiddleware, async (req, res) => {
+  try {
+    if (!stripe) return res.status(503).json({ erro: 'Stripe nao configurado' });
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('stripe_customer_id')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user?.stripe_customer_id) return res.status(400).json({ erro: 'Sem assinatura' });
+
+    const sub = await getActiveSubscription(user.stripe_customer_id);
+    if (!sub) return res.status(400).json({ erro: 'Nenhuma assinatura ativa' });
+
+    await stripe.subscriptions.update(sub.id, { cancel_at_period_end: false });
+    res.json({ ok: true, cancel_at_period_end: false });
+  } catch (err) {
+    console.error('[stripe resume]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // Stripe Customer Portal — gerenciar plano (cancelar, upgrade, downgrade, cartao)
 app.post('/api/stripe/portal', authMiddleware, async (req, res) => {
   try {

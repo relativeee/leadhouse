@@ -612,6 +612,49 @@
                 <button id="btnGoogle" type="button" onclick="toggleGoogle()" style="flex-shrink:0;padding:0.6rem 1rem;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:transparent;color:#E0E0E0;font-size:0.75rem;font-weight:600;cursor:pointer;font-family:inherit">Conectar</button>
             </div>
         </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.08);margin:0 1.5rem;padding:1.5rem 0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px;color:#888">Meu plano</div>
+                <div id="contaPlanStatus" style="font-size:0.7rem;color:#888"></div>
+            </div>
+            <div id="contaPlanos" class="conta-planos">
+                <div class="plan-card" data-plan="start">
+                    <div class="plan-card__name">Start</div>
+                    <div class="plan-card__price">R$49,99<span>/mês</span></div>
+                    <ul class="plan-card__list">
+                        <li>Até 50 leads</li>
+                        <li>Pipeline básico</li>
+                        <li>Suporte por e-mail</li>
+                    </ul>
+                    <button type="button" class="plan-card__btn" onclick="trocarPlano('start')">Selecionar</button>
+                </div>
+                <div class="plan-card" data-plan="pro">
+                    <div class="plan-card__badge">Mais popular</div>
+                    <div class="plan-card__name">Pro</div>
+                    <div class="plan-card__price">R$149,99<span>/mês</span></div>
+                    <ul class="plan-card__list">
+                        <li>Leads ilimitados</li>
+                        <li>WhatsApp + IA 24h</li>
+                        <li>Suporte prioritário</li>
+                    </ul>
+                    <button type="button" class="plan-card__btn plan-card__btn--gold" onclick="trocarPlano('pro')">Selecionar</button>
+                </div>
+                <div class="plan-card" data-plan="elite">
+                    <div class="plan-card__name">Elite</div>
+                    <div class="plan-card__price">R$249,99<span>/mês</span></div>
+                    <ul class="plan-card__list">
+                        <li>Tudo do Pro</li>
+                        <li>Múltiplos corretores</li>
+                        <li>Gerente de conta</li>
+                    </ul>
+                    <button type="button" class="plan-card__btn" onclick="trocarPlano('elite')">Selecionar</button>
+                </div>
+            </div>
+            <div id="contaPlanActions" style="margin-top:1rem;display:none;text-align:center">
+                <button type="button" id="btnCancelarPlano" onclick="cancelarPlano()" style="background:none;border:none;color:#FF8A7A;font-size:0.78rem;cursor:pointer;font-family:inherit;text-decoration:underline">Cancelar assinatura</button>
+            </div>
+        </div>
     </section>
 </main>
 
@@ -678,7 +721,111 @@ async function carregarConta() {
         document.getElementById('contaSenhaAtual').value = '';
         document.getElementById('contaSenhaNova').value = '';
         renderGoogle(user.google_email);
+        carregarPlano();
     } catch {}
+}
+
+let subInfo = null;
+async function carregarPlano() {
+    try {
+        const res = await fetch('/api/stripe/subscription', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        subInfo = await res.json();
+        renderPlanos();
+    } catch {}
+}
+
+function renderPlanos() {
+    if (!subInfo) return;
+    const atual = (subInfo.plano || '').toLowerCase();
+    const cards = document.querySelectorAll('#contaPlanos .plan-card');
+    cards.forEach(card => {
+        const plan = card.dataset.plan;
+        const btn = card.querySelector('.plan-card__btn');
+        card.classList.remove('plan-card--current');
+        if (plan === atual) {
+            card.classList.add('plan-card--current');
+            btn.textContent = 'Plano atual';
+            btn.disabled = true;
+        } else {
+            btn.disabled = false;
+            if (!atual) btn.textContent = 'Assinar';
+            else if (plan === 'start') btn.textContent = atual === 'pro' || atual === 'elite' ? 'Fazer downgrade' : 'Selecionar';
+            else if (plan === 'pro') btn.textContent = atual === 'elite' ? 'Fazer downgrade' : 'Fazer upgrade';
+            else if (plan === 'elite') btn.textContent = 'Fazer upgrade';
+        }
+    });
+
+    const actions = document.getElementById('contaPlanActions');
+    const status = document.getElementById('contaPlanStatus');
+    if (subInfo.has_subscription) {
+        actions.style.display = 'block';
+        if (subInfo.cancel_at_period_end) {
+            const fim = subInfo.current_period_end ? new Date(subInfo.current_period_end * 1000).toLocaleDateString('pt-BR') : '';
+            status.innerHTML = '<span style="color:#FF8A7A">Cancelada — acesso até ' + fim + '</span>';
+            document.getElementById('btnCancelarPlano').textContent = 'Reativar assinatura';
+            document.getElementById('btnCancelarPlano').onclick = reativarPlano;
+            document.getElementById('btnCancelarPlano').style.color = '#8AD4A0';
+        } else {
+            status.innerHTML = '<span style="color:#8AD4A0">Ativa</span>';
+            document.getElementById('btnCancelarPlano').textContent = 'Cancelar assinatura';
+            document.getElementById('btnCancelarPlano').onclick = cancelarPlano;
+            document.getElementById('btnCancelarPlano').style.color = '#FF8A7A';
+        }
+    } else {
+        actions.style.display = 'none';
+        status.textContent = atual ? 'Ativo (manual)' : 'Sem plano';
+    }
+}
+
+async function trocarPlano(plan) {
+    if (!subInfo) return;
+    if (!subInfo.has_subscription) {
+        // sem assinatura ativa: redireciona pro checkout
+        window.location.href = 'https://leadhouses.com.br/api/checkout?plan=' + plan;
+        return;
+    }
+    if (!confirm('Trocar para o plano ' + plan.toUpperCase() + '? A cobrança será ajustada proporcionalmente.')) return;
+
+    try {
+        const res = await fetch('/api/stripe/change-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ plan }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro');
+        toast('Plano alterado para ' + plan.toUpperCase(), 'success');
+        await carregarPlano();
+        refreshPlano(); // atualiza sidebar
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+async function cancelarPlano() {
+    if (!confirm('Cancelar assinatura? Você continuará com acesso até o fim do período pago.')) return;
+    try {
+        const res = await fetch('/api/stripe/cancel', { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro');
+        toast('Assinatura cancelada — acesso mantido até o fim do período', 'success');
+        await carregarPlano();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+async function reativarPlano() {
+    try {
+        const res = await fetch('/api/stripe/resume', { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro');
+        toast('Assinatura reativada', 'success');
+        await carregarPlano();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
 }
 
 function renderGoogle(email) {
