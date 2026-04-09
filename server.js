@@ -593,7 +593,7 @@ app.post('/api/stripe/change-plan', authMiddleware, async (req, res) => {
     const itemId = sub.items.data[0].id;
     await stripe.subscriptions.update(sub.id, {
       items: [{ id: itemId, price: STRIPE_PRICES[plan] }],
-      proration_behavior: 'create_prorations',
+      proration_behavior: 'always_invoice', // cobra a diferenca imediatamente
       cancel_at_period_end: false, // se estava cancelando, reativa
       metadata: { plan },
     });
