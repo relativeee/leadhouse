@@ -805,12 +805,22 @@
 
 <!-- ── Modal Generico ── -->
 <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
-    <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal modal--lg" onclick="event.stopPropagation()">
         <div class="modal__header">
             <div class="modal__title" id="modalTitle">Detalhes</div>
-            <button class="modal__close" onclick="fecharModal()">&times;</button>
+            <div class="modal__header-actions">
+                <button class="btn btn--ghost-sm" id="modalEditBtn" style="display:none" onclick="modalToggleEdit()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                </button>
+                <button class="modal__close" onclick="fecharModal()">&times;</button>
+            </div>
         </div>
         <div id="modalContent"></div>
+        <div class="modal__footer" id="modalFooter" style="display:none">
+            <button class="btn btn--primary" id="modalSaveBtn" onclick="modalSave()">Salvar alterações</button>
+            <button class="btn btn--ghost" onclick="modalCancelEdit()">Cancelar</button>
+        </div>
     </div>
 </div>
 
@@ -1576,6 +1586,7 @@ function renderImoveis() {
                     <div class="imv-card__price">${valor || '<span class="imv-card__price--na">A consultar</span>'}</div>
                     <div class="imv-card__actions" onclick="event.stopPropagation()">
                         <button class="btn-icon" title="Ver detalhes" onclick="verImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                        <button class="btn-icon" title="Editar" onclick="editarDireto('imovel',${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                         <button class="btn-icon" title="Agendar visita" onclick="vincularImovelAVisita('${esc(im.titulo)}','${esc(im.endereco||'')}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
                         <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
                     </div>
@@ -1678,12 +1689,100 @@ function removerFoto() {
     document.getElementById('uploadPreview').style.display = 'none';
 }
 
+let _modalCtx = { type: null, id: null, editing: false };
+
+function _modalInput(name, label, value, type='text', opts) {
+    if (type === 'select') {
+        return `<div class="modal-edit__group"><label class="modal-edit__label">${label}</label><select class="form-input modal-edit__input" data-field="${name}">${(opts||[]).map(o => `<option value="${o.v||o}" ${(o.v||o)===(value||'')?'selected':''}>${o.l||o}</option>`).join('')}</select></div>`;
+    }
+    if (type === 'textarea') {
+        return `<div class="modal-edit__group modal-edit__group--full"><label class="modal-edit__label">${label}</label><textarea class="form-input form-textarea modal-edit__input" data-field="${name}">${esc(value||'')}</textarea></div>`;
+    }
+    return `<div class="modal-edit__group"><label class="modal-edit__label">${label}</label><input type="${type}" class="form-input modal-edit__input" data-field="${name}" value="${esc(value||'')}"></div>`;
+}
+
+function _modalView(campos) {
+    return campos.map(([l,v,badge]) => {
+        let val = badge || esc(v||'--');
+        return `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${val}</div></div>`;
+    }).join('');
+}
+
+function _openModal(title, viewHtml, editHtml, type, id) {
+    _modalCtx = { type, id, editing: false, editHtml };
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalContent').innerHTML = viewHtml;
+    document.getElementById('modalEditBtn').style.display = '';
+    document.getElementById('modalFooter').style.display = 'none';
+    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+function modalToggleEdit() {
+    _modalCtx.editing = true;
+    document.getElementById('modalContent').innerHTML = `<div class="modal-edit__grid">${_modalCtx.editHtml}</div>`;
+    document.getElementById('modalEditBtn').style.display = 'none';
+    document.getElementById('modalFooter').style.display = 'flex';
+    const first = document.querySelector('.modal-edit__input');
+    if (first) first.focus();
+}
+
+function modalCancelEdit() {
+    _modalCtx.editing = false;
+    document.getElementById('modalFooter').style.display = 'none';
+    document.getElementById('modalEditBtn').style.display = '';
+    // Re-render view mode
+    if (_modalCtx.type === 'imovel') verImovel(_modalCtx.id);
+    else if (_modalCtx.type === 'lead') verLeadManual(_modalCtx.id);
+    else if (_modalCtx.type === 'visita') verVisita(_modalCtx.id);
+}
+
+async function modalSave() {
+    const fields = {};
+    document.querySelectorAll('.modal-edit__input').forEach(el => {
+        fields[el.dataset.field] = el.value;
+    });
+    const btn = document.getElementById('modalSaveBtn');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+        const map = { imovel: '/api/imoveis/', lead: '/api/leads-manual/', visita: '/api/visitas/' };
+        await apiCall('PUT', map[_modalCtx.type] + _modalCtx.id, fields);
+        toast('Atualizado com sucesso!', 'sucesso');
+        fecharModal();
+        if (_modalCtx.type === 'imovel') carregarImoveis();
+        else if (_modalCtx.type === 'lead') carregarLeadsManuais();
+        else if (_modalCtx.type === 'visita') carregarVisitas();
+    } catch(e) { toast('Erro ao salvar', 'erro'); }
+    finally { btn.disabled = false; btn.textContent = 'Salvar alterações'; }
+}
+
 function verImovel(id) {
     const im = imoveisData.find(i => i.id === id); if (!im) return;
-    const campos = [['Titulo',im.titulo],['Tipo',im.tipo],['Status',im.status],['Endereço',im.endereco],['Bairro',im.bairro],['Cidade',im.cidade],['Valor',im.valor?'R$ '+im.valor:''],['Quartos',im.quartos],['Area',im.area?im.area+' m2':''],['Descrição',im.descricao],['Cadastrado em',formatarTimestamp(im.created_at)]];
-    document.getElementById('modalTitle').textContent = im.titulo;
-    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(v||'--')}</div></div>`).join('');
-    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+    const statusBadge = `<span class="badge badge--status-${im.status}">${capitalize(im.status)}</span>`;
+    const viewHtml = _modalView([
+        ['Título', im.titulo],
+        ['Tipo', im.tipo],
+        ['Status', '', statusBadge],
+        ['Endereço', im.endereco],
+        ['Bairro', im.bairro],
+        ['Cidade', im.cidade],
+        ['Valor', im.valor ? 'R$ ' + im.valor : ''],
+        ['Quartos', im.quartos],
+        ['Área', im.area ? im.area + ' m²' : ''],
+        ['Descrição', im.descricao],
+        ['Cadastrado em', formatarTimestamp(im.created_at)],
+    ]);
+    const editHtml =
+        _modalInput('titulo', 'Título', im.titulo) +
+        _modalInput('tipo', 'Tipo', im.tipo, 'select', ['Apartamento','Casa','Terreno','Sala Comercial','Galpão','Cobertura','Flat']) +
+        _modalInput('status', 'Status', im.status, 'select', [{v:'disponivel',l:'Disponível'},{v:'reservado',l:'Reservado'},{v:'vendido',l:'Vendido'},{v:'alugado',l:'Alugado'}]) +
+        _modalInput('endereco', 'Endereço', im.endereco) +
+        _modalInput('bairro', 'Bairro', im.bairro) +
+        _modalInput('cidade', 'Cidade', im.cidade) +
+        _modalInput('valor', 'Valor (R$)', im.valor) +
+        _modalInput('quartos', 'Quartos', im.quartos, 'number') +
+        _modalInput('area', 'Área (m²)', im.area) +
+        _modalInput('descricao', 'Descrição', im.descricao, 'textarea');
+    _openModal(im.titulo, viewHtml, editHtml, 'imovel', id);
 }
 
 async function excluirImovel(id) {
@@ -1767,6 +1866,7 @@ function renderLeadsManuais() {
             </div>
             <div class="lead-card__foot" onclick="event.stopPropagation()">
                 ${wapp ? `<a class="lead-card__btn lead-card__btn--wapp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener">WhatsApp</a>`:''}
+                <button class="lead-card__btn" onclick="editarDireto('lead',${l.id})">Editar</button>
                 <button class="lead-card__btn" onclick="agendarVisitaLead('${esc(l.nome)}','${esc(l.telefone||'')}')">Agendar visita</button>
                 <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirLeadManual(${l.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
             </div>
@@ -1817,10 +1917,34 @@ function limparFormLead() {
 
 function verLeadManual(id) {
     const l = leadsManuaisData.find(x => x.id === id); if (!l) return;
-    const campos = [['Nome',l.nome],['Telefone',formatarTelefone(l.telefone)],['E-mail',l.email],['Objetivo',l.objetivo],['Tipo de Imóvel',l.tipo_imovel],['Bairro',l.bairro],['Faixa de valor',l.faixa_valor],['Pagamento',l.pagamento],['Prazo',l.prazo],['Temperatura',l.temperatura],['Observações',l.observacoes],['Cadastrado em',l.criadoEm]];
-    document.getElementById('modalTitle').textContent = l.nome;
-    document.getElementById('modalContent').innerHTML = campos.map(([lb,v]) => `<div class="modal__field"><div class="modal__label">${lb}</div><div class="modal__value">${lb==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'--')}</div></div>`).join('');
-    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+    const tempBadge = `<span class="badge badge--${l.temperatura}"><span class="badge__dot"></span> ${capitalize(l.temperatura)}</span>`;
+    const viewHtml = _modalView([
+        ['Nome', l.nome],
+        ['Telefone', formatarTelefone(l.telefone)],
+        ['E-mail', l.email],
+        ['Objetivo', l.objetivo],
+        ['Tipo de Imóvel', l.tipo_imovel],
+        ['Bairro', l.bairro],
+        ['Faixa de valor', l.faixa_valor],
+        ['Pagamento', l.pagamento],
+        ['Prazo', l.prazo],
+        ['Temperatura', '', tempBadge],
+        ['Observações', l.observacoes],
+        ['Cadastrado em', l.criadoEm],
+    ]);
+    const editHtml =
+        _modalInput('nome', 'Nome', l.nome) +
+        _modalInput('telefone', 'Telefone', l.telefone) +
+        _modalInput('email', 'E-mail', l.email, 'email') +
+        _modalInput('objetivo', 'Objetivo', l.objetivo, 'select', [{v:'',l:'Selecione...'},'Comprar','Alugar','Vender','Investir']) +
+        _modalInput('tipo_imovel', 'Tipo de Imóvel', l.tipo_imovel, 'select', [{v:'',l:'Selecione...'},'Apartamento','Casa','Terreno','Sala Comercial','Cobertura']) +
+        _modalInput('bairro', 'Bairro', l.bairro) +
+        _modalInput('faixa_valor', 'Faixa de valor', l.faixa_valor) +
+        _modalInput('pagamento', 'Pagamento', l.pagamento, 'select', [{v:'',l:'Selecione...'},'A vista','Financiamento','FGTS','Consórcio','Permuta']) +
+        _modalInput('prazo', 'Prazo', l.prazo, 'select', [{v:'',l:'Selecione...'},'Imediato','30 dias','3 meses','6 meses','1 ano','Sem pressa']) +
+        _modalInput('temperatura', 'Temperatura', l.temperatura, 'select', [{v:'frio',l:'Frio'},{v:'morno',l:'Morno'},{v:'quente',l:'Quente'}]) +
+        _modalInput('observacoes', 'Observações', l.observacoes, 'textarea');
+    _openModal(l.nome, viewHtml, editHtml, 'lead', id);
 }
 
 async function excluirLeadManual(id) {
@@ -1926,6 +2050,7 @@ function renderVisitas() {
                         ${v.corretor ? `<div class="visit-card__broker">👤 ${esc(v.corretor)}</div>`:''}
                     </div>
                     <div class="visit-card__actions" onclick="event.stopPropagation()">
+                        <button class="btn-icon" title="Editar" onclick="editarDireto('visita',${v.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                         ${v.status === 'agendada' ? `<button class="btn-icon btn-icon--success" title="Confirmar" onclick="atualizarStatusVisita(${v.id},'confirmada')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>`:''}
                         ${v.status === 'confirmada' ? `<button class="btn-icon btn-icon--success" title="Marcar como realizada" onclick="atualizarStatusVisita(${v.id},'realizada')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>`:''}
                         ${wapp ? `<a class="btn-icon" title="WhatsApp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></a>`:''}
@@ -1977,10 +2102,34 @@ function limparFormVisita() {
 
 function verVisita(id) {
     const v = visitasData.find(x => x.id === id); if (!v) return;
-    const campos = [['Lead',v.lead_nome],['Telefone',formatarTelefone(v.lead_telefone)],['Imovel',v.imovel_titulo],['Endereço',v.endereco],['Data',formatarData(v.data)],['Horário',v.horario],['Corretor',v.corretor],['Status',v.status],['Observações',v.observacoes],['Criado em',formatarTimestamp(v.created_at)]];
-    document.getElementById('modalTitle').textContent = 'Visita - ' + v.lead_nome;
-    document.getElementById('modalContent').innerHTML = campos.map(([l,val]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(val||'--')}</div></div>`).join('');
-    document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+    const statusBadge = `<span class="badge badge--visit-${v.status}">${capitalize(v.status)}</span>`;
+    const viewHtml = _modalView([
+        ['Lead', v.lead_nome],
+        ['Telefone', formatarTelefone(v.lead_telefone)],
+        ['Imóvel', v.imovel_titulo],
+        ['Endereço', v.endereco],
+        ['Data', formatarData(v.data)],
+        ['Horário', v.horario],
+        ['Corretor', v.corretor],
+        ['Status', '', statusBadge],
+        ['Observações', v.observacoes],
+        ['Criado em', formatarTimestamp(v.created_at)],
+    ]);
+    // Normaliza data pra yyyy-mm-dd
+    let dataVal = v.data || '';
+    if (dataVal.includes('/')) { const [d,m,y] = dataVal.split('/'); dataVal = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    let horaVal = (v.horario || '').slice(0, 5);
+    const editHtml =
+        _modalInput('lead_nome', 'Lead', v.lead_nome) +
+        _modalInput('lead_telefone', 'Telefone', v.lead_telefone) +
+        _modalInput('imovel_titulo', 'Imóvel', v.imovel_titulo) +
+        _modalInput('endereco', 'Endereço', v.endereco) +
+        _modalInput('data', 'Data', dataVal, 'date') +
+        _modalInput('horario', 'Horário', horaVal, 'time') +
+        _modalInput('corretor', 'Corretor', v.corretor) +
+        _modalInput('status', 'Status', v.status, 'select', [{v:'agendada',l:'Agendada'},{v:'confirmada',l:'Confirmada'},{v:'realizada',l:'Realizada'},{v:'cancelada',l:'Cancelada'},{v:'reagendada',l:'Reagendada'}]) +
+        _modalInput('observacoes', 'Observações', v.observacoes, 'textarea');
+    _openModal('Visita — ' + v.lead_nome, viewHtml, editHtml, 'visita', id);
 }
 
 async function atualizarStatusVisita(id, status) {
@@ -2000,6 +2149,16 @@ async function excluirVisita(id) {
 function fecharModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('modalOverlay').classList.remove('modal-overlay--open');
+    document.getElementById('modalEditBtn').style.display = 'none';
+    document.getElementById('modalFooter').style.display = 'none';
+    _modalCtx = { type: null, id: null, editing: false };
+}
+
+function editarDireto(type, id) {
+    if (type === 'imovel') verImovel(id);
+    else if (type === 'lead') verLeadManual(id);
+    else if (type === 'visita') verVisita(id);
+    setTimeout(() => modalToggleEdit(), 50);
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
