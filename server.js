@@ -863,7 +863,7 @@ app.post('/api/imoveis', async (req, res) => {
         });
       }
     }
-    const imovel = await db.criarImovel({
+    const imovelData = {
       titulo, tipo,
       status: req.body.status || 'disponivel',
       endereco: req.body.endereco || '',
@@ -873,7 +873,9 @@ app.post('/api/imoveis', async (req, res) => {
       quartos: req.body.quartos || '',
       area: req.body.area || '',
       descricao: req.body.descricao || '',
-    }, req.userId);
+    };
+    if (req.body.foto_url) imovelData.foto_url = req.body.foto_url;
+    const imovel = await db.criarImovel(imovelData, req.userId);
     res.status(201).json(imovel);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
