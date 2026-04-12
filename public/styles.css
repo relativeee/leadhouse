@@ -2397,3 +2397,61 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .visit-card { grid-template-columns: 1fr; gap: 0.5rem; }
     .visit-card__time { flex-direction: row; align-items: center; justify-content: space-between; }
 }
+
+/* ── CONTA ── */
+.conta-layout { max-width: 620px; display: flex; flex-direction: column; gap: 1.5rem; }
+.conta-section {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+.conta-section__title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #888; font-weight: 600; margin-bottom: 1.25rem;
+}
+.conta-section__head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+.conta-section__head .conta-section__title { margin-bottom: 0; }
+.conta-plan-status { font-size: 0.7rem; color: #888; }
+.conta-form { display: flex; flex-direction: column; gap: 1rem; }
+.conta-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.conta-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #888; font-weight: 600;
+}
+.conta-input--disabled { opacity: 0.45; cursor: not-allowed; }
+.conta-divider {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 1.25rem; margin-top: 0.5rem;
+}
+.conta-hint { font-size: 0.78rem; color: #888; margin-bottom: 1rem; }
+.conta-field-group { display: flex; flex-direction: column; gap: 1rem; }
+.conta-save { margin-top: 0.5rem; }
+
+.conta-integration {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; padding: 1rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+}
+.conta-integration__info { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
+.conta-integration__name { font-size: 0.85rem; color: #E0E0E0; font-weight: 600; }
+.conta-integration__status {
+    font-size: 0.75rem; color: #888;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.conta-integration__btn { flex-shrink: 0; font-size: 0.75rem !important; padding: 0.6rem 1rem !important; }
+
+.conta-cancel { margin-top: 1rem; text-align: center; }
+.conta-cancel__btn {
+    background: none; border: none;
+    color: #FF8A7A; font-size: 0.78rem;
+    cursor: pointer; font-family: inherit;
+    text-decoration: underline;
+    transition: opacity 0.2s;
+}
+.conta-cancel__btn:hover { opacity: 0.7; }
