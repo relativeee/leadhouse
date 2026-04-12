@@ -1124,6 +1124,8 @@ body::after {
     font-weight: 600;
 }
 .modal-edit__input { font-size: 0.88rem; }
+.modal__foto { margin-bottom: 1.25rem; border-radius: 12px; overflow: hidden; max-height: 260px; }
+.modal__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
 @media (max-width: 540px) {
     .modal-edit__grid { grid-template-columns: 1fr; }
 }
@@ -2236,6 +2238,7 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .imv-card__media--vendido::before { background: radial-gradient(circle at 50% 30%, rgba(120,120,120,0.18), transparent 60%); }
 .imv-card__media--reservado::before { background: radial-gradient(circle at 50% 30%, rgba(255,181,71,0.15), transparent 60%); }
 .imv-card__media--alugado::before { background: radial-gradient(circle at 50% 30%, rgba(90,168,224,0.15), transparent 60%); }
+.imv-card__img { width: 100%; height: 100%; object-fit: cover; position: relative; }
 .imv-card__icon { font-size: 3rem; position: relative; opacity: 0.85; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); }
 .imv-card__status {
     position: absolute; top: 0.75rem; right: 0.75rem;

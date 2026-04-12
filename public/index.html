@@ -673,19 +673,32 @@
      ============================================ -->
 <main class="dashboard" id="aba-agente" style="display:none;">
 
-    <div class="section-title">Agente IA — Matching Leads &amp; Imóveis</div>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Agente IA</h1>
+            <p class="page-header__sub">Cruzamento inteligente entre leads e imóveis — descubra quem quer o quê</p>
+        </div>
+    </header>
+
+    <div class="stat-strip" id="aiStatStrip">
+        <div class="stat-mini"><div class="stat-mini__label">Leads ativos</div><div class="stat-mini__value" id="aiLeads">--</div></div>
+        <div class="stat-mini stat-mini--ok"><div class="stat-mini__label">Imóveis disponíveis</div><div class="stat-mini__value" id="aiImoveis">--</div></div>
+        <div class="stat-mini stat-mini--quente"><div class="stat-mini__label">Leads quentes</div><div class="stat-mini__value" id="aiQuentes">--</div></div>
+        <div class="stat-mini stat-mini--gold"><div class="stat-mini__label">Visitas pendentes</div><div class="stat-mini__value" id="aiVisitas">--</div></div>
+    </div>
 
     <div class="ai-panel">
         <div class="ai-panel__intro">
-            <div class="ai-panel__icon">&#129302;</div>
+            <div class="ai-panel__icon">🤖</div>
             <div>
-                <h3 class="ai-panel__title">Analise Inteligente</h3>
-                <p class="ai-panel__desc">O agente cruza todos os leads (WhatsApp + manuais) com os imoveis cadastrados e gera um resumo executivo: quem quer o que, quais matches existem, e quais acoes o corretor deve tomar.</p>
+                <h3 class="ai-panel__title">Análise Inteligente</h3>
+                <p class="ai-panel__desc">O agente cruza todos os leads (WhatsApp + manuais) com os imóveis cadastrados e gera um resumo executivo: quem quer o quê, quais matches existem, e quais ações o corretor deve tomar.</p>
             </div>
         </div>
 
         <div class="ai-panel__actions">
             <button class="btn btn--primary btn--lg" id="btnGerarResumo" onclick="gerarResumoIA()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 <span id="btnResumoTexto">Gerar Resumo com IA</span>
                 <span id="btnResumoLoading" style="display:none;" class="loading-dots">Analisando<span>.</span><span>.</span><span>.</span></span>
             </button>
@@ -694,8 +707,11 @@
 
         <div class="ai-panel__result" id="aiResult" style="display:none;">
             <div class="ai-panel__result-header">
-                <span>Resultado da Analise</span>
-                <button class="btn btn--ghost btn--sm" onclick="copiarResumo()">Copiar</button>
+                <span>Resultado da Análise</span>
+                <div style="display:flex;gap:0.5rem">
+                    <button class="btn btn--ghost btn--sm" onclick="copiarResumo()">Copiar</button>
+                    <button class="btn btn--ghost btn--sm" onclick="gerarResumoIA()">Regerar</button>
+                </div>
             </div>
             <div class="ai-panel__result-body markdown" id="aiResultBody"></div>
         </div>
@@ -705,12 +721,13 @@
         </div>
 
         <div class="ai-panel__tips">
-            <div class="ai-panel__tip-title">Dicas para melhor resultado:</div>
+            <div class="ai-panel__tip-title">Como tirar o melhor proveito:</div>
             <ul class="ai-panel__tip-list">
-                <li>Cadastre imoveis com bairro, valor e tipo preenchidos</li>
+                <li>Cadastre imóveis com bairro, valor e tipo preenchidos</li>
                 <li>Leads com mais dados geram matches mais precisos</li>
-                <li>Leads quentes sao priorizados nas recomendacoes</li>
-                <li>O agente considera visitas ja agendadas para evitar duplicatas</li>
+                <li>Leads quentes são priorizados nas recomendações</li>
+                <li>O agente considera visitas já agendadas para evitar duplicatas</li>
+                <li>Gere novamente após cadastrar novos leads ou imóveis</li>
             </ul>
         </div>
     </div>
@@ -903,6 +920,7 @@ function trocarAba(aba, btn) {
     if (aba === 'imoveis') carregarImoveis();
     if (aba === 'leads') { carregarLeadsManuais(); marcarLeadsVistos(); }
     if (aba === 'visitas') { carregarVisitas(); marcarVisitasVistas(); }
+    if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
 }
 
@@ -1572,7 +1590,7 @@ function renderImoveis() {
         return `
         <article class="imv-card" onclick="verImovel(${im.id})">
             <div class="imv-card__media imv-card__media--${status}">
-                <div class="imv-card__icon">${_imvIcon(im.tipo)}</div>
+                ${im.foto_url ? `<img class="imv-card__img" src="${im.foto_url}" alt="${esc(im.titulo)}" loading="lazy">` : `<div class="imv-card__icon">${_imvIcon(im.tipo)}</div>`}
                 <span class="imv-card__status badge--status-${status}">${capitalize(status)}</span>
             </div>
             <div class="imv-card__body">
@@ -1629,6 +1647,7 @@ async function salvarImovel() {
     }
     if (!valido) return;
 
+    const fotoBase64 = document.getElementById('previewImg')?.dataset?.base64 || '';
     const body = {
         titulo: titulo.value.trim(),
         tipo: tipo.value,
@@ -1641,6 +1660,7 @@ async function salvarImovel() {
         area: document.getElementById('imvArea').value.trim(),
         descricao: document.getElementById('imvDescricao').value.trim(),
     };
+    if (fotoBase64) body.foto_url = fotoBase64;
     try {
         await apiCall('POST', '/api/imoveis', body);
         toast('Imóvel cadastrado com sucesso!', 'sucesso');
@@ -1676,16 +1696,30 @@ function mostrarPreview(file) {
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        document.getElementById('previewImg').src = e.target.result;
-        document.getElementById('uploadContent').style.display = 'none';
-        document.getElementById('uploadPreview').style.display = 'flex';
+        // Redimensiona pra max 600px
+        const img = new Image();
+        img.onload = function() {
+            const MAX = 600;
+            let w = img.width, h = img.height;
+            if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/webp', 0.8);
+            document.getElementById('previewImg').src = dataUrl;
+            document.getElementById('previewImg').dataset.base64 = dataUrl;
+            document.getElementById('uploadContent').style.display = 'none';
+            document.getElementById('uploadPreview').style.display = 'flex';
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
 
 function removerFoto() {
     document.getElementById('imvFoto').value = '';
-    document.getElementById('previewImg').src = '';
+    const prev = document.getElementById('previewImg');
+    prev.src = ''; prev.dataset.base64 = '';
     document.getElementById('uploadContent').style.display = 'flex';
     document.getElementById('uploadPreview').style.display = 'none';
 }
@@ -1759,7 +1793,8 @@ async function modalSave() {
 function verImovel(id) {
     const im = imoveisData.find(i => i.id === id); if (!im) return;
     const statusBadge = `<span class="badge badge--status-${im.status}">${capitalize(im.status)}</span>`;
-    const viewHtml = _modalView([
+    const fotoHtml = im.foto_url ? `<div class="modal__foto"><img src="${im.foto_url}" alt="${esc(im.titulo)}"></div>` : '';
+    const viewHtml = fotoHtml + _modalView([
         ['Título', im.titulo],
         ['Tipo', im.tipo],
         ['Status', '', statusBadge],
@@ -2314,6 +2349,23 @@ function agendarVisitaRapida(nome, telefone) {
 // AGENTE IA
 // ═══════════════════════════════════════════════
 let ultimoResumo = '';
+
+async function carregarAIStats() {
+    try {
+        const h = { headers: getAuthHeaders() };
+        const [wpp, manual, imv, vis] = await Promise.all([
+            fetch('/api/leads', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/leads-manual', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/imoveis', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
+        ]);
+        const all = [...wpp, ...manual];
+        document.getElementById('aiLeads').textContent = all.length;
+        document.getElementById('aiImoveis').textContent = imv.filter(i => i.status === 'disponivel').length;
+        document.getElementById('aiQuentes').textContent = all.filter(l => l.temperatura === 'quente').length;
+        document.getElementById('aiVisitas').textContent = vis.filter(v => v.status === 'agendada' || v.status === 'confirmada').length;
+    } catch(e) {}
+}
 
 async function gerarResumoIA() {
     const btn = document.getElementById('btnGerarResumo');
