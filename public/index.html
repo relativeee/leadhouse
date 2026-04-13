@@ -1154,6 +1154,22 @@ function marcarVisitasVistas() {
     if (b) b.style.display = 'none';
 }
 
+let _prevLeadCount = null;
+const _notifSound = (function() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        return function() {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine'; osc.frequency.value = 880;
+            gain.gain.value = 0.08;
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+        };
+    } catch { return function(){}; }
+})();
+
 async function atualizarNotificacoes() {
     try {
         const headers = getAuthHeaders();
@@ -1169,6 +1185,14 @@ async function atualizarNotificacoes() {
         const novosLeads = lastLeads
             ? todosLeads.filter(l => new Date(l.created_at || 0) > new Date(lastLeads)).length
             : todosLeads.length;
+
+        // Detecta leads novos desde o último polling
+        if (_prevLeadCount !== null && todosLeads.length > _prevLeadCount) {
+            const diff = todosLeads.length - _prevLeadCount;
+            toast(`📩 ${diff} novo${diff > 1 ? 's' : ''} lead${diff > 1 ? 's' : ''} chegou!`, 'sucesso');
+            _notifSound();
+        }
+        _prevLeadCount = todosLeads.length;
 
         const hoje = new Date().toISOString().slice(0, 10);
         const novasVisitas = (Array.isArray(vr) ? vr : []).filter(v => {
