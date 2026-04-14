@@ -682,7 +682,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id, google_email')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
