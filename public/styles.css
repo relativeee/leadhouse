@@ -2506,7 +2506,16 @@ tr:hover .td-acoes--row .btn-icon:hover {
     font-size: 0.75rem; color: #888;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.conta-integration__btn { flex-shrink: 0; font-size: 0.75rem !important; padding: 0.6rem 1rem !important; }
+.conta-integration__btn {
+    flex-shrink: 0; font-size: 0.75rem !important; padding: 0.6rem 1rem !important;
+    background: transparent !important;
+    color: #E0E0E0 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+}
+.conta-integration__btn:hover {
+    border-color: rgba(201,169,97,0.5) !important;
+    color: #c9a961 !important;
+}
 
 .conta-cancel { margin-top: 1rem; text-align: center; }
 .conta-cancel__btn {
