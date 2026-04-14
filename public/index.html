@@ -1875,7 +1875,9 @@ function modalCancelEdit() {
 async function modalSave() {
     const fields = {};
     document.querySelectorAll('.modal-edit__input').forEach(el => {
-        fields[el.dataset.field] = el.value;
+        let val = el.value;
+        if (el.dataset.field === 'imovel_id') val = val ? parseInt(val) : null;
+        fields[el.dataset.field] = val;
     });
     const btn = document.getElementById('modalSaveBtn');
     btn.disabled = true; btn.textContent = 'Salvando...';
@@ -2000,6 +2002,7 @@ function renderLeadsManuais() {
                 ${l.bairro ? `<div class="lead-card__row"><span>📍</span> ${esc(l.bairro)}</div>`:''}
                 ${l.faixa_valor ? `<div class="lead-card__row"><span>💰</span> ${esc(l.faixa_valor)}</div>`:''}
                 ${l.prazo ? `<div class="lead-card__row"><span>⏱</span> ${esc(l.prazo)}</div>`:''}
+                ${l.imovel_id ? `<div class="lead-card__row lead-card__row--imovel"><span>🏬</span> ${esc(_getImovelNome(l.imovel_id) || 'Imóvel #'+l.imovel_id)}</div>`:''}
             </div>
             <div class="lead-card__foot" onclick="event.stopPropagation()">
                 ${wapp ? `<a class="lead-card__btn lead-card__btn--wapp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener">WhatsApp</a>`:''}
@@ -2052,9 +2055,24 @@ function limparFormLead() {
     document.getElementById('ldTemperatura').value = 'frio';
 }
 
+function _getImovelNome(imovelId) {
+    if (!imovelId) return null;
+    const im = imoveisData.find(i => i.id === imovelId);
+    return im ? `${im.titulo}${im.bairro ? ' — ' + im.bairro : ''}` : null;
+}
+
+function _imovelOptions(selectedId) {
+    return [{v:'',l:'Nenhum imóvel vinculado'}, ...imoveisData.map(i => ({
+        v: String(i.id),
+        l: `${i.titulo}${i.bairro ? ' · ' + i.bairro : ''}${i.valor ? ' · R$ ' + i.valor : ''}`
+    }))];
+}
+
 function verLeadManual(id) {
     const l = leadsManuaisData.find(x => x.id === id); if (!l) return;
     const tempBadge = `<span class="badge badge--${l.temperatura}"><span class="badge__dot"></span> ${capitalize(l.temperatura)}</span>`;
+    const imovelNome = _getImovelNome(l.imovel_id);
+    const imovelBadge = imovelNome ? `<span class="badge-imovel">🏬 ${esc(imovelNome)}</span>` : '<span style="color:#666">Nenhum</span>';
     const viewHtml = _modalView([
         ['Nome', l.nome],
         ['Telefone', formatarTelefone(l.telefone)],
@@ -2066,6 +2084,7 @@ function verLeadManual(id) {
         ['Pagamento', l.pagamento],
         ['Prazo', l.prazo],
         ['Temperatura', '', tempBadge],
+        ['Imóvel vinculado', '', imovelBadge],
         ['Observações', l.observacoes],
         ['Cadastrado em', l.criadoEm],
     ]);
@@ -2080,6 +2099,7 @@ function verLeadManual(id) {
         _modalInput('pagamento', 'Pagamento', l.pagamento, 'select', [{v:'',l:'Selecione...'},'A vista','Financiamento','FGTS','Consórcio','Permuta']) +
         _modalInput('prazo', 'Prazo', l.prazo, 'select', [{v:'',l:'Selecione...'},'Imediato','30 dias','3 meses','6 meses','1 ano','Sem pressa']) +
         _modalInput('temperatura', 'Temperatura', l.temperatura, 'select', [{v:'frio',l:'Frio'},{v:'morno',l:'Morno'},{v:'quente',l:'Quente'}]) +
+        _modalInput('imovel_id', 'Imóvel vinculado', String(l.imovel_id||''), 'select', _imovelOptions(l.imovel_id)) +
         _modalInput('observacoes', 'Observações', l.observacoes, 'textarea');
     _openModal(l.nome, viewHtml, editHtml, 'lead', id);
 }

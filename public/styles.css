@@ -2394,6 +2394,13 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .lead-card__btn:hover { background: rgba(201,169,97,0.12); border-color: rgba(201,169,97,0.4); color: #f3f3f3; }
 .lead-card__btn--wapp { background: rgba(37,211,102,0.12); border-color: rgba(37,211,102,0.35); color: #25d366; }
 .lead-card__btn--wapp:hover { background: rgba(37,211,102,0.2); color: #4ee082; }
+.lead-card__row--imovel { color: #c9a961; font-weight: 500; }
+.badge-imovel {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: rgba(201,169,97,0.1); border: 1px solid rgba(201,169,97,0.25);
+    color: #c9a961; padding: 0.3rem 0.7rem; border-radius: 8px;
+    font-size: 0.82rem; font-weight: 500;
+}
 
 /* ── VISITAS TIMELINE ── */
 .visit-stats { display: flex; gap: 1.25rem; font-size: 0.78rem; color: #aaa; }

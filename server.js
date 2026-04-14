@@ -832,6 +832,7 @@ app.get('/api/leads', async (req, res) => {
       temperatura: l.temperatura || 'frio',
       proximo_passo: l.proximo_passo || 'nao informado',
       resumo: l.resumo || '',
+      imovel_id: l.imovel_id || null,
       totalMensagens: l.total_mensagens || 0,
       ultimaAtualizacao: l.updated_at ? new Date(l.updated_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : '--',
     })));
@@ -926,6 +927,7 @@ app.get('/api/leads-manual', async (req, res) => {
       prazo: l.prazo || '',
       temperatura: l.temperatura || 'frio',
       observacoes: l.observacoes || '',
+      imovel_id: l.imovel_id || null,
       origem: 'manual',
       criadoEm: l.created_at ? new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : '--',
     })));
@@ -958,6 +960,7 @@ app.post('/api/leads-manual', async (req, res) => {
       prazo: req.body.prazo || '',
       temperatura: req.body.temperatura || 'frio',
       observacoes: req.body.observacoes || '',
+      imovel_id: req.body.imovel_id || null,
       origem: 'manual',
     }, req.userId);
     res.status(201).json(lead);
