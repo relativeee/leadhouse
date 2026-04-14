@@ -2404,7 +2404,7 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ── CONTA ── */
-.conta-layout { max-width: 620px; display: flex; flex-direction: column; gap: 1.5rem; }
+.conta-layout { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
 .conta-section {
     background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
     border: 1px solid rgba(255,255,255,0.07);
