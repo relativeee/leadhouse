@@ -68,7 +68,8 @@
     </div>
 </aside>
 
-<!-- ── Botao mobile para abrir sidebar ── -->
+<!-- ── Mobile overlay + toggle ── -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
 
 <div class="main-content">
@@ -926,6 +927,7 @@ function trocarAba(aba, btn) {
 
     // Fecha sidebar no mobile
     document.getElementById('sidebar').classList.remove('sidebar--open');
+    document.getElementById('sidebarOverlay').classList.remove('sidebar-overlay--show');
 
     if (aba === 'dashboard') carregarDashboard();
     if (aba === 'imoveis') carregarImoveis();
@@ -2537,7 +2539,8 @@ function renderMarkdown(text) {
 // SIDEBAR MOBILE
 // ═══════════════════════════════════════════════
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('sidebar--open');
+    const open = document.getElementById('sidebar').classList.toggle('sidebar--open');
+    document.getElementById('sidebarOverlay').classList.toggle('sidebar-overlay--show', open);
 }
 
 // ═══════════════════════════════════════════════

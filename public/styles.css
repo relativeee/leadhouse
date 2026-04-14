@@ -590,6 +590,15 @@ body::after {
     border-color: var(--border-hover);
 }
 
+.sidebar-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 99;
+    backdrop-filter: blur(2px);
+    transition: opacity 0.3s;
+}
+.sidebar-overlay--show { display: block; }
+
 /* ============================================
    Welcome bar
    ============================================ */
@@ -2055,10 +2064,58 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .btn { width: 100%; text-align: center; }
     .td-acoes { flex-wrap: wrap; }
     .leads-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Page header */
+    .page-header { flex-direction: column; gap: 0.75rem; }
+    .page-header__title { font-size: 1.5rem; }
+    .page-header__cta { width: 100%; justify-content: center; }
+
+    /* Stat strip */
+    .stat-strip { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+    .stat-mini__value { font-size: 1.5rem; }
+
+    /* Portfolio toolbar */
+    .portfolio__head { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .portfolio__toolbar { flex-direction: column; }
+    .search-wrap { min-width: 100%; }
+    .chip-row { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0.25rem; }
+    .select-mini { width: 100%; }
+
+    /* Cards */
+    .imv-grid { grid-template-columns: 1fr; }
+    .lead-grid { grid-template-columns: 1fr; }
+
+    /* Visit timeline */
+    .visit-card { grid-template-columns: 1fr; gap: 0.5rem; }
+    .visit-card__time { flex-direction: row; align-items: center; justify-content: space-between; }
+    .visit-card__actions { justify-content: flex-start; }
+    .visit-stats { flex-direction: column; gap: 0.25rem; }
+
+    /* Conta */
+    .conta-layout { max-width: 100%; }
+    .conta-planos { grid-template-columns: 1fr; }
+    .conta-integration { flex-direction: column; text-align: center; gap: 0.75rem; }
+    .conta-integration__info { flex-direction: column; }
+    .conta-integration__btn { width: 100%; }
+
+    /* Modal */
+    .modal--lg { max-width: 95%; width: 95%; }
+    .modal-edit__grid { grid-template-columns: 1fr; }
+    .lead-modal__head { flex-direction: column; align-items: flex-start; }
+    .lead-modal__wapp { margin-left: 0; width: 100%; text-align: center; }
+    .lead-modal__grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
     .stats { grid-template-columns: 1fr; }
+    .stat-strip { grid-template-columns: 1fr; }
+    .page-header__title { font-size: 1.3rem; }
+    .portfolio__title { font-size: 1.3rem; }
+    .imv-card__media { height: 120px; }
+    .form-grid--detalhes { grid-template-columns: 1fr; }
+    .welcome { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .welcome__live { align-self: flex-start; }
+    .goal-bar__head { flex-direction: column; gap: 0.25rem; }
 }
 
 /* ═══════════════════════════════════════════════
