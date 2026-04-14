@@ -1934,7 +1934,14 @@ async function excluirImovel(id) {
 // LEADS MANUAIS
 // ═══════════════════════════════════════════════
 async function carregarLeadsManuais() {
-    try { leadsManuaisData = await apiCall('GET', '/api/leads-manual'); } catch(e) { leadsManuaisData = []; }
+    try {
+        const [leads, imv] = await Promise.all([
+            apiCall('GET', '/api/leads-manual'),
+            imoveisData.length ? Promise.resolve(imoveisData) : apiCall('GET', '/api/imoveis').catch(() => []),
+        ]);
+        leadsManuaisData = leads;
+        if (!imoveisData.length) imoveisData = imv;
+    } catch(e) { leadsManuaisData = []; }
     renderLeadsManuais();
 }
 
