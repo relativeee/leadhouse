@@ -784,7 +784,7 @@ app.post('/webhook', async (req, res) => {
     const leadDataBruto = await extrairDadosLead(conversa.historico);
     const leadData = validarEAjustarLead(leadDataBruto);
 
-    // Salva no Supabase
+    // Salva no Supabase (inclui historico da conversa)
     await db.upsertLeadWhatsApp(telefone, {
       nome: leadData.nome || '',
       objetivo: leadData.objetivo || '',
@@ -797,6 +797,7 @@ app.post('/webhook', async (req, res) => {
       proximo_passo: leadData.proximo_passo || '',
       resumo: leadData.resumo || '',
       total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
+      historico_json: JSON.stringify(conversa.historico.slice(-30)),
     });
 
     // Salva no Google Sheets (mantido como backup)
@@ -838,6 +839,22 @@ app.get('/api/leads', async (req, res) => {
     console.error('[API] Erro ao listar leads:', err.message);
     res.json([]);
   }
+});
+
+app.get('/api/leads/:telefone/conversa', async (req, res) => {
+  try {
+    const lead = await db.buscarLeadPorTelefone(req.params.telefone, req.userId);
+    if (!lead) return res.status(404).json({ erro: 'Lead nao encontrado' });
+    let historico = [];
+    if (lead.historico_json) {
+      try { historico = JSON.parse(lead.historico_json); } catch {}
+    }
+    // Fallback: se o lead está em memória, usa o histórico da memória
+    if (!historico.length && conversas[req.params.telefone]) {
+      historico = conversas[req.params.telefone].historico || [];
+    }
+    res.json({ telefone: lead.telefone, nome: lead.nome, historico });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 // ─────────────────────────────────────────────

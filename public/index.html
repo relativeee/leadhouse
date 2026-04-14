@@ -1517,10 +1517,74 @@ function filtrarDash(tipo, btn) {
 
 function abrirModalLead(index) {
     const lead = dashLeads[index]; if (!lead) return;
-    const campos = [['Nome',lead.nome],['Telefone',formatarTelefone(lead.telefone)],['Objetivo',lead.objetivo],['Tipo de Imóvel',lead.tipo_imovel],['Bairro',lead.bairro],['Faixa de valor',lead.faixa_valor],['Pagamento',lead.pagamento],['Prazo',lead.prazo],['Temperatura',lead.temperatura],['Próximo Passo',lead.proximo_passo],['Resumo',lead.resumo],['Total Mensagens',lead.totalMensagens],['Atualizado',lead.ultimaAtualizacao]];
+    const tempBadge = `<span class="badge badge--${lead.temperatura}"><span class="badge__dot"></span> ${capitalize(lead.temperatura)}</span>`;
+    const wapp = (lead.telefone||'').replace(/\D/g,'');
+
+    const dadosHtml = `
+        <div class="lead-modal__head">
+            <div class="lead-modal__avatar">${_initials(lead.nome)}</div>
+            <div>
+                <div class="lead-modal__name">${esc(lead.nome || 'Sem nome')}</div>
+                <div class="lead-modal__tel">${formatarTelefone(lead.telefone)} ${tempBadge}</div>
+            </div>
+            ${wapp ? `<a class="btn btn--outline lead-modal__wapp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+        </div>
+        <div class="lead-modal__grid">
+            ${[['Objetivo',lead.objetivo],['Tipo',lead.tipo_imovel],['Bairro',lead.bairro],['Faixa',lead.faixa_valor],['Pagamento',lead.pagamento],['Prazo',lead.prazo]].map(([l,v])=>`<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${esc(v||'--')}</div></div>`).join('')}
+        </div>
+        ${lead.proximo_passo && lead.proximo_passo !== 'nao informado' ? `<div class="lead-modal__next"><div class="modal__label">Próximo passo</div><div class="modal__value">${esc(lead.proximo_passo)}</div></div>` : ''}
+        ${lead.resumo ? `<div class="lead-modal__next"><div class="modal__label">Resumo da IA</div><div class="modal__value">${esc(lead.resumo)}</div></div>` : ''}
+        <div class="lead-modal__meta">${lead.totalMensagens || 0} mensagens · Atualizado: ${esc(lead.ultimaAtualizacao || '--')}</div>
+    `;
+
     document.getElementById('modalTitle').textContent = lead.nome || 'Detalhes do Lead';
-    document.getElementById('modalContent').innerHTML = campos.map(([l,v]) => `<div class="modal__field"><div class="modal__label">${l}</div><div class="modal__value">${l==='Temperatura'?`<span class="badge badge--${v}"><span class="badge__dot"></span> ${capitalize(v)}</span>`:esc(v||'não informado')}</div></div>`).join('');
+    document.getElementById('modalEditBtn').style.display = 'none';
+    document.getElementById('modalFooter').style.display = 'none';
+
+    const isWhatsApp = lead.origem !== 'manual' && lead.telefone;
+
+    document.getElementById('modalContent').innerHTML = `
+        ${isWhatsApp ? `<div class="chat-tabs">
+            <button class="chat-tab chat-tab--active" onclick="chatTabSwitch('dados', this)">Dados</button>
+            <button class="chat-tab" onclick="chatTabSwitch('conversa', this); carregarConversa('${lead.telefone}')">Conversa</button>
+        </div>` : ''}
+        <div id="chatTabDados">${dadosHtml}</div>
+        <div id="chatTabConversa" style="display:none">
+            <div class="chat-box" id="chatBox">
+                <div class="chat-box__loading">Carregando conversa...</div>
+            </div>
+        </div>
+    `;
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+function chatTabSwitch(tab, btn) {
+    document.getElementById('chatTabDados').style.display = tab === 'dados' ? '' : 'none';
+    document.getElementById('chatTabConversa').style.display = tab === 'conversa' ? '' : 'none';
+    btn.parentElement.querySelectorAll('.chat-tab').forEach(b => b.classList.remove('chat-tab--active'));
+    btn.classList.add('chat-tab--active');
+}
+
+async function carregarConversa(telefone) {
+    const box = document.getElementById('chatBox');
+    box.innerHTML = '<div class="chat-box__loading">Carregando conversa...</div>';
+    try {
+        const data = await apiCall('GET', '/api/leads/' + encodeURIComponent(telefone) + '/conversa');
+        const msgs = data.historico || [];
+        if (!msgs.length) {
+            box.innerHTML = '<div class="chat-box__empty">Nenhuma mensagem registrada</div>';
+            return;
+        }
+        box.innerHTML = msgs.map(m => `
+            <div class="chat-bubble chat-bubble--${m.role === 'user' ? 'in' : 'out'}">
+                <div class="chat-bubble__label">${m.role === 'user' ? '👤 Cliente' : '🤖 LeadHouse'}</div>
+                <div class="chat-bubble__text">${esc(m.content)}</div>
+            </div>
+        `).join('');
+        box.scrollTop = box.scrollHeight;
+    } catch(e) {
+        box.innerHTML = '<div class="chat-box__empty">Erro ao carregar conversa</div>';
+    }
 }
 
 // ═══════════════════════════════════════════════
