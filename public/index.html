@@ -1819,6 +1819,7 @@ async function salvarImovel() {
         limparFormImovel();
         document.getElementById('formImovelCard').classList.add('is-collapsed');
         carregarImoveis();
+        checkOnboarding();
     } catch(e) { toast('Erro ao cadastrar imóvel', 'erro'); }
 }
 
@@ -2104,6 +2105,7 @@ async function salvarLead() {
         limparFormLead();
         document.getElementById('formLeadCard').classList.add('is-collapsed');
         carregarLeadsManuais();
+        checkOnboarding();
     } catch(e) { toast('Erro ao cadastrar lead', 'erro'); }
 }
 
@@ -2307,6 +2309,7 @@ async function salvarVisita() {
         limparFormVisita();
         document.getElementById('formVisitaCard').classList.add('is-collapsed');
         carregarVisitas();
+        checkOnboarding();
     } catch(e) { toast('Erro ao agendar visita', 'erro'); }
 }
 
