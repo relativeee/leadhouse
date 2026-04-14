@@ -79,6 +79,57 @@
      ============================================ -->
 <main class="dashboard" id="aba-dashboard">
 
+    <!-- Onboarding -->
+    <section class="onboarding" id="onboarding" style="display:none">
+        <div class="onboarding__head">
+            <div>
+                <h2 class="onboarding__title">Bem-vindo à LeadHouse</h2>
+                <p class="onboarding__sub">Siga esses passos pra deixar tudo pronto em minutos</p>
+            </div>
+            <div class="onboarding__progress">
+                <span id="onbProgress">0</span>/4 concluídos
+            </div>
+        </div>
+        <div class="onboarding__track">
+            <div class="onboarding__fill" id="onbFill" style="width:0%"></div>
+        </div>
+        <div class="onboarding__steps">
+            <div class="onb-step" id="onbStep1">
+                <div class="onb-step__num">1</div>
+                <div class="onb-step__body">
+                    <h3 class="onb-step__title">Cadastre seu primeiro imóvel</h3>
+                    <p class="onb-step__desc">Adicione um imóvel ao portfólio pra começar a organizar sua operação</p>
+                </div>
+                <button class="btn btn--outline onb-step__btn" onclick="onbGoTo('imoveis')">Cadastrar</button>
+            </div>
+            <div class="onb-step" id="onbStep2">
+                <div class="onb-step__num">2</div>
+                <div class="onb-step__body">
+                    <h3 class="onb-step__title">Cadastre seu primeiro lead</h3>
+                    <p class="onb-step__desc">Registre uma oportunidade — cada lead é uma chance de venda</p>
+                </div>
+                <button class="btn btn--outline onb-step__btn" onclick="onbGoTo('leads')">Cadastrar</button>
+            </div>
+            <div class="onb-step" id="onbStep3">
+                <div class="onb-step__num">3</div>
+                <div class="onb-step__body">
+                    <h3 class="onb-step__title">Agende sua primeira visita</h3>
+                    <p class="onb-step__desc">Organize seus compromissos e não perca nenhuma oportunidade</p>
+                </div>
+                <button class="btn btn--outline onb-step__btn" onclick="onbGoTo('visitas')">Agendar</button>
+            </div>
+            <div class="onb-step" id="onbStep4">
+                <div class="onb-step__num">4</div>
+                <div class="onb-step__body">
+                    <h3 class="onb-step__title">Conecte o Google Calendar</h3>
+                    <p class="onb-step__desc">Sincronize visitas automaticamente com sua agenda</p>
+                </div>
+                <button class="btn btn--outline onb-step__btn" onclick="onbGoTo('conta')">Conectar</button>
+            </div>
+        </div>
+        <button class="onboarding__skip" onclick="onbDismiss()">Pular configuração inicial</button>
+    </section>
+
     <!-- Welcome bar -->
     <section class="welcome">
         <div>
@@ -2565,6 +2616,77 @@ function renderMarkdown(text) {
 // ═══════════════════════════════════════════════
 // SIDEBAR MOBILE
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// ONBOARDING
+// ═══════════════════════════════════════════════
+async function checkOnboarding() {
+    if (localStorage.getItem('lh_onb_dismissed')) {
+        document.getElementById('onboarding').style.display = 'none';
+        return;
+    }
+    try {
+        const h = { headers: getAuthHeaders() };
+        const [leads, imoveis, visitas, me] = await Promise.all([
+            fetch('/api/leads-manual', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/imoveis', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/auth/me', h).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+        ]);
+        const wppLeads = await fetch('/api/leads', h).then(r => r.ok ? r.json() : []).catch(() => []);
+
+        const done = {
+            imovel: imoveis.length > 0,
+            lead: leads.length > 0 || wppLeads.length > 0,
+            visita: visitas.length > 0,
+            gcal: !!me.google_refresh_token,
+        };
+
+        const total = Object.values(done).filter(Boolean).length;
+
+        // Se tudo feito, não mostra mais
+        if (total >= 4) {
+            localStorage.setItem('lh_onb_dismissed', '1');
+            document.getElementById('onboarding').style.display = 'none';
+            return;
+        }
+
+        // Atualiza visual
+        document.getElementById('onboarding').style.display = '';
+        document.getElementById('onbProgress').textContent = total;
+        document.getElementById('onbFill').style.width = (total / 4 * 100) + '%';
+
+        const steps = [
+            ['onbStep1', done.imovel],
+            ['onbStep2', done.lead],
+            ['onbStep3', done.visita],
+            ['onbStep4', done.gcal],
+        ];
+        steps.forEach(([id, completed]) => {
+            const el = document.getElementById(id);
+            if (completed) {
+                el.classList.add('onb-step--done');
+                const btn = el.querySelector('.onb-step__btn');
+                if (btn) { btn.textContent = 'Concluído'; btn.disabled = true; }
+                const num = el.querySelector('.onb-step__num');
+                if (num) num.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+            }
+        });
+    } catch(e) { console.error('[onb]', e); }
+}
+
+function onbGoTo(aba) {
+    const btn = document.querySelector(`.sidebar__item[onclick*="${aba}"]`);
+    if (btn) btn.click();
+    if (aba === 'imoveis' || aba === 'leads' || aba === 'visitas') {
+        setTimeout(() => toggleForm(aba, true), 200);
+    }
+}
+
+function onbDismiss() {
+    localStorage.setItem('lh_onb_dismissed', '1');
+    document.getElementById('onboarding').style.display = 'none';
+}
+
 function toggleSidebar() {
     const open = document.getElementById('sidebar').classList.toggle('sidebar--open');
     document.getElementById('sidebarOverlay').classList.toggle('sidebar-overlay--show', open);
@@ -2593,6 +2715,7 @@ function toggleSidebar() {
 
     refreshPlano();
     carregarDashboard();
+    checkOnboarding();
     atualizarNotificacoes();
     setInterval(carregarDashboard, 30000);
     setInterval(refreshPlano, 30000);
