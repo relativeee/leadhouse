@@ -44,6 +44,10 @@
             Agenda de Visitas
             <span class="sidebar__badge" id="badgeVisitas" style="display:none">0</span>
         </button>
+        <button class="sidebar__item" onclick="trocarAba('agenda', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Minha Agenda
+        </button>
         <button class="sidebar__item" onclick="trocarAba('funil', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Funil de Vendas
@@ -728,6 +732,72 @@
 </main>
 
 <!-- ============================================
+     ABA: MINHA AGENDA
+     ============================================ -->
+<main class="dashboard" id="aba-agenda" style="display:none;">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Minha Agenda</h1>
+            <p class="page-header__sub">Configure seus horários e veja sua semana organizada</p>
+        </div>
+    </header>
+
+    <!-- Config de horários -->
+    <section class="agenda-config">
+        <div class="agenda-config__head">
+            <div class="conta-section__title">Horários de atendimento</div>
+            <p class="agenda-config__hint">A IA usa esses horários pra sugerir visitas ao cliente no WhatsApp</p>
+        </div>
+        <div class="horario-config" id="horarioConfig">
+            <div class="horario-dias">
+                <label class="horario-dia"><input type="checkbox" value="1" checked> Seg</label>
+                <label class="horario-dia"><input type="checkbox" value="2" checked> Ter</label>
+                <label class="horario-dia"><input type="checkbox" value="3" checked> Qua</label>
+                <label class="horario-dia"><input type="checkbox" value="4" checked> Qui</label>
+                <label class="horario-dia"><input type="checkbox" value="5" checked> Sex</label>
+                <label class="horario-dia"><input type="checkbox" value="6" checked> Sáb</label>
+                <label class="horario-dia"><input type="checkbox" value="0"> Dom</label>
+            </div>
+            <div class="horario-horas">
+                <div class="horario-campo">
+                    <label class="conta-label">Início</label>
+                    <input type="time" class="form-input" id="horarioInicio" value="08:00">
+                </div>
+                <div class="horario-campo">
+                    <label class="conta-label">Fim</label>
+                    <input type="time" class="form-input" id="horarioFim" value="18:00">
+                </div>
+                <div class="horario-campo">
+                    <label class="conta-label">Duração da visita</label>
+                    <select class="form-input" id="horarioDuracao">
+                        <option value="30">30 minutos</option>
+                        <option value="60" selected>1 hora</option>
+                        <option value="90">1h30</option>
+                        <option value="120">2 horas</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn--primary" onclick="salvarHorario()">Salvar horários</button>
+        </div>
+    </section>
+
+    <!-- Visão da semana -->
+    <section class="agenda-semana">
+        <div class="agenda-semana__head">
+            <div class="conta-section__title">Sua semana</div>
+            <div class="agenda-semana__nav">
+                <button class="btn-icon" onclick="agendaSemanaNav(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <span id="agendaSemanaLabel">Esta semana</span>
+                <button class="btn-icon" onclick="agendaSemanaNav(1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+            </div>
+        </div>
+        <div class="agenda-grid" id="agendaGrid"></div>
+    </section>
+
+</main>
+
+<!-- ============================================
      ABA: FUNIL DE VENDAS
      ============================================ -->
 <main class="dashboard" id="aba-funil" style="display:none;">
@@ -902,43 +972,6 @@
             </form>
         </section>
 
-        <!-- Horários de atendimento -->
-        <section class="conta-section">
-            <div class="conta-section__title">Horários de atendimento</div>
-            <p class="conta-hint">Define quando você está disponível para visitas. A IA usa isso pra sugerir horários ao cliente.</p>
-            <div class="horario-config" id="horarioConfig">
-                <div class="horario-dias">
-                    <label class="horario-dia"><input type="checkbox" value="1" checked> Seg</label>
-                    <label class="horario-dia"><input type="checkbox" value="2" checked> Ter</label>
-                    <label class="horario-dia"><input type="checkbox" value="3" checked> Qua</label>
-                    <label class="horario-dia"><input type="checkbox" value="4" checked> Qui</label>
-                    <label class="horario-dia"><input type="checkbox" value="5" checked> Sex</label>
-                    <label class="horario-dia"><input type="checkbox" value="6" checked> Sáb</label>
-                    <label class="horario-dia"><input type="checkbox" value="0"> Dom</label>
-                </div>
-                <div class="horario-horas">
-                    <div class="horario-campo">
-                        <label class="conta-label">Início</label>
-                        <input type="time" class="form-input" id="horarioInicio" value="08:00">
-                    </div>
-                    <div class="horario-campo">
-                        <label class="conta-label">Fim</label>
-                        <input type="time" class="form-input" id="horarioFim" value="18:00">
-                    </div>
-                    <div class="horario-campo">
-                        <label class="conta-label">Duração da visita</label>
-                        <select class="form-input" id="horarioDuracao">
-                            <option value="30">30 minutos</option>
-                            <option value="60" selected>1 hora</option>
-                            <option value="90">1h30</option>
-                            <option value="120">2 horas</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="btn btn--primary conta-save" onclick="salvarHorario()">Salvar horários</button>
-            </div>
-        </section>
-
         <!-- Integrações -->
         <section class="conta-section">
             <div class="conta-section__title">Integrações</div>
@@ -1101,6 +1134,7 @@ function trocarAba(aba, btn) {
     if (aba === 'imoveis') carregarImoveis();
     if (aba === 'leads') { carregarLeadsManuais(); marcarLeadsVistos(); }
     if (aba === 'visitas') { carregarVisitas(); marcarVisitasVistas(); }
+    if (aba === 'agenda') carregarAgenda();
     if (aba === 'funil') carregarFunil();
     if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
@@ -2835,6 +2869,106 @@ function onbGoTo(aba) {
 function onbDismiss() {
     localStorage.setItem('lh_onb_dismissed', '1');
     document.getElementById('onboarding').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// MINHA AGENDA
+// ═══════════════════════════════════════════════
+let agendaOffset = 0;
+let agendaVisitas = [];
+let agendaHorario = null;
+
+async function carregarAgenda() {
+    try {
+        const h = { headers: getAuthHeaders() };
+        const [me, vis] = await Promise.all([
+            fetch('/api/auth/me', h).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+            fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
+        ]);
+        agendaHorario = me.horario_trabalho || { dias: [1,2,3,4,5,6], inicio: '08:00', fim: '18:00', duracao: 60 };
+        agendaVisitas = vis;
+        carregarHorarioTrabalho(agendaHorario);
+        renderAgendaSemana();
+    } catch(e) { console.error('[agenda]', e); }
+}
+
+function agendaSemanaNav(dir) {
+    agendaOffset += dir * 7;
+    renderAgendaSemana();
+}
+
+function renderAgendaSemana() {
+    const grid = document.getElementById('agendaGrid');
+    const ht = agendaHorario || { dias: [1,2,3,4,5,6], inicio: '08:00', fim: '18:00', duracao: 60 };
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const inicio = new Date(hoje); inicio.setDate(inicio.getDate() - inicio.getDay() + 1 + agendaOffset); // segunda
+
+    // Label
+    const fimSemana = new Date(inicio); fimSemana.setDate(fimSemana.getDate() + 6);
+    const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    const label = agendaOffset === 0 ? 'Esta semana' :
+        `${inicio.getDate()} ${meses[inicio.getMonth()]} — ${fimSemana.getDate()} ${meses[fimSemana.getMonth()]}`;
+    document.getElementById('agendaSemanaLabel').textContent = label;
+
+    const diasNome = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const [hI, mI] = ht.inicio.split(':').map(Number);
+    const [hF, mF] = ht.fim.split(':').map(Number);
+    const inicioMin = hI * 60 + mI;
+    const fimMin = hF * 60 + mF;
+    const duracao = ht.duracao || 60;
+
+    let html = '';
+    for (let d = 0; d < 7; d++) {
+        const dia = new Date(inicio); dia.setDate(dia.getDate() + d);
+        const diaSemana = dia.getDay();
+        const dataStr = dia.toISOString().slice(0,10);
+        const eHoje = dia.getTime() === hoje.getTime();
+        const ativo = (ht.dias || []).includes(diaSemana);
+
+        // Visitas do dia
+        const visitasDia = agendaVisitas.filter(v => {
+            let vD = v.data || '';
+            if (vD.includes('/')) { const [dd,mm,yy] = vD.split('/'); vD = `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`; }
+            return vD === dataStr && v.status !== 'cancelada';
+        });
+
+        html += `<div class="agenda-dia ${eHoje ? 'agenda-dia--hoje' : ''} ${!ativo ? 'agenda-dia--off' : ''}">
+            <div class="agenda-dia__head">
+                <span class="agenda-dia__nome">${diasNome[diaSemana]}</span>
+                <span class="agenda-dia__num">${dia.getDate()}</span>
+            </div>
+            <div class="agenda-dia__slots">`;
+
+        if (!ativo) {
+            html += `<div class="agenda-slot agenda-slot--off">Folga</div>`;
+        } else {
+            for (let t = inicioMin; t + duracao <= fimMin; t += duracao) {
+                const hh = String(Math.floor(t/60)).padStart(2,'0');
+                const mm = String(t%60).padStart(2,'0');
+                const hora = `${hh}:${mm}`;
+
+                const visita = visitasDia.find(v => {
+                    const [vh, vm] = (v.horario || '00:00').split(':').map(Number);
+                    return Math.abs((vh*60+vm) - t) < duracao;
+                });
+
+                if (visita) {
+                    html += `<div class="agenda-slot agenda-slot--ocupado" onclick="verVisita(${visita.id})">
+                        <div class="agenda-slot__hora">${hora}</div>
+                        <div class="agenda-slot__lead">${esc(visita.lead_nome)}</div>
+                        <div class="agenda-slot__imv">${esc(visita.imovel_titulo || '')}</div>
+                    </div>`;
+                } else {
+                    html += `<div class="agenda-slot agenda-slot--livre">
+                        <div class="agenda-slot__hora">${hora}</div>
+                        <div class="agenda-slot__tag">Livre</div>
+                    </div>`;
+                }
+            }
+        }
+        html += `</div></div>`;
+    }
+    grid.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════
