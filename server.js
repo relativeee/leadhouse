@@ -895,7 +895,7 @@ async function calcularHorariosLivres(userId) {
 
     const ht = user.horario_trabalho;
     const bloqueios = user.bloqueios_json || [];
-    const dias = ht.dias || [1,2,3,4,5,6];
+    const dias = ht.dias || [1,2,3,4,5];
     const inicio = ht.inicio || '08:00';
     const fim = ht.fim || '18:00';
     const duracao = ht.duracao || 60;

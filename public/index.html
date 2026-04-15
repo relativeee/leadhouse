@@ -2847,7 +2847,7 @@ async function carregarAgenda() {
             fetch('/api/auth/me', h).then(r => r.ok ? r.json() : {}).catch(() => ({})),
             fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
-        agendaHorario = me.horario_trabalho || { dias: [1,2,3,4,5,6], inicio: '08:00', fim: '18:00', duracao: 60 };
+        agendaHorario = me.horario_trabalho || { dias: [1,2,3,4,5], inicio: '08:00', fim: '18:00', duracao: 60 };
         agendaBloqueios = me.bloqueios_json || [];
         agendaVisitas = vis;
         renderAgendaSemana();
@@ -2874,7 +2874,7 @@ function agendaSemanaNav(dir) {
 
 function renderAgendaSemana() {
     const grid = document.getElementById('agendaGrid');
-    const ht = agendaHorario || { dias: [1,2,3,4,5,6], inicio: '08:00', fim: '18:00', duracao: 60 };
+    const ht = agendaHorario || { dias: [1,2,3,4,5], inicio: '08:00', fim: '18:00', duracao: 60 };
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const inicio = new Date(hoje); inicio.setDate(inicio.getDate() - inicio.getDay() + 1 + agendaOffset); // segunda
 
