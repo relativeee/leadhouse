@@ -22,6 +22,9 @@
             <div class="sidebar__subtitle">Gestão Imobiliária</div>
         </div>
     </div>
+    <button class="sidebar__collapse" id="sidebarCollapse" onclick="toggleCollapse()" title="Recolher menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
     <nav class="sidebar__nav">
         <button class="sidebar__item sidebar__item--active" onclick="trocarAba('dashboard', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -2689,6 +2692,19 @@ function onbDismiss() {
     localStorage.setItem('lh_onb_dismissed', '1');
     document.getElementById('onboarding').style.display = 'none';
 }
+
+function toggleCollapse() {
+    const sidebar = document.getElementById('sidebar');
+    const collapsed = sidebar.classList.toggle('sidebar--collapsed');
+    localStorage.setItem('lh_sidebar_collapsed', collapsed ? '1' : '');
+}
+
+// Restaura estado da sidebar
+(function() {
+    if (localStorage.getItem('lh_sidebar_collapsed')) {
+        document.getElementById('sidebar').classList.add('sidebar--collapsed');
+    }
+})();
 
 function toggleSidebar() {
     const open = document.getElementById('sidebar').classList.toggle('sidebar--open');

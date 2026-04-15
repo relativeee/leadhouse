@@ -135,6 +135,7 @@ body::after {
     margin-left: 260px;
     flex: 1;
     min-width: 0;
+    transition: margin-left 0.3s ease;
 }
 
 .dashboard {
@@ -168,6 +169,49 @@ body::after {
     z-index: 100;
     overflow-y: auto;
 }
+
+/* Collapse button */
+.sidebar__collapse {
+    position: absolute;
+    top: 2.2rem; right: -12px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    transition: all 0.25s ease;
+    padding: 0;
+}
+.sidebar__collapse:hover { border-color: var(--gold); color: var(--gold); }
+.sidebar--collapsed .sidebar__collapse svg { transform: rotate(180deg); }
+
+/* Collapsed state */
+.sidebar { transition: width 0.3s ease, min-width 0.3s ease; }
+.sidebar--collapsed { width: 72px; min-width: 72px; }
+.sidebar--collapsed .sidebar__logo { padding: 2rem 0.85rem 1.5rem; justify-content: center; }
+.sidebar--collapsed .sidebar__title,
+.sidebar--collapsed .sidebar__subtitle { display: none; }
+.sidebar--collapsed .sidebar__logo-img { width: 32px; height: 32px; }
+.sidebar--collapsed .sidebar__nav { padding: 0.75rem 0.5rem; }
+.sidebar--collapsed .sidebar__item {
+    justify-content: center;
+    padding: 0.75rem;
+    font-size: 0;
+    gap: 0;
+}
+.sidebar--collapsed .sidebar__item .sidebar__icon { margin: 0; }
+.sidebar--collapsed .sidebar__badge { display: none !important; }
+.sidebar--collapsed .sidebar__footer { padding: 0.75rem 0.5rem; }
+.sidebar--collapsed .sidebar__plan { display: none; }
+.sidebar--collapsed .sidebar__user { font-size: 0; text-align: center; }
+.sidebar--collapsed .sidebar__status { font-size: 0; justify-content: center; }
+.sidebar--collapsed .sidebar__status span:not(.header__status-dot) { display: none; }
+.sidebar--collapsed .sidebar__logout { font-size: 0; justify-content: center; gap: 0; }
+
+.sidebar--collapsed ~ .main-content { margin-left: 72px; }
 
 .sidebar__logo {
     display: flex;
@@ -2045,7 +2089,9 @@ tr:hover .td-acoes--row .btn-icon:hover {
         justify-content: center;
     }
 
-    .main-content { margin-left: 0; }
+    .main-content { margin-left: 0 !important; }
+    .sidebar__collapse { display: none; }
+    .sidebar--collapsed { width: 260px; min-width: 260px; }
     .dashboard { padding: 1.25rem; padding-top: 5rem; }
     .stats { grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
     .stat-card { padding: 1.1rem; }
