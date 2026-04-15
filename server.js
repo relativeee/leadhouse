@@ -895,10 +895,9 @@ async function calcularHorariosLivres(userId) {
 
     const ht = user.horario_trabalho;
     const bloqueios = user.bloqueios_json || [];
-    const dias = ht.dias || [1,2,3,4,5];
-    const inicio = ht.inicio || '08:00';
-    const fim = ht.fim || '18:00';
+    const dias = ht.dias || [1,2,3,4,5,6];
     const duracao = ht.duracao || 60;
+    const especial = ht.especial || {};
 
     // Busca visitas dos próximos 7 dias
     const visitas = await db.listarVisitas(userId);
@@ -913,8 +912,9 @@ async function calcularHorariosLivres(userId) {
       if (!dias.includes(diaSemana)) continue;
 
       const dataStr = dia.toISOString().slice(0, 10);
-      const [hI, mI] = inicio.split(':').map(Number);
-      const [hF, mF] = fim.split(':').map(Number);
+      const hDia = especial[diaSemana] || { inicio: ht.inicio || '08:00', fim: ht.fim || '18:00' };
+      const [hI, mI] = hDia.inicio.split(':').map(Number);
+      const [hF, mF] = hDia.fim.split(':').map(Number);
       const inicioMin = hI * 60 + mI;
       const fimMin = hF * 60 + mF;
 
