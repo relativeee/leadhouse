@@ -902,6 +902,43 @@
             </form>
         </section>
 
+        <!-- Horários de atendimento -->
+        <section class="conta-section">
+            <div class="conta-section__title">Horários de atendimento</div>
+            <p class="conta-hint">Define quando você está disponível para visitas. A IA usa isso pra sugerir horários ao cliente.</p>
+            <div class="horario-config" id="horarioConfig">
+                <div class="horario-dias">
+                    <label class="horario-dia"><input type="checkbox" value="1" checked> Seg</label>
+                    <label class="horario-dia"><input type="checkbox" value="2" checked> Ter</label>
+                    <label class="horario-dia"><input type="checkbox" value="3" checked> Qua</label>
+                    <label class="horario-dia"><input type="checkbox" value="4" checked> Qui</label>
+                    <label class="horario-dia"><input type="checkbox" value="5" checked> Sex</label>
+                    <label class="horario-dia"><input type="checkbox" value="6" checked> Sáb</label>
+                    <label class="horario-dia"><input type="checkbox" value="0"> Dom</label>
+                </div>
+                <div class="horario-horas">
+                    <div class="horario-campo">
+                        <label class="conta-label">Início</label>
+                        <input type="time" class="form-input" id="horarioInicio" value="08:00">
+                    </div>
+                    <div class="horario-campo">
+                        <label class="conta-label">Fim</label>
+                        <input type="time" class="form-input" id="horarioFim" value="18:00">
+                    </div>
+                    <div class="horario-campo">
+                        <label class="conta-label">Duração da visita</label>
+                        <select class="form-input" id="horarioDuracao">
+                            <option value="30">30 minutos</option>
+                            <option value="60" selected>1 hora</option>
+                            <option value="90">1h30</option>
+                            <option value="120">2 horas</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn--primary conta-save" onclick="salvarHorario()">Salvar horários</button>
+            </div>
+        </section>
+
         <!-- Integrações -->
         <section class="conta-section">
             <div class="conta-section__title">Integrações</div>
@@ -1081,9 +1118,38 @@ async function carregarConta() {
         document.getElementById('contaEmail').value = user.email || '';
         document.getElementById('contaSenhaAtual').value = '';
         document.getElementById('contaSenhaNova').value = '';
+        carregarHorarioTrabalho(user.horario_trabalho);
         renderGoogle(user.google_email);
         carregarPlano();
     } catch {}
+}
+
+function carregarHorarioTrabalho(ht) {
+    if (!ht) return;
+    const dias = ht.dias || [1,2,3,4,5,6];
+    document.querySelectorAll('#horarioConfig .horario-dia input').forEach(cb => {
+        cb.checked = dias.includes(parseInt(cb.value));
+    });
+    if (ht.inicio) document.getElementById('horarioInicio').value = ht.inicio;
+    if (ht.fim) document.getElementById('horarioFim').value = ht.fim;
+    if (ht.duracao) document.getElementById('horarioDuracao').value = String(ht.duracao);
+}
+
+async function salvarHorario() {
+    const dias = [];
+    document.querySelectorAll('#horarioConfig .horario-dia input:checked').forEach(cb => {
+        dias.push(parseInt(cb.value));
+    });
+    const horario_trabalho = {
+        dias,
+        inicio: document.getElementById('horarioInicio').value,
+        fim: document.getElementById('horarioFim').value,
+        duracao: parseInt(document.getElementById('horarioDuracao').value),
+    };
+    try {
+        await apiCall('PUT', '/api/auth/me', { horario_trabalho });
+        toast('Horários salvos com sucesso!', 'sucesso');
+    } catch(e) { toast('Erro ao salvar horários', 'erro'); }
 }
 
 let subInfo = null;

@@ -16,12 +16,15 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
  * @param {Array} historico - Array de {role, content} da conversa
  * @returns {string} Resposta da IA
  */
-async function gerarResposta(historico) {
+async function gerarResposta(historico, contextoExtra) {
   try {
+    let system = systemPrompt;
+    if (contextoExtra) system += '\n\n' + contextoExtra;
+
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 300,
-      system: systemPrompt,
+      system,
       messages: historico,
     });
 

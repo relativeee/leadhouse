@@ -2580,6 +2580,36 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 .conta-cancel__btn:hover { opacity: 0.7; }
 
+/* Horário de trabalho */
+.horario-config { display: flex; flex-direction: column; gap: 1.25rem; }
+.horario-dias {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.horario-dia {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    font-size: 0.82rem; color: #aaa;
+    cursor: pointer; transition: all 0.2s;
+    user-select: none;
+}
+.horario-dia:has(input:checked) {
+    background: rgba(201,169,97,0.1);
+    border-color: rgba(201,169,97,0.35);
+    color: #c9a961;
+}
+.horario-dia input { display: none; }
+.horario-horas {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem;
+}
+.horario-campo { display: flex; flex-direction: column; gap: 0.35rem; }
+
+@media (max-width: 640px) {
+    .horario-horas { grid-template-columns: 1fr; }
+}
+
 /* ── FUNIL / KANBAN ── */
 .funil-stats { display: flex; gap: 1.25rem; font-size: 0.82rem; color: #888; }
 .funil-stats span { display: flex; align-items: center; gap: 0.3rem; }

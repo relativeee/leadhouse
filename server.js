@@ -411,6 +411,11 @@ app.put('/api/auth/me', authMiddleware, async (req, res) => {
       updates.senha_hash = await bcrypt.hash(senha_nova, 10);
     }
 
+    // Horário de trabalho
+    if (req.body.horario_trabalho) {
+      updates.horario_trabalho = req.body.horario_trabalho;
+    }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ erro: 'Nenhum campo para atualizar' });
     }
@@ -799,7 +804,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
@@ -873,6 +878,71 @@ app.get('/webhook', (req, res) => {
 // ─────────────────────────────────────────────
 // POST /webhook — Recebe mensagens do WhatsApp
 // ─────────────────────────────────────────────
+// Calcula horários livres do corretor
+// ─────────────────────────────────────────────
+async function calcularHorariosLivres(userId) {
+  try {
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('horario_trabalho')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!user?.horario_trabalho) return null;
+
+    const ht = user.horario_trabalho;
+    const dias = ht.dias || [1,2,3,4,5,6];
+    const inicio = ht.inicio || '08:00';
+    const fim = ht.fim || '18:00';
+    const duracao = ht.duracao || 60;
+
+    // Busca visitas dos próximos 7 dias
+    const visitas = await db.listarVisitas(userId);
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    const slots = [];
+    for (let d = 0; d < 7; d++) {
+      const dia = new Date(hoje);
+      dia.setDate(dia.getDate() + d);
+      const diaSemana = dia.getDay();
+      if (!dias.includes(diaSemana)) continue;
+
+      const dataStr = dia.toISOString().slice(0, 10);
+      const [hI, mI] = inicio.split(':').map(Number);
+      const [hF, mF] = fim.split(':').map(Number);
+      const inicioMin = hI * 60 + mI;
+      const fimMin = hF * 60 + mF;
+
+      // Visitas já agendadas nesse dia
+      const ocupados = visitas
+        .filter(v => {
+          let vData = v.data || '';
+          if (vData.includes('/')) { const [dd,mm,yy] = vData.split('/'); vData = `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`; }
+          return vData === dataStr && v.status !== 'cancelada';
+        })
+        .map(v => {
+          const [h, m] = (v.horario || '00:00').split(':').map(Number);
+          return h * 60 + m;
+        });
+
+      const diasSem = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+      const livres = [];
+      for (let t = inicioMin; t + duracao <= fimMin; t += duracao) {
+        if (!ocupados.some(o => Math.abs(o - t) < duracao)) {
+          const hh = String(Math.floor(t/60)).padStart(2,'0');
+          const mm = String(t%60).padStart(2,'0');
+          livres.push(`${hh}:${mm}`);
+        }
+      }
+      if (livres.length > 0) {
+        const label = d === 0 ? 'Hoje' : d === 1 ? 'Amanhã' : `${diasSem[diaSemana]} (${dataStr.slice(8,10)}/${dataStr.slice(5,7)})`;
+        slots.push(`${label}: ${livres.join(', ')}`);
+      }
+    }
+    return slots.length > 0 ? slots.join('\n') : null;
+  } catch(e) { console.error('[slots]', e.message); return null; }
+}
+
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 
@@ -894,7 +964,22 @@ app.post('/webhook', async (req, res) => {
   }
 
   try {
-    const resposta = await gerarResposta(conversa.historico);
+    // Busca usuario dono do webhook pra pegar horários livres
+    let contextoHorarios = '';
+    const { data: leadExistente } = await db.supabase
+      .from('leads')
+      .select('usuario_id')
+      .eq('telefone', telefone)
+      .eq('origem', 'whatsapp')
+      .maybeSingle();
+    if (leadExistente?.usuario_id) {
+      const slotsLivres = await calcularHorariosLivres(leadExistente.usuario_id);
+      if (slotsLivres) {
+        contextoHorarios = `\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
+      }
+    }
+
+    const resposta = await gerarResposta(conversa.historico, contextoHorarios || undefined);
     conversa.historico.push({ role: 'assistant', content: resposta });
     await enviarMensagem(telefone, resposta);
 
