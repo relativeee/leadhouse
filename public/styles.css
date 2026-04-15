@@ -3149,3 +3149,132 @@ tr:hover .td-acoes--row .btn-icon:hover {
 [data-theme="light"] .pref-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #666; }
 [data-theme="light"] .sidebar-toggle { background: #fff; border-color: rgba(0,0,0,0.1); color: #333; }
 [data-theme="light"] .sidebar-overlay { background: rgba(0,0,0,0.25); }
+
+/* Textos e elementos que usam cores fixas */
+[data-theme="light"] .sidebar__title { color: #1A1A1A; }
+[data-theme="light"] .sidebar__subtitle { color: #999; }
+[data-theme="light"] .sidebar__user { color: #333; }
+[data-theme="light"] .sidebar__status { color: #666; }
+[data-theme="light"] .sidebar__logout { color: #666; }
+[data-theme="light"] .sidebar__plan { background: rgba(201,169,97,0.08); border: 1px solid rgba(201,169,97,0.2); }
+[data-theme="light"] .sidebar__plan-label { color: #999; }
+[data-theme="light"] .sidebar__plan-name { color: #1A1A1A; }
+[data-theme="light"] .sidebar__badge { color: #fff; }
+[data-theme="light"] .sidebar__collapse { background: #fff; border-color: rgba(0,0,0,0.1); color: #999; }
+
+/* Cards e valores */
+[data-theme="light"] .imv-card__title { color: #1A1A1A; }
+[data-theme="light"] .imv-card__meta { color: #888; }
+[data-theme="light"] .imv-card__foot { border-top-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .lead-card__name { color: #1A1A1A; }
+[data-theme="light"] .lead-card__tel { color: #888; }
+[data-theme="light"] .lead-card__body { border-top-color: rgba(0,0,0,0.06); border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .lead-card__row { color: #666; }
+[data-theme="light"] .lead-card__btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #333; }
+[data-theme="light"] .lead-card__stripe { background: rgba(0,0,0,0.06); }
+[data-theme="light"] .visit-card__lead { color: #1A1A1A; }
+[data-theme="light"] .visit-card__hour { color: #1A1A1A; }
+[data-theme="light"] .visit-card__imv, [data-theme="light"] .visit-card__addr, [data-theme="light"] .visit-card__broker { color: #888; }
+[data-theme="light"] .visit-day__head { border-bottom-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .visit-day__label { color: #1A1A1A; }
+
+/* Kanban */
+[data-theme="light"] .kanban__card-name { color: #1A1A1A; }
+[data-theme="light"] .kanban__card-tel { color: #888; }
+[data-theme="light"] .kanban__card-detail { color: #666; }
+[data-theme="light"] .kanban__card-foot { border-top-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .kanban__col-title { color: #333; }
+[data-theme="light"] .kanban__col-count { background: rgba(0,0,0,0.06); color: #666; }
+[data-theme="light"] .kanban__cards--over { background: rgba(201,169,97,0.08); outline-color: rgba(201,169,97,0.4); }
+
+/* Agenda */
+[data-theme="light"] .agenda-dia__nome { color: #999; }
+[data-theme="light"] .agenda-dia__num { color: #1A1A1A; }
+[data-theme="light"] .agenda-slot__hora { color: #666; }
+[data-theme="light"] .agenda-slot--livre { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .agenda-slot__tag { color: #bbb; }
+[data-theme="light"] .agenda-slot--off { color: #ccc; }
+
+/* Stats */
+[data-theme="light"] .stat-mini__label { color: #999; }
+[data-theme="light"] .stat-mini__value { color: #1A1A1A; }
+[data-theme="light"] .stat-card__label { color: #888; }
+[data-theme="light"] .stat-card__value { color: #1A1A1A; }
+
+/* Portfolio */
+[data-theme="light"] .portfolio__title { color: #1A1A1A; }
+[data-theme="light"] .portfolio__sub { color: #888; }
+[data-theme="light"] .portfolio__count { background: rgba(201,169,97,0.08); }
+
+/* Page header */
+[data-theme="light"] .page-header__title { color: #1A1A1A; }
+[data-theme="light"] .page-header__sub { color: #888; }
+
+/* Welcome */
+[data-theme="light"] .welcome__title { color: #1A1A1A; }
+[data-theme="light"] .welcome__greeting { color: #c9a961; }
+[data-theme="light"] .welcome__phrase { color: #888; }
+
+/* Conta */
+[data-theme="light"] .conta-section__title { color: #999; }
+[data-theme="light"] .conta-label { color: #999; }
+[data-theme="light"] .conta-hint { color: #999; }
+[data-theme="light"] .conta-integration { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .conta-integration__name { color: #333; }
+[data-theme="light"] .conta-integration__status { color: #888; }
+[data-theme="light"] .conta-integration__btn { background: transparent !important; color: #333 !important; border-color: rgba(0,0,0,0.15) !important; }
+
+/* Plan cards */
+[data-theme="light"] .plan-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .plan-card__name { color: #999; }
+[data-theme="light"] .plan-card__price { color: #1A1A1A; }
+[data-theme="light"] .plan-card__list li { color: #666; }
+[data-theme="light"] .plan-card__btn { border-color: rgba(0,0,0,0.15); color: #333; }
+[data-theme="light"] .plan-card--current { background: rgba(201,169,97,0.06); border-color: #c9a961; }
+
+/* Buttons */
+[data-theme="light"] .btn-icon { color: #666; }
+[data-theme="light"] .btn--outline { border-color: rgba(0,0,0,0.15); color: #333; }
+[data-theme="light"] .btn--ghost { color: #666; }
+[data-theme="light"] .btn--ghost-sm { color: #666; border-color: rgba(0,0,0,0.1); }
+
+/* Horario config */
+[data-theme="light"] .horario-dia { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: #666; }
+[data-theme="light"] .horario-dia:has(input:checked) { background: rgba(201,169,97,0.1); border-color: rgba(201,169,97,0.35); color: #c9a961; }
+
+/* Empty state */
+[data-theme="light"] .empty-state__text { color: #666; }
+[data-theme="light"] .empty-state__sub { color: #999; }
+[data-theme="light"] .empty-state__svg { opacity: 0.25; }
+
+/* Modal light */
+[data-theme="light"] .modal__label { color: #999; }
+[data-theme="light"] .modal__value { color: #333; }
+[data-theme="light"] .modal__field { border-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .modal__header { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .modal__footer { border-top-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .modal-edit__label { color: #999; }
+
+/* Onboarding */
+[data-theme="light"] .onboarding__title { color: #1A1A1A; }
+[data-theme="light"] .onboarding__sub { color: #888; }
+[data-theme="light"] .onb-step__title { color: #1A1A1A; }
+[data-theme="light"] .onb-step__desc { color: #888; }
+
+/* Goal bar */
+[data-theme="light"] .goal-bar { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .goal-bar__title { color: #333; }
+[data-theme="light"] .goal-bar__sub { color: #888; }
+[data-theme="light"] .goal-bar__track { background: rgba(0,0,0,0.06); }
+
+/* Leads table (dashboard) */
+[data-theme="light"] .leads-table th { color: #999; border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .leads-table td { color: #333; border-bottom-color: rgba(0,0,0,0.04); }
+[data-theme="light"] .leads-container { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .search-input { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: #333; }
+[data-theme="light"] .search-input::placeholder { color: #bbb; }
+[data-theme="light"] .filter-btn { color: #666; border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .filter-btn--active { background: var(--gold); color: #fff; }
+
+/* Footer */
+[data-theme="light"] .dashboard-footer { color: #bbb; }
