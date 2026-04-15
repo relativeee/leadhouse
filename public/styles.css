@@ -2681,7 +2681,15 @@ tr:hover .td-acoes--row .btn-icon:hover {
     border: 1px dashed rgba(255,255,255,0.06);
     color: #555;
     display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer;
 }
+.agenda-slot--livre:hover {
+    background: rgba(201,169,97,0.06);
+    border-color: rgba(201,169,97,0.3);
+    border-style: solid;
+}
+.agenda-slot--livre:hover .agenda-slot__tag { color: #c9a961; }
+.agenda-slot--livre:hover .agenda-slot__hora { color: #c9a961; }
 .agenda-slot--ocupado {
     background: rgba(201,169,97,0.08);
     border: 1px solid rgba(201,169,97,0.2);

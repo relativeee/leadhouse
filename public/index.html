@@ -2959,9 +2959,9 @@ function renderAgendaSemana() {
                         <div class="agenda-slot__imv">${esc(visita.imovel_titulo || '')}</div>
                     </div>`;
                 } else {
-                    html += `<div class="agenda-slot agenda-slot--livre">
+                    html += `<div class="agenda-slot agenda-slot--livre" onclick="agendarPelaAgenda('${dataStr}','${hora}')" title="Clique pra agendar">
                         <div class="agenda-slot__hora">${hora}</div>
-                        <div class="agenda-slot__tag">Livre</div>
+                        <div class="agenda-slot__tag">+ Agendar</div>
                     </div>`;
                 }
             }
@@ -2969,6 +2969,17 @@ function renderAgendaSemana() {
         html += `</div></div>`;
     }
     grid.innerHTML = html;
+}
+
+function agendarPelaAgenda(data, hora) {
+    const btnVisitas = document.querySelector('.sidebar__item[onclick*="visitas"]');
+    if (btnVisitas) btnVisitas.click();
+    setTimeout(() => {
+        document.getElementById('formVisitaCard').classList.remove('is-collapsed');
+        document.getElementById('vsData').value = data;
+        document.getElementById('vsHorario').value = hora;
+        document.getElementById('vsLeadNome').focus();
+    }, 150);
 }
 
 // ═══════════════════════════════════════════════
