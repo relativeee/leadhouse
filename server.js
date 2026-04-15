@@ -163,6 +163,89 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Login com Google
+function googleLoginRedirectUri(req) {
+  const base = process.env.SITE_URL || `https://${req.headers.host}`;
+  return `${base}/api/auth/google/callback`;
+}
+
+app.get('/api/auth/google/login', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).send('Google nao configurado');
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: googleLoginRedirectUri(req),
+    response_type: 'code',
+    scope: 'openid email profile',
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  try {
+    const { code, error } = req.query;
+    if (error || !code) return res.redirect('/login?error=google_denied');
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: googleLoginRedirectUri(req),
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json();
+    if (!tokenRes.ok) return res.redirect('/login?error=google_token');
+
+    const uiRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const profile = await uiRes.json();
+    if (!profile.email) return res.redirect('/login?error=google_email');
+
+    // Busca usuario existente pelo email
+    const { data: existente } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email, plano')
+      .eq('email', profile.email.toLowerCase())
+      .maybeSingle();
+
+    let user;
+    if (existente) {
+      user = existente;
+    } else {
+      // Cria conta nova automaticamente
+      const bcrypt = require('bcryptjs');
+      const randomPass = require('crypto').randomBytes(32).toString('hex');
+      const senha_hash = await bcrypt.hash(randomPass, 10);
+      const { data: novo, error: dbErr } = await db.supabase
+        .from('usuarios')
+        .insert({
+          nome: profile.name || profile.email.split('@')[0],
+          email: profile.email.toLowerCase(),
+          senha_hash,
+          google_email: profile.email,
+        })
+        .select('id, nome, email, plano')
+        .single();
+      if (dbErr) return res.redirect('/login?error=google_create');
+      user = novo;
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+
+    // Redireciona pro login com token via query param (frontend salva e redireciona)
+    res.redirect(`/login?google_token=${token}&google_user=${encodeURIComponent(JSON.stringify({ id: user.id, nome: user.nome, email: user.email, plano: user.plano }))}`);
+  } catch (err) {
+    console.error('[google login] erro:', err);
+    res.redirect('/login?error=google_server');
+  }
+});
+
 // Esqueci a senha — gera token e envia email via Resend
 app.post('/api/auth/forgot', async (req, res) => {
   try {
