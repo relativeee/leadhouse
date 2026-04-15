@@ -7,10 +7,13 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const db = require('./services/supabase');
 const { registrar, login, authMiddleware } = require('./services/auth');
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'leadhouse_secret_2024_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido no .env'); process.exit(1); }
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
@@ -42,9 +45,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   let event;
 
   try {
-    event = whSecret
-      ? stripe.webhooks.constructEvent(req.body, sig, whSecret)
-      : JSON.parse(req.body.toString());
+    if (!whSecret) {
+      console.error('[Stripe] STRIPE_WEBHOOK_SECRET nao configurado — rejeitando evento');
+      return res.status(403).send('Webhook secret nao configurado');
+    }
+    event = stripe.webhooks.constructEvent(req.body, sig, whSecret);
   } catch (err) {
     console.error('[Stripe] webhook signature invalida:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -108,6 +113,24 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 app.use(express.json({ limit: '5mb' }));
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // desabilitado pra não quebrar inline scripts
+  crossOriginEmbedderPolicy: false,
+}));
+
+// Rate limiting nos endpoints de auth
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // max 20 tentativas por IP
+  message: { erro: 'Muitas tentativas. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot', authLimiter);
 
 // Login
 app.get('/login', (req, res) => {
@@ -236,7 +259,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
       user = novo;
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 
     // Redireciona pro login com token via query param (frontend salva e redireciona)
     res.redirect(`/login?google_token=${token}&google_user=${encodeURIComponent(JSON.stringify({ id: user.id, nome: user.nome, email: user.email, plano: user.plano }))}`);

@@ -7,7 +7,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('./supabase');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'leadhouse_secret_2024_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido'); process.exit(1); }
 const JWT_EXPIRES = '7d';
 
 async function registrar(nome, email, senha) {
@@ -37,7 +38,7 @@ async function registrar(nome, email, senha) {
 async function login(email, senha) {
   const { data: user, error } = await supabase
     .from('usuarios')
-    .select('*')
+    .select('id, nome, email, plano, senha_hash')
     .eq('email', email.toLowerCase())
     .maybeSingle();
 
