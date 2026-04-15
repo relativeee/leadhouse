@@ -44,6 +44,10 @@
             Agenda de Visitas
             <span class="sidebar__badge" id="badgeVisitas" style="display:none">0</span>
         </button>
+        <button class="sidebar__item" onclick="trocarAba('funil', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Funil de Vendas
+        </button>
         <button class="sidebar__item sidebar__item--ai" onclick="trocarAba('agente', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Agente IA
@@ -724,6 +728,79 @@
 </main>
 
 <!-- ============================================
+     ABA: FUNIL DE VENDAS
+     ============================================ -->
+<main class="dashboard" id="aba-funil" style="display:none;">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Funil de Vendas</h1>
+            <p class="page-header__sub">Acompanhe cada lead do primeiro contato ao fechamento</p>
+        </div>
+        <div class="funil-stats" id="funilStats"></div>
+    </header>
+
+    <div class="kanban" id="kanbanBoard">
+        <div class="kanban__col" data-estagio="novo">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--novo"></span>
+                <span class="kanban__col-title">Novo</span>
+                <span class="kanban__col-count" id="funilCntNovo">0</span>
+            </div>
+            <div class="kanban__cards" id="funilNovo"></div>
+        </div>
+        <div class="kanban__col" data-estagio="atendimento">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--atendimento"></span>
+                <span class="kanban__col-title">Em atendimento</span>
+                <span class="kanban__col-count" id="funilCntAtendimento">0</span>
+            </div>
+            <div class="kanban__cards" id="funilAtendimento"></div>
+        </div>
+        <div class="kanban__col" data-estagio="qualificado">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--qualificado"></span>
+                <span class="kanban__col-title">Qualificado</span>
+                <span class="kanban__col-count" id="funilCntQualificado">0</span>
+            </div>
+            <div class="kanban__cards" id="funilQualificado"></div>
+        </div>
+        <div class="kanban__col" data-estagio="visita">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--visita"></span>
+                <span class="kanban__col-title">Visita agendada</span>
+                <span class="kanban__col-count" id="funilCntVisita">0</span>
+            </div>
+            <div class="kanban__cards" id="funilVisita"></div>
+        </div>
+        <div class="kanban__col" data-estagio="proposta">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--proposta"></span>
+                <span class="kanban__col-title">Proposta</span>
+                <span class="kanban__col-count" id="funilCntProposta">0</span>
+            </div>
+            <div class="kanban__cards" id="funilProposta"></div>
+        </div>
+        <div class="kanban__col" data-estagio="fechado">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--fechado"></span>
+                <span class="kanban__col-title">Fechado</span>
+                <span class="kanban__col-count" id="funilCntFechado">0</span>
+            </div>
+            <div class="kanban__cards" id="funilFechado"></div>
+        </div>
+        <div class="kanban__col" data-estagio="perdido">
+            <div class="kanban__col-head">
+                <span class="kanban__col-dot kanban__col-dot--perdido"></span>
+                <span class="kanban__col-title">Perdido</span>
+                <span class="kanban__col-count" id="funilCntPerdido">0</span>
+            </div>
+            <div class="kanban__cards" id="funilPerdido"></div>
+        </div>
+    </div>
+</main>
+
+<!-- ============================================
      ABA: AGENTE IA
      ============================================ -->
 <main class="dashboard" id="aba-agente" style="display:none;">
@@ -987,6 +1064,7 @@ function trocarAba(aba, btn) {
     if (aba === 'imoveis') carregarImoveis();
     if (aba === 'leads') { carregarLeadsManuais(); marcarLeadsVistos(); }
     if (aba === 'visitas') { carregarVisitas(); marcarVisitasVistas(); }
+    if (aba === 'funil') carregarFunil();
     if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
 }
@@ -2692,6 +2770,119 @@ function onbDismiss() {
     localStorage.setItem('lh_onb_dismissed', '1');
     document.getElementById('onboarding').style.display = 'none';
 }
+
+// ═══════════════════════════════════════════════
+// FUNIL DE VENDAS (KANBAN)
+// ═══════════════════════════════════════════════
+const FUNIL_ESTAGIOS = ['novo','atendimento','qualificado','visita','proposta','fechado','perdido'];
+let funilLeads = [];
+
+async function carregarFunil() {
+    try {
+        const h = { headers: getAuthHeaders() };
+        const [wpp, manual] = await Promise.all([
+            fetch('/api/leads', h).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/leads-manual', h).then(r => r.ok ? r.json() : []).catch(() => []),
+        ]);
+        funilLeads = [
+            ...wpp.map(l => ({ ...l, origem: 'whatsapp' })),
+            ...manual.map(l => ({ ...l, origem: 'manual' })),
+        ];
+        renderFunil();
+    } catch(e) { console.error('[funil]', e); }
+}
+
+function renderFunil() {
+    const counts = {};
+    FUNIL_ESTAGIOS.forEach(e => counts[e] = 0);
+
+    // Limpa colunas
+    FUNIL_ESTAGIOS.forEach(e => {
+        const col = document.getElementById('funil' + capitalize(e));
+        if (col) col.innerHTML = '';
+    });
+
+    funilLeads.forEach(l => {
+        const est = FUNIL_ESTAGIOS.includes(l.estagio) ? l.estagio : 'novo';
+        counts[est] = (counts[est] || 0) + 1;
+        const colId = 'funil' + capitalize(est);
+        const col = document.getElementById(colId);
+        if (!col) return;
+
+        const card = document.createElement('div');
+        card.className = `kanban__card kanban__card--${l.temperatura || 'frio'}`;
+        card.draggable = true;
+        card.dataset.id = l.id;
+        card.dataset.origem = l.origem;
+        const wapp = (l.telefone || '').replace(/\D/g, '');
+        card.innerHTML = `
+            <div class="kanban__card-head">
+                <div class="kanban__card-avatar">${_initials(l.nome)}</div>
+                <div class="kanban__card-info">
+                    <div class="kanban__card-name">${esc(l.nome || 'Sem nome')}</div>
+                    <div class="kanban__card-tel">${formatarTelefone(l.telefone)}</div>
+                </div>
+                <span class="badge badge--${l.temperatura || 'frio'} kanban__card-temp"><span class="badge__dot"></span>${capitalize(l.temperatura || 'frio')}</span>
+            </div>
+            ${l.objetivo && l.objetivo !== 'nao informado' ? `<div class="kanban__card-detail">🎯 ${esc(capitalize(l.objetivo))}${l.tipo_imovel && l.tipo_imovel !== 'nao informado' ? ' · ' + esc(l.tipo_imovel) : ''}</div>` : ''}
+            ${l.bairro && l.bairro !== 'nao informado' ? `<div class="kanban__card-detail">📍 ${esc(l.bairro)}</div>` : ''}
+            ${l.faixa_valor && l.faixa_valor !== 'nao informado' ? `<div class="kanban__card-detail">💰 ${esc(l.faixa_valor)}</div>` : ''}
+            <div class="kanban__card-foot">
+                ${wapp ? `<a class="kanban__card-action" href="https://wa.me/55${wapp}" target="_blank" title="WhatsApp">💬</a>` : ''}
+                <span class="kanban__card-action" onclick="event.stopPropagation();agendarVisitaLead('${esc(l.nome)}','${esc(l.telefone||'')}')" title="Agendar visita">📅</span>
+                <span class="kanban__card-origem">${l.origem === 'whatsapp' ? 'WhatsApp' : 'Manual'}</span>
+            </div>
+        `;
+
+        // Drag events
+        card.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ id: l.id, origem: l.origem }));
+            card.classList.add('kanban__card--dragging');
+        });
+        card.addEventListener('dragend', () => card.classList.remove('kanban__card--dragging'));
+
+        col.appendChild(card);
+    });
+
+    // Update counts
+    FUNIL_ESTAGIOS.forEach(e => {
+        const el = document.getElementById('funilCnt' + capitalize(e));
+        if (el) el.textContent = counts[e] || 0;
+    });
+
+    // Stats
+    const total = funilLeads.length;
+    const fechados = counts.fechado || 0;
+    const statsEl = document.getElementById('funilStats');
+    if (statsEl) {
+        statsEl.innerHTML = `<span>${total} lead${total !== 1 ? 's' : ''}</span><span>${fechados} fechado${fechados !== 1 ? 's' : ''}</span>`;
+    }
+}
+
+// Drop handlers on columns
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.kanban__cards').forEach(col => {
+        col.addEventListener('dragover', e => {
+            e.preventDefault();
+            col.classList.add('kanban__cards--over');
+        });
+        col.addEventListener('dragleave', () => col.classList.remove('kanban__cards--over'));
+        col.addEventListener('drop', async e => {
+            e.preventDefault();
+            col.classList.remove('kanban__cards--over');
+            try {
+                const { id } = JSON.parse(e.dataTransfer.getData('text/plain'));
+                const novoEstagio = col.parentElement.dataset.estagio;
+                await apiCall('PUT', `/api/leads/${id}/estagio`, { estagio: novoEstagio });
+                // Atualiza local
+                const lead = funilLeads.find(l => l.id === id);
+                if (lead) lead.estagio = novoEstagio;
+                renderFunil();
+                toast('Lead movido para ' + capitalize(novoEstagio), 'sucesso');
+            } catch(err) { toast('Erro ao mover lead', 'erro'); }
+        });
+    });
+});
 
 function toggleCollapse() {
     const sidebar = document.getElementById('sidebar');

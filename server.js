@@ -904,6 +904,7 @@ app.get('/api/leads', async (req, res) => {
   try {
     const leads = await db.listarLeads('whatsapp', req.userId);
     res.json(leads.map(l => ({
+      id: l.id,
       telefone: l.telefone,
       nome: l.nome || 'Sem nome',
       objetivo: l.objetivo || 'nao informado',
@@ -916,6 +917,7 @@ app.get('/api/leads', async (req, res) => {
       proximo_passo: l.proximo_passo || 'nao informado',
       resumo: l.resumo || '',
       imovel_id: l.imovel_id || null,
+      estagio: l.estagio || 'novo',
       totalMensagens: l.total_mensagens || 0,
       ultimaAtualizacao: l.updated_at ? new Date(l.updated_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : '--',
     })));
@@ -1011,6 +1013,7 @@ app.get('/api/leads-manual', async (req, res) => {
       temperatura: l.temperatura || 'frio',
       observacoes: l.observacoes || '',
       imovel_id: l.imovel_id || null,
+      estagio: l.estagio || 'novo',
       origem: 'manual',
       criadoEm: l.created_at ? new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : '--',
     })));
@@ -1044,6 +1047,7 @@ app.post('/api/leads-manual', async (req, res) => {
       temperatura: req.body.temperatura || 'frio',
       observacoes: req.body.observacoes || '',
       imovel_id: req.body.imovel_id || null,
+      estagio: req.body.estagio || 'novo',
       origem: 'manual',
     }, req.userId);
     res.status(201).json(lead);
@@ -1052,6 +1056,14 @@ app.post('/api/leads-manual', async (req, res) => {
 
 app.put('/api/leads-manual/:id', async (req, res) => {
   try { res.json(await db.atualizarLead(parseInt(req.params.id), req.body, req.userId)); }
+  catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Atualiza estagio de qualquer lead (por ID)
+app.put('/api/leads/:id/estagio', async (req, res) => {
+  const { estagio } = req.body;
+  if (!estagio) return res.status(400).json({ erro: 'Estagio obrigatorio' });
+  try { res.json(await db.atualizarLead(parseInt(req.params.id), { estagio }, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
