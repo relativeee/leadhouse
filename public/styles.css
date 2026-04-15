@@ -2610,6 +2610,65 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .horario-horas { grid-template-columns: 1fr; }
 }
 
+/* ── COMUNICAÇÕES ── */
+.canais-grid { display: flex; flex-direction: column; gap: 0.85rem; }
+.canal-card {
+    display: flex; align-items: center; gap: 1.25rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    transition: all 0.25s;
+}
+.canal-card:hover { border-color: rgba(201,169,97,0.3); }
+.canal-card__icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.canal-card__icon--wapp { background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.25); color: #25d366; }
+.canal-card__icon--insta { background: rgba(225,48,108,0.1); border: 1px solid rgba(225,48,108,0.25); color: #e1306c; }
+.canal-card__icon--email { background: rgba(201,169,97,0.1); border: 1px solid rgba(201,169,97,0.25); color: #c9a961; }
+.canal-card__icon--gcal { background: rgba(66,133,244,0.08); border: 1px solid rgba(66,133,244,0.2); }
+.canal-card__info { flex: 1; min-width: 0; }
+.canal-card__name { margin: 0; font-size: 1rem; font-weight: 600; color: #f3f3f3; }
+.canal-card__desc { margin: 0.25rem 0 0.5rem; font-size: 0.78rem; color: #888; }
+.canal-card__status {
+    display: inline-flex; align-items: center;
+    font-size: 0.7rem; font-weight: 600;
+    padding: 0.25rem 0.65rem; border-radius: 999px;
+}
+.canal-card__status--active { background: rgba(78,224,130,0.1); color: #4ee082; border: 1px solid rgba(78,224,130,0.25); }
+.canal-card__status--review { background: rgba(255,181,71,0.1); color: #ffb547; border: 1px solid rgba(255,181,71,0.25); }
+.canal-card__status--soon { background: rgba(138,138,138,0.1); color: #888; border: 1px solid rgba(138,138,138,0.2); }
+.canal-card__status--off { background: rgba(255,107,74,0.1); color: #ff6b4a; border: 1px solid rgba(255,107,74,0.25); }
+.canal-card__action { flex-shrink: 0; }
+.canal-card__btn { font-size: 0.78rem !important; padding: 0.6rem 1.1rem !important; }
+.canal-card__btn--connected { border-color: rgba(78,224,130,0.3) !important; color: #4ee082 !important; }
+
+.canais-info {
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    margin-top: 1.5rem; padding: 1rem 1.25rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    font-size: 0.78rem; color: #888;
+    line-height: 1.5;
+}
+.canais-info svg { flex-shrink: 0; margin-top: 0.1rem; color: #c9a961; }
+
+@media (max-width: 640px) {
+    .canal-card { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .canal-card__action { width: 100%; }
+    .canal-card__btn { width: 100% !important; text-align: center; }
+}
+
+/* Light theme */
+[data-theme="light"] .canal-card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .canal-card__name { color: #1A1A1A; }
+[data-theme="light"] .canal-card__desc { color: #888; }
+[data-theme="light"] .canais-info { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+
 /* ── MINHA AGENDA ── */
 .agenda-config {
     background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
