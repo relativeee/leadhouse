@@ -1150,30 +1150,11 @@ async function carregarConta() {
 
 function carregarHorarioTrabalho(ht) {
     if (!ht) return;
-    const dias = ht.dias || [1,2,3,4,5,6];
-    document.querySelectorAll('#horarioConfig .horario-dia input').forEach(cb => {
-        cb.checked = dias.includes(parseInt(cb.value));
-    });
-    if (ht.inicio) document.getElementById('horarioInicio').value = ht.inicio;
-    if (ht.fim) document.getElementById('horarioFim').value = ht.fim;
-    if (ht.duracao) document.getElementById('horarioDuracao').value = String(ht.duracao);
+    // Config foi movida pro banco — só armazena em memória pra agenda
 }
 
 async function salvarHorario() {
-    const dias = [];
-    document.querySelectorAll('#horarioConfig .horario-dia input:checked').forEach(cb => {
-        dias.push(parseInt(cb.value));
-    });
-    const horario_trabalho = {
-        dias,
-        inicio: document.getElementById('horarioInicio').value,
-        fim: document.getElementById('horarioFim').value,
-        duracao: parseInt(document.getElementById('horarioDuracao').value),
-    };
-    try {
-        await apiCall('PUT', '/api/auth/me', { horario_trabalho });
-        toast('Horários salvos com sucesso!', 'sucesso');
-    } catch(e) { toast('Erro ao salvar horários', 'erro'); }
+    // Horários são gerenciados via banco (SQL) — não precisa de form
 }
 
 let subInfo = null;
