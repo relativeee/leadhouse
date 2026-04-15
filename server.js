@@ -808,7 +808,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho, bloqueios_json')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho, bloqueios_json, is_admin')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
@@ -819,6 +819,78 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// ADMIN — Painel do proprietário
+// ─────────────────────────────────────────────
+async function adminOnly(req, res, next) {
+  const { data: user } = await db.supabase
+    .from('usuarios')
+    .select('is_admin')
+    .eq('id', req.userId)
+    .maybeSingle();
+  if (!user?.is_admin) return res.status(403).json({ erro: 'Acesso restrito' });
+  next();
+}
+
+// Lista todos os usuarios
+app.get('/api/admin/usuarios', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { data, error } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, is_admin, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Métricas gerais
+app.get('/api/admin/metricas', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { data: usuarios } = await db.supabase.from('usuarios').select('id, plano, created_at');
+    const { data: leads } = await db.supabase.from('leads').select('id, created_at');
+    const { data: imoveis } = await db.supabase.from('imoveis').select('id');
+    const { data: visitas } = await db.supabase.from('visitas').select('id');
+
+    const planos = { start: 0, pro: 0, elite: 0, sem: 0 };
+    (usuarios || []).forEach(u => {
+      if (u.plano && planos[u.plano] !== undefined) planos[u.plano]++;
+      else planos.sem++;
+    });
+
+    // Receita estimada mensal
+    const precos = { start: 49.99, pro: 149.99, elite: 249.99 };
+    const receita = planos.start * precos.start + planos.pro * precos.pro + planos.elite * precos.elite;
+
+    res.json({
+      totalUsuarios: (usuarios || []).length,
+      totalLeads: (leads || []).length,
+      totalImoveis: (imoveis || []).length,
+      totalVisitas: (visitas || []).length,
+      planos,
+      receitaMensal: receita.toFixed(2),
+    });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Ver dados de um usuario especifico
+app.get('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, is_admin, created_at, horario_trabalho')
+      .eq('id', parseInt(req.params.id))
+      .maybeSingle();
+    if (!user) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+
+    const { data: leads } = await db.supabase.from('leads').select('id, nome, telefone, temperatura, estagio, created_at').eq('usuario_id', user.id);
+    const { data: imoveis } = await db.supabase.from('imoveis').select('id, titulo, status, created_at').eq('usuario_id', user.id);
+    const { data: visitas } = await db.supabase.from('visitas').select('id, lead_nome, data, status, created_at').eq('usuario_id', user.id);
+
+    res.json({ user, leads: leads || [], imoveis: imoveis || [], visitas: visitas || [] });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
 // Proteger todas as rotas /api (exceto auth e webhook)
 // ─────────────────────────────────────────────
 // Limites por plano
@@ -836,9 +908,16 @@ async function requirePlan(req, res, next) {
   try {
     const { data: user } = await db.supabase
       .from('usuarios')
-      .select('plano')
+      .select('plano, is_admin')
       .eq('id', req.userId)
       .maybeSingle();
+    // Admin tem acesso total sem plano
+    if (user?.is_admin) {
+      req.userPlan = user.plano || 'elite';
+      req.userLimits = getPlanLimits('elite');
+      req.isAdmin = true;
+      return next();
+    }
     if (!user?.plano) return res.status(402).json({ erro: 'Plano necessario', code: 'NO_PLAN' });
     req.userPlan = user.plano;
     req.userLimits = getPlanLimits(user.plano);

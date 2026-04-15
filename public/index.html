@@ -60,6 +60,10 @@
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Agente IA
         </button>
+        <button class="sidebar__item sidebar__item--admin" id="sidebarAdmin" style="display:none" onclick="trocarAba('admin', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Painel Admin
+        </button>
         <button class="sidebar__item" onclick="trocarAba('conta', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             Minha Conta
@@ -1107,6 +1111,43 @@
     </div>
 </main>
 
+<!-- ============================================
+     ABA: PAINEL ADMIN (só visível pra admin)
+     ============================================ -->
+<main class="dashboard" id="aba-admin" style="display:none;">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Painel Admin</h1>
+            <p class="page-header__sub">Visão geral da plataforma — só você vê isso</p>
+        </div>
+    </header>
+
+    <!-- Métricas gerais -->
+    <div class="stat-strip" id="adminStats">
+        <div class="stat-mini stat-mini--gold"><div class="stat-mini__label">Usuários</div><div class="stat-mini__value" id="admUsuarios">--</div></div>
+        <div class="stat-mini"><div class="stat-mini__label">Leads totais</div><div class="stat-mini__value" id="admLeads">--</div></div>
+        <div class="stat-mini stat-mini--ok"><div class="stat-mini__label">Imóveis</div><div class="stat-mini__value" id="admImoveis">--</div></div>
+        <div class="stat-mini"><div class="stat-mini__label">Visitas</div><div class="stat-mini__value" id="admVisitas">--</div></div>
+    </div>
+
+    <!-- Receita -->
+    <div class="admin-receita" id="adminReceita">
+        <div class="admin-receita__head">
+            <div class="conta-section__title">Receita mensal estimada</div>
+        </div>
+        <div class="admin-receita__valor" id="admReceita">R$ --</div>
+        <div class="admin-receita__planos" id="admPlanos"></div>
+    </div>
+
+    <!-- Lista de usuários -->
+    <section class="admin-users">
+        <div class="conta-section__title">Usuários cadastrados</div>
+        <div class="admin-users__list" id="adminUsersList"></div>
+    </section>
+
+</main>
+
 <!-- ── Modal Generico ── -->
 <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
     <div class="modal modal--lg" onclick="event.stopPropagation()">
@@ -1211,6 +1252,7 @@ function trocarAba(aba, btn) {
     if (aba === 'comunicacoes') carregarComunicacoes();
     if (aba === 'agenda') carregarAgenda();
     if (aba === 'funil') carregarFunil();
+    if (aba === 'admin') carregarAdmin();
     if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
 }
@@ -3207,6 +3249,82 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ═══════════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════════
+function checkAdmin(user) {
+    const btn = document.getElementById('sidebarAdmin');
+    if (user?.is_admin) { btn.style.display = ''; }
+    else { btn.style.display = 'none'; }
+}
+
+async function carregarAdmin() {
+    try {
+        const h = { headers: getAuthHeaders() };
+        const [metricas, usuarios] = await Promise.all([
+            fetch('/api/admin/metricas', h).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch('/api/admin/usuarios', h).then(r => r.ok ? r.json() : []).catch(() => []),
+        ]);
+        if (!metricas) return;
+
+        document.getElementById('admUsuarios').textContent = metricas.totalUsuarios;
+        document.getElementById('admLeads').textContent = metricas.totalLeads;
+        document.getElementById('admImoveis').textContent = metricas.totalImoveis;
+        document.getElementById('admVisitas').textContent = metricas.totalVisitas;
+        document.getElementById('admReceita').textContent = 'R$ ' + Number(metricas.receitaMensal).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+        const p = metricas.planos;
+        document.getElementById('admPlanos').innerHTML = `
+            <span class="admin-plano"><b>${p.start}</b> Start</span>
+            <span class="admin-plano"><b>${p.pro}</b> Pro</span>
+            <span class="admin-plano"><b>${p.elite}</b> Elite</span>
+            <span class="admin-plano admin-plano--sem"><b>${p.sem}</b> Sem plano</span>
+        `;
+
+        const list = document.getElementById('adminUsersList');
+        list.innerHTML = usuarios.map(u => `
+            <div class="admin-user-row" onclick="verUsuarioAdmin(${u.id})">
+                <div class="admin-user-row__avatar">${_initials(u.nome)}</div>
+                <div class="admin-user-row__info">
+                    <div class="admin-user-row__name">${esc(u.nome || 'Sem nome')} ${u.is_admin ? '<span class="admin-badge">Admin</span>' : ''}</div>
+                    <div class="admin-user-row__email">${esc(u.email)}</div>
+                </div>
+                <div class="admin-user-row__plan">${u.plano ? capitalize(u.plano) : '<span style="color:#666">Sem plano</span>'}</div>
+                <div class="admin-user-row__date">${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}</div>
+            </div>
+        `).join('') || '<div style="color:#666;text-align:center;padding:2rem">Nenhum usuário</div>';
+    } catch(e) { console.error('[admin]', e); }
+}
+
+async function verUsuarioAdmin(id) {
+    try {
+        const data = await apiCall('GET', '/api/admin/usuarios/' + id);
+        const u = data.user;
+        const viewHtml = `
+            <div class="lead-modal__head">
+                <div class="lead-modal__avatar">${_initials(u.nome)}</div>
+                <div>
+                    <div class="lead-modal__name">${esc(u.nome)}</div>
+                    <div class="lead-modal__tel">${esc(u.email)}</div>
+                </div>
+            </div>
+            <div class="lead-modal__grid">
+                <div class="modal__field"><div class="modal__label">Plano</div><div class="modal__value">${u.plano ? capitalize(u.plano) : 'Sem plano'}</div></div>
+                <div class="modal__field"><div class="modal__label">Google</div><div class="modal__value">${u.google_email || 'Não conectado'}</div></div>
+                <div class="modal__field"><div class="modal__label">Leads</div><div class="modal__value">${data.leads.length}</div></div>
+                <div class="modal__field"><div class="modal__label">Imóveis</div><div class="modal__value">${data.imoveis.length}</div></div>
+                <div class="modal__field"><div class="modal__label">Visitas</div><div class="modal__value">${data.visitas.length}</div></div>
+                <div class="modal__field"><div class="modal__label">Cadastro</div><div class="modal__value">${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}</div></div>
+            </div>
+        `;
+        document.getElementById('modalTitle').textContent = u.nome;
+        document.getElementById('modalEditBtn').style.display = 'none';
+        document.getElementById('modalFooter').style.display = 'none';
+        document.getElementById('modalContent').innerHTML = viewHtml;
+        document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+    } catch(e) { toast('Erro ao carregar usuário', 'erro'); }
+}
+
+// ═══════════════════════════════════════════════
 // PERSONALIZAÇÃO (TEMA + FONT SIZE)
 // ═══════════════════════════════════════════════
 function setTema(tema, btn) {
@@ -3289,6 +3407,8 @@ function toggleSidebar() {
     refreshPlano();
     carregarDashboard();
     checkOnboarding();
+    // Check admin
+    fetch('/api/auth/me', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).then(u => { if (u) checkAdmin(u); }).catch(() => {});
     atualizarNotificacoes();
     setInterval(carregarDashboard, 30000);
     setInterval(refreshPlano, 30000);
