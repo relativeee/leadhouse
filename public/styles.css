@@ -3043,3 +3043,109 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .lead-modal__grid { grid-template-columns: 1fr; }
     .chat-bubble { max-width: 90%; }
 }
+
+/* ═══════════════════════════════════════════════
+   PERSONALIZAÇÃO — PREFERÊNCIAS UI
+   ═══════════════════════════════════════════════ */
+.pref-grid { display: flex; flex-direction: column; gap: 1.25rem; }
+.pref-item {}
+.pref-item__label {
+    font-size: 0.78rem; color: #888; margin-bottom: 0.6rem;
+    font-weight: 500;
+}
+.pref-toggle { display: flex; gap: 0.4rem; }
+.pref-btn {
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 1rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: #888; font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+}
+.pref-btn:hover { border-color: rgba(201,169,97,0.4); color: #ddd; }
+.pref-btn--active {
+    background: rgba(201,169,97,0.12);
+    border-color: rgba(201,169,97,0.4);
+    color: #c9a961;
+}
+
+/* ── FONT SIZE ── */
+[data-fontsize="small"] { font-size: 13px; }
+[data-fontsize="normal"] { font-size: 15px; }
+[data-fontsize="large"] { font-size: 17px; }
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+    --bg-dark: #F5F3EF;
+    --bg-card: rgba(255, 255, 255, 0.85);
+    --bg-card-solid: #FFFFFF;
+    --bg-card-hover: rgba(245, 245, 240, 0.9);
+    --bg-elevated: rgba(255, 255, 255, 0.92);
+    --bg-input: rgba(245, 243, 239, 0.9);
+    --bg-sidebar: rgba(250, 248, 244, 0.95);
+
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-shine: inset 0 0.5px 0 rgba(255, 255, 255, 0.8);
+
+    --border: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(0, 0, 0, 0.15);
+    --border-gold: rgba(201, 168, 76, 0.3);
+
+    --text-white: #1A1A1A;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] body { background: var(--bg-dark); color: var(--text-primary); }
+[data-theme="light"] .sidebar { background: var(--bg-sidebar); border-right-color: var(--border); }
+[data-theme="light"] .sidebar__item { color: var(--text-secondary); }
+[data-theme="light"] .sidebar__item:hover { color: var(--text-white); background: rgba(0,0,0,0.04); }
+[data-theme="light"] .sidebar__item--active { color: var(--text-white); background: rgba(0,0,0,0.06); }
+[data-theme="light"] .form-input {
+    background: var(--bg-input);
+    border-color: rgba(0,0,0,0.1);
+    color: var(--text-primary);
+}
+[data-theme="light"] .form-input::placeholder { color: #bbb; }
+[data-theme="light"] .form-input:focus { border-color: var(--gold); }
+[data-theme="light"] .modal { background: #fff; border-color: rgba(0,0,0,0.1); }
+[data-theme="light"] .modal__close { border-color: rgba(0,0,0,0.1); color: #999; }
+[data-theme="light"] .toast { background: #fff; color: #333; border: 1px solid rgba(0,0,0,0.1); }
+[data-theme="light"] .stat-card { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .stat-mini { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .pipeline-section { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .portfolio__toolbar { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .chip { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #666; }
+[data-theme="light"] .imv-card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .imv-card__media { background: linear-gradient(135deg, #f0ece4 0%, #e8e4dc 100%); }
+[data-theme="light"] .lead-card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .visit-day { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .visit-card { background: rgba(255,255,255,0.7); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .kanban__card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .kanban__col-head { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .conta-section { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .agenda-semana { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .agenda-dia { background: rgba(255,255,255,0.6); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .agenda-slot--livre { border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .agenda-slot--ocupado { background: rgba(201,169,97,0.12); border-color: rgba(201,169,97,0.3); }
+[data-theme="light"] .page-header { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .welcome { color: var(--text-primary); }
+[data-theme="light"] .ai-panel { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .chat-box { background: rgba(245,243,239,0.8); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .chat-bubble--in { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: #333; }
+[data-theme="light"] .chat-bubble--out { background: rgba(201,169,97,0.1); border-color: rgba(201,169,97,0.2); color: #4a3f1e; }
+[data-theme="light"] .onboarding { background: rgba(201,169,97,0.06); border-color: rgba(201,169,97,0.2); }
+[data-theme="light"] .onb-step { background: rgba(255,255,255,0.7); border-color: rgba(0,0,0,0.06); }
+[data-theme="light"] .sidebar__plan { background: rgba(201,169,97,0.06); border-color: rgba(201,169,97,0.2); }
+[data-theme="light"] .paywall { background: rgba(245,243,239,0.97); }
+[data-theme="light"] .select-mini { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); color: #333; }
+[data-theme="light"] .pref-btn { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #666; }
+[data-theme="light"] .sidebar-toggle { background: #fff; border-color: rgba(0,0,0,0.1); color: #333; }
+[data-theme="light"] .sidebar-overlay { background: rgba(0,0,0,0.25); }

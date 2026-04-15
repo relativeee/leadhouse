@@ -933,6 +933,34 @@
             </form>
         </section>
 
+        <!-- Personalização -->
+        <section class="conta-section">
+            <div class="conta-section__title">Personalização</div>
+            <div class="pref-grid">
+                <div class="pref-item">
+                    <div class="pref-item__label">Tema</div>
+                    <div class="pref-toggle" id="prefTema">
+                        <button class="pref-btn pref-btn--active" data-val="dark" onclick="setTema('dark', this)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                            Escuro
+                        </button>
+                        <button class="pref-btn" data-val="light" onclick="setTema('light', this)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            Claro
+                        </button>
+                    </div>
+                </div>
+                <div class="pref-item">
+                    <div class="pref-item__label">Tamanho do texto</div>
+                    <div class="pref-toggle" id="prefFontSize">
+                        <button class="pref-btn" data-val="small" onclick="setFontSize('small', this)">A<sup>-</sup></button>
+                        <button class="pref-btn pref-btn--active" data-val="normal" onclick="setFontSize('normal', this)">A</button>
+                        <button class="pref-btn" data-val="large" onclick="setFontSize('large', this)">A<sup>+</sup></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Integrações -->
         <section class="conta-section">
             <div class="conta-section__title">Integrações</div>
@@ -1114,6 +1142,7 @@ async function carregarConta() {
         document.getElementById('contaSenhaAtual').value = '';
         document.getElementById('contaSenhaNova').value = '';
         carregarHorarioTrabalho(user.horario_trabalho);
+        syncPrefButtons();
         renderGoogle(user.google_email);
         carregarPlano();
     } catch {}
@@ -3080,6 +3109,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// ═══════════════════════════════════════════════
+// PERSONALIZAÇÃO (TEMA + FONT SIZE)
+// ═══════════════════════════════════════════════
+function setTema(tema, btn) {
+    document.documentElement.setAttribute('data-theme', tema);
+    localStorage.setItem('lh_theme', tema);
+    if (btn) {
+        btn.parentElement.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('pref-btn--active'));
+        btn.classList.add('pref-btn--active');
+    }
+}
+
+function setFontSize(size, btn) {
+    document.documentElement.setAttribute('data-fontsize', size);
+    localStorage.setItem('lh_fontsize', size);
+    if (btn) {
+        btn.parentElement.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('pref-btn--active'));
+        btn.classList.add('pref-btn--active');
+    }
+}
+
+// Carrega preferências salvas
+(function() {
+    const tema = localStorage.getItem('lh_theme') || 'dark';
+    const fontSize = localStorage.getItem('lh_fontsize') || 'normal';
+    document.documentElement.setAttribute('data-theme', tema);
+    document.documentElement.setAttribute('data-fontsize', fontSize);
+})();
+
+// Sincroniza botões quando abre a aba Conta
+function syncPrefButtons() {
+    const tema = localStorage.getItem('lh_theme') || 'dark';
+    const fontSize = localStorage.getItem('lh_fontsize') || 'normal';
+    document.querySelectorAll('#prefTema .pref-btn').forEach(b => {
+        b.classList.toggle('pref-btn--active', b.dataset.val === tema);
+    });
+    document.querySelectorAll('#prefFontSize .pref-btn').forEach(b => {
+        b.classList.toggle('pref-btn--active', b.dataset.val === fontSize);
+    });
+}
 
 function toggleCollapse() {
     const sidebar = document.getElementById('sidebar');
