@@ -415,6 +415,10 @@ app.put('/api/auth/me', authMiddleware, async (req, res) => {
     if (req.body.horario_trabalho) {
       updates.horario_trabalho = req.body.horario_trabalho;
     }
+    // Bloqueios de horário
+    if (req.body.bloqueios_json !== undefined) {
+      updates.bloqueios_json = req.body.bloqueios_json;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ erro: 'Nenhum campo para atualizar' });
@@ -804,7 +808,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho, bloqueios_json')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
@@ -884,12 +888,13 @@ async function calcularHorariosLivres(userId) {
   try {
     const { data: user } = await db.supabase
       .from('usuarios')
-      .select('horario_trabalho')
+      .select('horario_trabalho, bloqueios_json')
       .eq('id', userId)
       .maybeSingle();
     if (!user?.horario_trabalho) return null;
 
     const ht = user.horario_trabalho;
+    const bloqueios = user.bloqueios_json || [];
     const dias = ht.dias || [1,2,3,4,5,6];
     const inicio = ht.inicio || '08:00';
     const fim = ht.fim || '18:00';
@@ -928,7 +933,10 @@ async function calcularHorariosLivres(userId) {
       const diasSem = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
       const livres = [];
       for (let t = inicioMin; t + duracao <= fimMin; t += duracao) {
-        if (!ocupados.some(o => Math.abs(o - t) < duracao)) {
+        const hh = String(Math.floor(t/60)).padStart(2,'0');
+        const mmm = String(t%60).padStart(2,'0');
+        const bloqueado = bloqueios.some(b => b.data === dataStr && b.hora === `${hh}:${mmm}`);
+        if (!bloqueado && !ocupados.some(o => Math.abs(o - t) < duracao)) {
           const hh = String(Math.floor(t/60)).padStart(2,'0');
           const mm = String(t%60).padStart(2,'0');
           livres.push(`${hh}:${mm}`);

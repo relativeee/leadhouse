@@ -2710,6 +2710,32 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .agenda-slot__imv { color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.65rem; }
 .agenda-slot__tag { color: #444; font-size: 0.62rem; }
 
+.agenda-slot--bloqueado {
+    background: rgba(255,107,74,0.08);
+    border: 1px solid rgba(255,107,74,0.2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.agenda-slot--bloqueado:hover {
+    background: rgba(255,107,74,0.15);
+    border-color: rgba(255,107,74,0.4);
+}
+.agenda-slot--bloqueado .agenda-slot__hora { color: #ff6b4a; }
+.agenda-slot--bloqueado .agenda-slot__tag { color: #ff6b4a; font-weight: 500; }
+
+.agenda-slot__actions { display: flex; gap: 0.25rem; opacity: 0; transition: opacity 0.2s; }
+.agenda-slot--livre:hover .agenda-slot__actions { opacity: 1; }
+.agenda-slot__btn {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    background: rgba(255,255,255,0.06);
+    color: #888;
+    transition: all 0.15s;
+}
+.agenda-slot__btn:hover { background: rgba(255,107,74,0.15); color: #ff6b4a; }
+.agenda-slot__btn--add:hover { background: rgba(201,169,97,0.15); color: #c9a961; }
+
 @media (max-width: 900px) {
     .agenda-grid { grid-template-columns: repeat(3, 1fr); }
 }

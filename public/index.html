@@ -743,45 +743,6 @@
         </div>
     </header>
 
-    <!-- Config de horários -->
-    <section class="agenda-config">
-        <div class="agenda-config__head">
-            <div class="conta-section__title">Horários de atendimento</div>
-            <p class="agenda-config__hint">A IA usa esses horários pra sugerir visitas ao cliente no WhatsApp</p>
-        </div>
-        <div class="horario-config" id="horarioConfig">
-            <div class="horario-dias">
-                <label class="horario-dia"><input type="checkbox" value="1" checked> Seg</label>
-                <label class="horario-dia"><input type="checkbox" value="2" checked> Ter</label>
-                <label class="horario-dia"><input type="checkbox" value="3" checked> Qua</label>
-                <label class="horario-dia"><input type="checkbox" value="4" checked> Qui</label>
-                <label class="horario-dia"><input type="checkbox" value="5" checked> Sex</label>
-                <label class="horario-dia"><input type="checkbox" value="6" checked> Sáb</label>
-                <label class="horario-dia"><input type="checkbox" value="0"> Dom</label>
-            </div>
-            <div class="horario-horas">
-                <div class="horario-campo">
-                    <label class="conta-label">Início</label>
-                    <input type="time" class="form-input" id="horarioInicio" value="08:00">
-                </div>
-                <div class="horario-campo">
-                    <label class="conta-label">Fim</label>
-                    <input type="time" class="form-input" id="horarioFim" value="18:00">
-                </div>
-                <div class="horario-campo">
-                    <label class="conta-label">Duração da visita</label>
-                    <select class="form-input" id="horarioDuracao">
-                        <option value="30">30 minutos</option>
-                        <option value="60" selected>1 hora</option>
-                        <option value="90">1h30</option>
-                        <option value="120">2 horas</option>
-                    </select>
-                </div>
-            </div>
-            <button class="btn btn--primary" onclick="salvarHorario()">Salvar horários</button>
-        </div>
-    </section>
-
     <!-- Visão da semana -->
     <section class="agenda-semana">
         <div class="agenda-semana__head">
@@ -2877,6 +2838,7 @@ function onbDismiss() {
 let agendaOffset = 0;
 let agendaVisitas = [];
 let agendaHorario = null;
+let agendaBloqueios = [];
 
 async function carregarAgenda() {
     try {
@@ -2886,10 +2848,23 @@ async function carregarAgenda() {
             fetch('/api/visitas', h).then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
         agendaHorario = me.horario_trabalho || { dias: [1,2,3,4,5,6], inicio: '08:00', fim: '18:00', duracao: 60 };
+        agendaBloqueios = me.bloqueios_json || [];
         agendaVisitas = vis;
-        carregarHorarioTrabalho(agendaHorario);
         renderAgendaSemana();
     } catch(e) { console.error('[agenda]', e); }
+}
+
+async function toggleBloqueio(data, hora) {
+    const idx = agendaBloqueios.findIndex(b => b.data === data && b.hora === hora);
+    if (idx >= 0) {
+        agendaBloqueios.splice(idx, 1);
+    } else {
+        agendaBloqueios.push({ data, hora });
+    }
+    renderAgendaSemana();
+    try {
+        await apiCall('PUT', '/api/auth/me', { bloqueios_json: agendaBloqueios });
+    } catch(e) { toast('Erro ao salvar bloqueio', 'erro'); }
 }
 
 function agendaSemanaNav(dir) {
@@ -2952,16 +2927,27 @@ function renderAgendaSemana() {
                     return Math.abs((vh*60+vm) - t) < duracao;
                 });
 
+                const bloqueado = agendaBloqueios.some(b => b.data === dataStr && b.hora === hora);
+
                 if (visita) {
                     html += `<div class="agenda-slot agenda-slot--ocupado" onclick="verVisita(${visita.id})">
                         <div class="agenda-slot__hora">${hora}</div>
                         <div class="agenda-slot__lead">${esc(visita.lead_nome)}</div>
                         <div class="agenda-slot__imv">${esc(visita.imovel_titulo || '')}</div>
                     </div>`;
-                } else {
-                    html += `<div class="agenda-slot agenda-slot--livre" onclick="agendarPelaAgenda('${dataStr}','${hora}')" title="Clique pra agendar">
+                } else if (bloqueado) {
+                    html += `<div class="agenda-slot agenda-slot--bloqueado" onclick="toggleBloqueio('${dataStr}','${hora}')" title="Clique pra desbloquear">
                         <div class="agenda-slot__hora">${hora}</div>
-                        <div class="agenda-slot__tag">+ Agendar</div>
+                        <div class="agenda-slot__tag">Indisponível</div>
+                    </div>`;
+                } else {
+                    html += `<div class="agenda-slot agenda-slot--livre" title="Clique pra bloquear · Duplo clique pra agendar">
+                        <div class="agenda-slot__hora">${hora}</div>
+                        <div class="agenda-slot__tag">Livre</div>
+                        <div class="agenda-slot__actions">
+                            <span class="agenda-slot__btn" onclick="event.stopPropagation();toggleBloqueio('${dataStr}','${hora}')" title="Bloquear">✕</span>
+                            <span class="agenda-slot__btn agenda-slot__btn--add" onclick="event.stopPropagation();agendarPelaAgenda('${dataStr}','${hora}')" title="Agendar visita">+</span>
+                        </div>
                     </div>`;
                 }
             }
