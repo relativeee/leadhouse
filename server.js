@@ -131,6 +131,17 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot', authLimiter);
+app.use('/api/auth/reset', authLimiter);
+
+// Rate limiting geral nas APIs (100 req/min por IP)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { erro: 'Limite de requisicoes atingido. Aguarde um momento.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
 
 // Login
 app.get('/login', (req, res) => {
