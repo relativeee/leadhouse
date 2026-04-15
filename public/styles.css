@@ -3125,6 +3125,7 @@ tr:hover .td-acoes--row .btn-icon:hover {
 [data-theme="light"] .pipeline-header__time { color: #999; }
 [data-theme="light"] .pipe-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.08); }
 [data-theme="light"] .pipe-card__value { color: #0A0A0A; font-weight: 700; }
+[data-theme="light"] .pipe-card__number { color: #0A0A0A; }
 [data-theme="light"] .pipe-card__label { color: #888; }
 [data-theme="light"] .pipe-card__detail { color: #666; }
 [data-theme="light"] .pipe-card__detail span:last-child { color: #333; }
