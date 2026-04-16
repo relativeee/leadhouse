@@ -2580,6 +2580,51 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 .conta-cancel__btn:hover { opacity: 0.7; }
 
+/* Config grid */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+.config-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+.config-card:hover {
+    border-color: rgba(201,169,97,0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 20px rgba(201,169,97,0.06);
+}
+.config-card svg { color: #c9a961; margin-bottom: 0.85rem; }
+.config-card h3 { font-size: 1rem; font-weight: 600; color: #f3f3f3; margin: 0 0 0.3rem; }
+.config-card p { font-size: 0.78rem; color: #888; margin: 0; }
+
+.config-back {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: none; border: none;
+    color: #888; font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s;
+    padding: 0;
+}
+.config-back:hover { color: #c9a961; }
+
+.config-sub { max-width: 620px; }
+
+[data-theme="light"] .config-card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .config-card h3 { color: #1A1A1A; }
+[data-theme="light"] .config-card p { color: #888; }
+[data-theme="light"] .config-back { color: #888; }
+
+@media (max-width: 640px) {
+    .config-grid { grid-template-columns: 1fr; }
+}
+
 /* Horário de trabalho */
 .horario-config { display: flex; flex-direction: column; gap: 1.25rem; }
 .horario-dias {
