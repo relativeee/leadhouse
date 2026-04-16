@@ -2614,7 +2614,9 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 .config-back:hover { color: #c9a961; }
 
-.config-sub { max-width: 620px; }
+.config-sub { max-width: 620px; margin: 0 auto; }
+.config-grid { max-width: 700px; margin: 0 auto; }
+.config-back { max-width: 620px; margin: 0 auto 1.5rem; display: flex; }
 
 [data-theme="light"] .config-card { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.08); }
 [data-theme="light"] .config-card h3 { color: #1A1A1A; }
