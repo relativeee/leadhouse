@@ -2775,8 +2775,19 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .canal-card__status--soon { background: rgba(138,138,138,0.1); color: #888; border: 1px solid rgba(138,138,138,0.2); }
 .canal-card__status--off { background: rgba(255,107,74,0.1); color: #ff6b4a; border: 1px solid rgba(255,107,74,0.25); }
 .canal-card__action { flex-shrink: 0; }
-.canal-card__btn { font-size: 0.78rem !important; padding: 0.6rem 1.1rem !important; }
-.canal-card__btn--connected { border-color: rgba(78,224,130,0.3) !important; color: #4ee082 !important; }
+.canal-card__btn {
+    font-size: 0.78rem !important; padding: 0.6rem 1.1rem !important;
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    color: #ddd !important;
+}
+.canal-card__btn:hover { background: rgba(255,255,255,0.1) !important; }
+.canal-card__btn:disabled { opacity: 0.5; }
+.canal-card__btn--connected {
+    background: rgba(78,224,130,0.1) !important;
+    border-color: rgba(78,224,130,0.35) !important;
+    color: #4ee082 !important;
+}
 
 .canais-info {
     display: flex; align-items: flex-start; gap: 0.65rem;
