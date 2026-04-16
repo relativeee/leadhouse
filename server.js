@@ -160,16 +160,29 @@ app.use(express.static(path.join(__dirname, 'public')));
 // (dados persistentes ficam no Supabase)
 // ─────────────────────────────────────────────
 const conversas = {};
+const CONVERSA_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 function getConversa(telefone) {
   if (!conversas[telefone]) {
     conversas[telefone] = {
       historico: [],
       mensagensProcessadas: new Set(),
+      ultimaAtividade: Date.now(),
     };
   }
+  conversas[telefone].ultimaAtividade = Date.now();
   return conversas[telefone];
 }
+
+// Limpa conversas inativas a cada hora
+setInterval(() => {
+  const agora = Date.now();
+  for (const tel of Object.keys(conversas)) {
+    if (agora - conversas[tel].ultimaAtividade > CONVERSA_TTL_MS) {
+      delete conversas[tel];
+    }
+  }
+}, 60 * 60 * 1000);
 
 // ─────────────────────────────────────────────
 // Auth — Registro, Login, Verificacao
@@ -373,8 +386,11 @@ app.post('/api/auth/reset', async (req, res) => {
     const bcrypt = require('bcryptjs');
     const senha_hash = await bcrypt.hash(senha, 10);
 
-    await db.supabase.from('usuarios').update({ senha_hash }).eq('id', reset.user_id);
-    await db.supabase.from('password_resets').update({ used: true }).eq('token', token);
+    const { error: errUpdate } = await db.supabase.from('usuarios').update({ senha_hash }).eq('id', reset.user_id);
+    if (errUpdate) throw new Error('Erro ao atualizar senha: ' + errUpdate.message);
+
+    const { error: errToken } = await db.supabase.from('password_resets').update({ used: true }).eq('token', token);
+    if (errToken) console.error('[reset] erro ao invalidar token:', errToken.message);
 
     res.json({ ok: true, mensagem: 'Senha redefinida com sucesso' });
   } catch (err) {
@@ -694,7 +710,7 @@ app.get('/api/stripe/subscription', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('[stripe sub]', err.message);
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao consultar assinatura' });
   }
 });
 
@@ -730,7 +746,7 @@ app.post('/api/stripe/change-plan', authMiddleware, async (req, res) => {
     res.json({ ok: true, plano: plan });
   } catch (err) {
     console.error('[stripe change-plan]', err.message);
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao alterar plano' });
   }
 });
 
@@ -752,7 +768,7 @@ app.post('/api/stripe/cancel', authMiddleware, async (req, res) => {
     res.json({ ok: true, cancel_at_period_end: true });
   } catch (err) {
     console.error('[stripe cancel]', err.message);
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao cancelar assinatura' });
   }
 });
 
@@ -774,7 +790,7 @@ app.post('/api/stripe/resume', authMiddleware, async (req, res) => {
     res.json({ ok: true, cancel_at_period_end: false });
   } catch (err) {
     console.error('[stripe resume]', err.message);
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao reativar assinatura' });
   }
 });
 
@@ -800,7 +816,7 @@ app.post('/api/stripe/portal', authMiddleware, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     console.error('[portal] erro:', err.message);
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro ao abrir portal de pagamento' });
   }
 });
 
@@ -812,9 +828,13 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
-    res.json(data);
+    // Não expor o refresh token real ao frontend — só um booleano
+    const { google_refresh_token, ...safeData } = data;
+    safeData.google_refresh_token = !!google_refresh_token;
+    res.json(safeData);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('[auth/me]', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
   }
 });
 
@@ -823,13 +843,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ADMIN — Painel do proprietário
 // ─────────────────────────────────────────────
 async function adminOnly(req, res, next) {
-  const { data: user } = await db.supabase
-    .from('usuarios')
-    .select('is_admin')
-    .eq('id', req.userId)
-    .maybeSingle();
-  if (!user?.is_admin) return res.status(403).json({ erro: 'Acesso restrito' });
-  next();
+  try {
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('is_admin')
+      .eq('id', req.userId)
+      .maybeSingle();
+    if (!user?.is_admin) return res.status(403).json({ erro: 'Acesso restrito' });
+    next();
+  } catch (err) {
+    console.error('[Admin] erro ao verificar permissao:', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
 }
 
 // Lista todos os usuarios
@@ -1013,11 +1038,9 @@ async function calcularHorariosLivres(userId) {
       const livres = [];
       for (let t = inicioMin; t + duracao <= fimMin; t += duracao) {
         const hh = String(Math.floor(t/60)).padStart(2,'0');
-        const mmm = String(t%60).padStart(2,'0');
-        const bloqueado = bloqueios.some(b => b.data === dataStr && b.hora === `${hh}:${mmm}`);
+        const mm = String(t%60).padStart(2,'0');
+        const bloqueado = bloqueios.some(b => b.data === dataStr && b.hora === `${hh}:${mm}`);
         if (!bloqueado && !ocupados.some(o => Math.abs(o - t) < duracao)) {
-          const hh = String(Math.floor(t/60)).padStart(2,'0');
-          const mm = String(t%60).padStart(2,'0');
           livres.push(`${hh}:${mm}`);
         }
       }
@@ -1094,7 +1117,7 @@ app.post('/webhook', async (req, res) => {
       await salvarLead(telefone, leadData, conversa.historico.filter(m => m.role === 'user').length);
     } catch (_) { /* Sheets opcional */ }
 
-    if (leadData.temperatura === 'quente') {
+    if (notificarCorretor && leadData.temperatura === 'quente') {
       await notificarCorretor(leadData, telefone);
     }
   } catch (err) {
