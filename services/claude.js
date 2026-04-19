@@ -10,6 +10,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { systemPrompt } = require('../prompts/systemPrompt');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 
 /**
  * Gera uma resposta curta e natural para o lead.
@@ -22,7 +23,7 @@ async function gerarResposta(historico, contextoExtra) {
     if (contextoExtra) system += '\n\n' + contextoExtra;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 300,
       system,
       messages: historico,
@@ -62,7 +63,7 @@ Retorne exatamente neste formato JSON:
 
   try {
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 500,
       messages: [{ role: 'user', content: promptExtracao }],
     });
@@ -134,7 +135,7 @@ Seja direto, objetivo e use linguagem profissional de mercado imobiliário. Resp
 
   try {
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: MODEL,
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
