@@ -101,37 +101,57 @@ Retorne exatamente neste formato JSON:
  * @returns {string} Resumo em markdown
  */
 async function gerarResumoMatching(leads, imoveis, visitas) {
-  const prompt = `Você é um assistente especializado em mercado imobiliário. Analise os dados abaixo e gere um RESUMO EXECUTIVO claro e organizado.
+  // Caso sem dados: resposta curta e acionável
+  if (leads.length === 0 && imoveis.length === 0) {
+    return `## 👋 Vamos começar!
 
-## LEADS (clientes buscando imóvel):
-${leads.length === 0 ? 'Nenhum lead cadastrado.' : leads.map((l, i) => `${i + 1}. ${l.nome || 'Sem nome'} | Tel: ${l.telefone} | Quer: ${l.objetivo || '?'} | Tipo: ${l.tipo_imovel || '?'} | Bairro: ${l.bairro || '?'} | Faixa: ${l.faixa_valor || '?'} | Pagamento: ${l.pagamento || '?'} | Prazo: ${l.prazo || '?'} | Temperatura: ${l.temperatura || '?'} | Resumo: ${l.resumo || l.observacoes || ''}`).join('\n')}
+Seu painel ainda está vazio. Para a IA gerar uma análise útil, você precisa de pelo menos:
 
-## IMÓVEIS DISPONÍVEIS:
-${imoveis.length === 0 ? 'Nenhum imóvel cadastrado.' : imoveis.map((im, i) => `${i + 1}. "${im.titulo}" | Tipo: ${im.tipo} | Bairro: ${im.bairro || '?'} | Cidade: ${im.cidade || '?'} | Valor: R$ ${im.valor || '?'} | Quartos: ${im.quartos || '?'} | Área: ${im.area || '?'}m² | Status: ${im.status} | Desc: ${im.descricao || ''}`).join('\n')}
+- **1 lead cadastrado** (manual ou via WhatsApp)
+- **1 imóvel cadastrado**
 
-## VISITAS JÁ AGENDADAS:
-${visitas.length === 0 ? 'Nenhuma visita agendada.' : visitas.map((v, i) => `${i + 1}. ${v.lead_nome} → ${v.imovel_titulo || 'imóvel não especificado'} | Data: ${v.data} ${v.horario} | Status: ${v.status}`).join('\n')}
+### Próximos passos
+1. Cadastre seus primeiros imóveis em **Imóveis → Novo imóvel**
+2. Adicione leads em **Cadastro de Leads**
+3. Volte aqui e clique em **Gerar Análise**`;
+  }
+
+  const prompt = `Você é um consultor sênior de mercado imobiliário. Gere uma análise CURTA, DIRETA e ACIONÁVEL para um corretor autônomo.
+
+DADOS:
+
+LEADS (${leads.length}):
+${leads.length === 0 ? 'Nenhum.' : leads.map((l, i) => `${i + 1}. ${l.nome || 'Sem nome'} | ${l.telefone} | Quer: ${l.objetivo || '?'} ${l.tipo_imovel || '?'} em ${l.bairro || '?'} | R$ ${l.faixa_valor || '?'} | ${l.temperatura || '?'}`).join('\n')}
+
+IMÓVEIS (${imoveis.length}):
+${imoveis.length === 0 ? 'Nenhum.' : imoveis.map((im, i) => `${i + 1}. "${im.titulo}" | ${im.tipo} em ${im.bairro || '?'} | R$ ${im.valor || '?'} | ${im.quartos || '?'}Q | ${im.status}`).join('\n')}
+
+VISITAS AGENDADAS (${visitas.length}):
+${visitas.length === 0 ? 'Nenhuma.' : visitas.map((v, i) => `${i + 1}. ${v.lead_nome} → ${v.imovel_titulo || '?'} em ${v.data}`).join('\n')}
 
 ---
 
-Gere o seguinte relatório em formato estruturado (use markdown):
+INSTRUÇÕES DE FORMATO (SIGA EXATAMENTE):
 
-### 1. MATCHES (Cliente ↔ Imóvel)
-Para cada lead, analise se algum imóvel disponível combina com o que ele procura (tipo, bairro, faixa de valor). Liste os matches encontrados com nível de compatibilidade (alta/média/baixa) e justificativa curta.
+- Máximo 300 palavras no total.
+- NÃO use tabelas. NÃO use separadores (---).
+- Use apenas títulos \`##\` e listas com \`-\`.
+- Linguagem simples, como se falasse com um amigo corretor.
+- Priorize AÇÕES, não descrições.
+- Se uma seção não tem nada relevante, OMITA ela inteira (não escreva "Nenhum").
 
-### 2. LEADS SEM MATCH
-Leads que não têm nenhum imóvel compatível no catálogo. Sugira que tipo de imóvel deveria ser buscado/cadastrado para atendê-los.
+ESTRUTURA SUGERIDA:
 
-### 3. IMÓVEIS SEM INTERESSE
-Imóveis que nenhum lead atual demonstrou interesse. Sugira ações (ex: divulgação, ajuste de preço).
+## 🎯 Matches encontrados
+Liste só os matches reais (lead ↔ imóvel). Formato: **Nome do lead** → **Imóvel** (compatibilidade: alta/média). Uma linha cada.
 
-### 4. AÇÕES RECOMENDADAS
-Lista priorizada das próximas ações que o corretor deveria tomar, com base na temperatura dos leads e urgência.
+## 🔥 Prioridades da semana
+Até 3 ações concretas que você deve fazer AGORA. Comece cada linha com um verbo (Ligar, Agendar, Cadastrar).
 
-### 5. VISÃO GERAL
-Um parágrafo resumindo a situação atual da carteira: quantos leads quentes precisam de atenção, oportunidades de fechamento, gargalos.
+## 💡 Dica rápida
+Uma única observação curta sobre a carteira. Uma frase só.
 
-Seja direto, objetivo e use linguagem profissional de mercado imobiliário. Responda em português.`;
+Responda em português brasileiro.`;
 
   try {
     const response = await client.messages.create({
