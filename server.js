@@ -1189,8 +1189,9 @@ app.post('/webhook', async (req, res) => {
     conversa.historico = conversa.historico.slice(-20);
   }
 
+  // Bloco 1: Resposta da IA (CRÍTICO — se falhar, manda mensagem de erro)
+  let respostaEnviada = false;
   try {
-    // Busca usuario dono do webhook pra pegar horários livres
     let contextoHorarios = '';
     const { data: leadExistente } = await db.supabase
       .from('leads')
@@ -1208,11 +1209,21 @@ app.post('/webhook', async (req, res) => {
     const resposta = await gerarResposta(conversa.historico, contextoHorarios || undefined);
     conversa.historico.push({ role: 'assistant', content: resposta });
     await enviarMensagem(telefone, resposta);
+    respostaEnviada = true;
+  } catch (err) {
+    console.error(`[Webhook] Erro ao gerar/enviar resposta para ${telefone}:`, err.message);
+    if (!respostaEnviada) {
+      try { await enviarMensagem(telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch (_) {}
+    }
+    res.sendStatus(200);
+    return;
+  }
 
+  // Bloco 2: Extração de dados e persistência (NÃO crítico — falha silenciosamente)
+  try {
     const leadDataBruto = await extrairDadosLead(conversa.historico);
     const leadData = validarEAjustarLead(leadDataBruto);
 
-    // Salva no Supabase (inclui historico da conversa)
     await db.upsertLeadWhatsApp(telefone, {
       nome: leadData.nome || '',
       objetivo: leadData.objetivo || '',
@@ -1228,7 +1239,6 @@ app.post('/webhook', async (req, res) => {
       historico_json: JSON.stringify(conversa.historico.slice(-30)),
     });
 
-    // Salva no Google Sheets (mantido como backup)
     try {
       await salvarLead(telefone, leadData, conversa.historico.filter(m => m.role === 'user').length);
     } catch (_) { /* Sheets opcional */ }
@@ -1237,8 +1247,8 @@ app.post('/webhook', async (req, res) => {
       await notificarCorretor(leadData, telefone);
     }
   } catch (err) {
-    console.error(`[Webhook] Erro ao processar mensagem de ${telefone}:`, err.message);
-    try { await enviarMensagem(telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch (_) {}
+    console.error(`[Webhook] Erro ao extrair/salvar lead ${telefone}:`, err.message);
+    // Não envia mensagem de erro — a IA já respondeu
   }
 
   res.sendStatus(200);
