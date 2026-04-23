@@ -1053,6 +1053,35 @@ async function calcularHorariosLivres(userId) {
   } catch(e) { console.error('[slots]', e.message); return null; }
 }
 
+// ─────────────────────────────────────────────
+// Rota temporária — registrar numero na Cloud API
+// Remover depois do primeiro uso
+// ─────────────────────────────────────────────
+app.get('/api/whatsapp/register', async (req, res) => {
+  try {
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    const pin = req.query.pin || '123456';
+
+    if (!token || !phoneId) return res.status(400).json({ erro: 'WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID nao configurado' });
+
+    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/register`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ messaging_product: 'whatsapp', pin }),
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json({ statusHttp: response.status, data, pin });
+  } catch (err) {
+    console.error('[register]', err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 
