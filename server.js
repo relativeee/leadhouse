@@ -1171,16 +1171,15 @@ app.get('/api/whatsapp/verify-code', async (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-  res.sendStatus(200);
-
-  if (!extrairMensagem) return;
+  // Em serverless, processamos ANTES do sendStatus pra evitar que o runtime corte a function
+  if (!extrairMensagem) return res.sendStatus(200);
   const dados = extrairMensagem(req.body);
-  if (!dados) return;
+  if (!dados) return res.sendStatus(200);
 
   const { telefone, mensagem, messageId } = dados;
   const conversa = getConversa(telefone);
 
-  if (conversa.mensagensProcessadas.has(messageId)) return;
+  if (conversa.mensagensProcessadas.has(messageId)) return res.sendStatus(200);
   conversa.mensagensProcessadas.add(messageId);
 
   console.log(`[Webhook] Nova mensagem de ${telefone}: "${mensagem}"`);
@@ -1241,6 +1240,8 @@ app.post('/webhook', async (req, res) => {
     console.error(`[Webhook] Erro ao processar mensagem de ${telefone}:`, err.message);
     try { await enviarMensagem(telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch (_) {}
   }
+
+  res.sendStatus(200);
 });
 
 // ─────────────────────────────────────────────
