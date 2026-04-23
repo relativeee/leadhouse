@@ -1189,18 +1189,33 @@ app.post('/webhook', async (req, res) => {
     conversa.historico = conversa.historico.slice(-20);
   }
 
+  // Descobre a qual usuario atribuir (lead existente OU admin como fallback)
+  let userIdDestino = null;
+  const { data: leadExistente } = await db.supabase
+    .from('leads')
+    .select('usuario_id')
+    .eq('telefone', telefone)
+    .eq('origem', 'whatsapp')
+    .maybeSingle();
+  if (leadExistente?.usuario_id) {
+    userIdDestino = leadExistente.usuario_id;
+  } else {
+    // Fallback: atribui ao primeiro admin do sistema
+    const { data: admin } = await db.supabase
+      .from('usuarios')
+      .select('id')
+      .eq('is_admin', true)
+      .limit(1)
+      .maybeSingle();
+    userIdDestino = admin?.id || null;
+  }
+
   // Bloco 1: Resposta da IA (CRÍTICO — se falhar, manda mensagem de erro)
   let respostaEnviada = false;
   try {
     let contextoHorarios = '';
-    const { data: leadExistente } = await db.supabase
-      .from('leads')
-      .select('usuario_id')
-      .eq('telefone', telefone)
-      .eq('origem', 'whatsapp')
-      .maybeSingle();
-    if (leadExistente?.usuario_id) {
-      const slotsLivres = await calcularHorariosLivres(leadExistente.usuario_id);
+    if (userIdDestino) {
+      const slotsLivres = await calcularHorariosLivres(userIdDestino);
       if (slotsLivres) {
         contextoHorarios = `\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
       }
@@ -1224,20 +1239,24 @@ app.post('/webhook', async (req, res) => {
     const leadDataBruto = await extrairDadosLead(conversa.historico);
     const leadData = validarEAjustarLead(leadDataBruto);
 
-    await db.upsertLeadWhatsApp(telefone, {
-      nome: leadData.nome || '',
-      objetivo: leadData.objetivo || '',
-      tipo_imovel: leadData.tipo_imovel || '',
-      bairro: leadData.bairro || '',
-      faixa_valor: leadData.faixa_valor || '',
-      pagamento: leadData.pagamento || '',
-      prazo: leadData.prazo || '',
-      temperatura: leadData.temperatura || 'frio',
-      proximo_passo: leadData.proximo_passo || '',
-      resumo: leadData.resumo || '',
-      total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
-      historico_json: JSON.stringify(conversa.historico.slice(-30)),
-    });
+    if (!userIdDestino) {
+      console.error(`[Webhook] Nenhum usuario admin encontrado para atribuir lead ${telefone}`);
+    } else {
+      await db.upsertLeadWhatsApp(telefone, {
+        nome: leadData.nome || '',
+        objetivo: leadData.objetivo || '',
+        tipo_imovel: leadData.tipo_imovel || '',
+        bairro: leadData.bairro || '',
+        faixa_valor: leadData.faixa_valor || '',
+        pagamento: leadData.pagamento || '',
+        prazo: leadData.prazo || '',
+        temperatura: leadData.temperatura || 'frio',
+        proximo_passo: leadData.proximo_passo || '',
+        resumo: leadData.resumo || '',
+        total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
+        historico_json: JSON.stringify(conversa.historico.slice(-30)),
+      }, userIdDestino);
+    }
 
     try {
       await salvarLead(telefone, leadData, conversa.historico.filter(m => m.role === 'user').length);
