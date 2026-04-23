@@ -1054,7 +1054,7 @@ async function calcularHorariosLivres(userId) {
 }
 
 // ─────────────────────────────────────────────
-// Rota temporária — registrar numero na Cloud API
+// Rotas temporárias — registrar numero na Cloud API
 // Remover depois do primeiro uso
 // ─────────────────────────────────────────────
 app.get('/api/whatsapp/register', async (req, res) => {
@@ -1078,6 +1078,56 @@ app.get('/api/whatsapp/register', async (req, res) => {
     return res.status(response.status).json({ statusHttp: response.status, data, pin });
   } catch (err) {
     console.error('[register]', err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
+// Pede novo código de verificação por SMS
+app.get('/api/whatsapp/request-code', async (req, res) => {
+  try {
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    const method = req.query.method || 'SMS'; // SMS ou VOICE
+
+    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/request_code`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code_method: method, language: 'pt_BR' }),
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json({ statusHttp: response.status, data });
+  } catch (err) {
+    console.error('[request-code]', err);
+    return res.status(500).json({ erro: err.message });
+  }
+});
+
+// Confirma o código recebido por SMS
+app.get('/api/whatsapp/verify-code', async (req, res) => {
+  try {
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneId = process.env.WHATSAPP_PHONE_ID;
+    const code = req.query.code;
+
+    if (!code) return res.status(400).json({ erro: 'Passe ?code=XXXXXX na URL' });
+
+    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/verify_code`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json({ statusHttp: response.status, data });
+  } catch (err) {
+    console.error('[verify-code]', err);
     return res.status(500).json({ erro: err.message });
   }
 });
