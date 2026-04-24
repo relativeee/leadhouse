@@ -5,8 +5,48 @@
  */
 
 const axios = require('axios');
+const FormData = require('form-data');
 
 const WHATSAPP_API_URL = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`;
+const WHATSAPP_MEDIA_URL = `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/media`;
+
+// Faz upload de uma imagem (data URI base64 ou URL publica) pro endpoint /media
+// da Meta e retorna o media_id. Use esse id em { image: { id: ... } } pra mandar.
+async function uploadImagemParaWhatsApp(dataUriOuUrl) {
+  let buffer;
+  let mimeType;
+
+  if (dataUriOuUrl.startsWith('data:')) {
+    const m = dataUriOuUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!m) throw new Error('Data URI invalida');
+    mimeType = m[1];
+    buffer = Buffer.from(m[2], 'base64');
+  } else {
+    const res = await axios.get(dataUriOuUrl, { responseType: 'arraybuffer' });
+    mimeType = res.headers['content-type'] || 'image/jpeg';
+    buffer = Buffer.from(res.data);
+  }
+
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  form.append('file', buffer, {
+    filename: `imagem.${(mimeType.split('/')[1] || 'jpg').split('+')[0]}`,
+    contentType: mimeType,
+  });
+
+  const res = await axios.post(WHATSAPP_MEDIA_URL, form, {
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      ...form.getHeaders(),
+    },
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+  });
+
+  if (!res.data?.id) throw new Error('Meta nao retornou media_id');
+  return res.data.id;
+}
 
 /**
  * Envia uma mensagem de texto para um número de telefone.
@@ -39,18 +79,19 @@ async function enviarMensagem(telefone, mensagem) {
 }
 
 /**
- * Envia uma imagem (via URL pública) com legenda.
- * @param {string} telefone
- * @param {string} imageUrl - HTTPS publica
- * @param {string} [caption]
+ * Envia uma imagem com legenda via WhatsApp Cloud API.
+ * Aceita tanto data URI (base64) quanto URL HTTPS publica.
+ * Internamente: faz upload pro endpoint /media e envia com media_id
+ * (evita que a Meta precise baixar a URL).
  */
-async function enviarImagem(telefone, imageUrl, caption) {
+async function enviarImagem(telefone, imagemSrc, caption) {
   try {
+    const mediaId = await uploadImagemParaWhatsApp(imagemSrc);
     const payload = {
       messaging_product: 'whatsapp',
       to: telefone,
       type: 'image',
-      image: caption ? { link: imageUrl, caption } : { link: imageUrl },
+      image: caption ? { id: mediaId, caption } : { id: mediaId },
     };
     const response = await axios.post(WHATSAPP_API_URL, payload, {
       headers: {
