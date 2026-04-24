@@ -174,6 +174,42 @@ function getConversa(telefone) {
   return conversas[telefone];
 }
 
+// Parseia string de valor ("até 500 mil", "R$ 400.000", "entre 300 e 600 mil")
+// e retorna { min, max, target } em reais, ou null se nao parsear.
+function parseValorLead(str) {
+  if (!str) return null;
+  let s = String(str).toLowerCase();
+  if (s.includes('não informado') || s.includes('nao informado')) return null;
+  // "entre 300 e 600 mil" -> "entre 300 mil e 600 mil"
+  s = s.replace(/(\d[\d.,]*)\s+(e|a|até|ate|ou)\s+(\d[\d.,]*)\s*(milh[aã]o|milhoes|milhões|mi\b|mil|k)\b/gi, '$1 $4 $2 $3 $4');
+  const re = /(\d[\d.,]*)\s*(milh[aã]o|milhoes|milhões|mi\b|mil|k)?/gi;
+  const nums = [];
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    let n = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+    if (isNaN(n)) continue;
+    const u = (m[2] || '').toLowerCase();
+    if (u.startsWith('milh') || u === 'mi') n *= 1000000;
+    else if (u === 'mil' || u === 'k') n *= 1000;
+    if (n > 0) nums.push(n);
+  }
+  if (nums.length === 0) return null;
+  if (nums.length === 1) {
+    const v = nums[0];
+    return { min: v * 0.7, max: v * 1.3, target: v };
+  }
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  return { min, max, target: (min + max) / 2 };
+}
+
+// Distancia absoluta entre valor do imovel e alvo do lead (pra ranqueamento).
+function distanciaValor(valorImovelStr, alvo) {
+  const parsed = parseValorLead(valorImovelStr);
+  if (!parsed) return Number.POSITIVE_INFINITY;
+  return Math.abs(parsed.target - alvo.target);
+}
+
 // Limpa conversas inativas a cada hora
 setInterval(() => {
   const agora = Date.now();
@@ -1127,22 +1163,25 @@ app.post('/webhook', async (req, res) => {
   let leadData = null;
   let contextoImoveis = '';
   let imovelParaEnviar = null;
+  let imovelEhAlternativo = false;
   try {
     const leadDataBruto = await extrairDadosLead(conversa.historico);
     leadData = validarEAjustarLead(leadDataBruto);
 
     const bairroLead = (leadData.bairro || '').trim();
     if (userIdDestino && bairroLead && bairroLead !== 'não informado') {
-      const { data: imoveisMatch } = await db.supabase
+      const tipoLead = (leadData.tipo_imovel || '').trim().toLowerCase();
+      const valorAlvo = parseValorLead(leadData.faixa_valor);
+
+      // 1) Tentativa no bairro exato
+      const { data: imoveisBairro } = await db.supabase
         .from('imoveis')
         .select('*')
         .eq('usuario_id', userIdDestino)
         .eq('status', 'disponivel')
         .ilike('bairro', `%${bairroLead}%`);
 
-      let candidatos = (imoveisMatch || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
-
-      const tipoLead = (leadData.tipo_imovel || '').trim().toLowerCase();
+      let candidatos = (imoveisBairro || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
       if (tipoLead && tipoLead !== 'não informado') {
         const porTipo = candidatos.filter(i => (i.tipo || '').toLowerCase().includes(tipoLead));
         if (porTipo.length > 0) candidatos = porTipo;
@@ -1150,12 +1189,42 @@ app.post('/webhook', async (req, res) => {
 
       if (candidatos.length === 1) {
         imovelParaEnviar = candidatos[0];
+      } else if (candidatos.length >= 2) {
+        contextoImoveis = `\n[VÁRIOS IMÓVEIS DISPONÍVEIS]\nTem ${candidatos.length} imóveis disponíveis em ${bairroLead}. Antes de oferecer opções, pergunte ao cliente detalhes pra refinar — faixa de valor e quantos quartos. Não envie opções agora, só faça 1 pergunta pra estreitar.`;
+      } else {
+        // 2) Fallback: nenhum no bairro exato — busca alternativo com caracteristicas proximas
+        const { data: imoveisTodos } = await db.supabase
+          .from('imoveis')
+          .select('*')
+          .eq('usuario_id', userIdDestino)
+          .eq('status', 'disponivel');
+
+        let alternativos = (imoveisTodos || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
+        if (tipoLead && tipoLead !== 'não informado') {
+          const porTipo = alternativos.filter(i => (i.tipo || '').toLowerCase().includes(tipoLead));
+          if (porTipo.length > 0) alternativos = porTipo;
+        }
+        if (valorAlvo && alternativos.length > 1) {
+          alternativos = alternativos
+            .map(i => ({ i, d: distanciaValor(i.valor, valorAlvo) }))
+            .sort((a, b) => a.d - b.d)
+            .map(x => x.i);
+        }
+        if (alternativos.length > 0) {
+          imovelParaEnviar = alternativos[0];
+          imovelEhAlternativo = true;
+        }
+      }
+
+      if (imovelParaEnviar) {
         const detalhes = [imovelParaEnviar.titulo, imovelParaEnviar.bairro];
         if (imovelParaEnviar.valor) detalhes.push(`R$ ${imovelParaEnviar.valor}`);
         if (imovelParaEnviar.quartos) detalhes.push(`${imovelParaEnviar.quartos} quartos`);
-        contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
-      } else if (candidatos.length >= 2) {
-        contextoImoveis = `\n[VÁRIOS IMÓVEIS DISPONÍVEIS]\nTem ${candidatos.length} imóveis disponíveis em ${bairroLead}. Antes de oferecer opções, pergunte ao cliente detalhes pra refinar — faixa de valor e quantos quartos. Não envie opções agora, só faça 1 pergunta pra estreitar.`;
+        if (imovelEhAlternativo) {
+          contextoImoveis = `\n[IMÓVEL ALTERNATIVO PRA OFERECER]\nNão temos imóvel disponível no bairro "${bairroLead}" no momento. Logo após sua próxima mensagem, o sistema vai enviar automaticamente a foto de um imóvel parecido: ${detalhes.join(' · ')}. Na sua resposta, seja honesta: diga que nesse bairro específico não tem no momento, mas tem esse outro com características parecidas em ${imovelParaEnviar.bairro}, e que vai mandar a foto pra ele ver. Pergunte se o bairro ${imovelParaEnviar.bairro} também pode interessar. Não descreva a foto — ela vai junto.`;
+        } else {
+          contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
+        }
       }
     }
   } catch (err) {
