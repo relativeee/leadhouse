@@ -39,6 +39,35 @@ async function enviarMensagem(telefone, mensagem) {
 }
 
 /**
+ * Envia uma imagem (via URL pública) com legenda.
+ * @param {string} telefone
+ * @param {string} imageUrl - HTTPS publica
+ * @param {string} [caption]
+ */
+async function enviarImagem(telefone, imageUrl, caption) {
+  try {
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: telefone,
+      type: 'image',
+      image: caption ? { link: imageUrl, caption } : { link: imageUrl },
+    };
+    const response = await axios.post(WHATSAPP_API_URL, payload, {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    console.log(`[WhatsApp] Imagem enviada para ${telefone}`);
+    return response.data;
+  } catch (err) {
+    const detalhe = err.response?.data || err.message;
+    console.error('[WhatsApp] Erro ao enviar imagem:', JSON.stringify(detalhe));
+    throw err;
+  }
+}
+
+/**
  * Extrai dados relevantes do payload recebido pelo webhook.
  * @param {Object} body - Body do POST do webhook
  * @returns {{ telefone, mensagem, messageId } | null}
@@ -100,4 +129,4 @@ async function notificarCorretor(leadData, telefoneLead) {
   console.log('[WhatsApp] Corretor notificado sobre lead quente.');
 }
 
-module.exports = { enviarMensagem, extrairMensagem, notificarCorretor };
+module.exports = { enviarMensagem, enviarImagem, extrairMensagem, notificarCorretor };

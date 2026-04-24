@@ -17,11 +17,11 @@ if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido no .env'); proc
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
-let extrairMensagem, enviarMensagem, notificarCorretor;
+let extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor;
 let gerarResposta, extrairDadosLead, gerarResumoMatching;
 let salvarLead;
 
-try { ({ extrairMensagem, enviarMensagem, notificarCorretor } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
+try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
 try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
@@ -1122,21 +1122,76 @@ app.post('/webhook', async (req, res) => {
     nomeCorretor = corretor?.nome || null;
   }
 
+  // Extração pré-resposta: permite Lia saber quais imoveis oferecer
+  if (!conversa.imoveisEnviados) conversa.imoveisEnviados = new Set();
+  let leadData = null;
+  let contextoImoveis = '';
+  let imovelParaEnviar = null;
+  try {
+    const leadDataBruto = await extrairDadosLead(conversa.historico);
+    leadData = validarEAjustarLead(leadDataBruto);
+
+    const bairroLead = (leadData.bairro || '').trim();
+    if (userIdDestino && bairroLead && bairroLead !== 'não informado') {
+      const { data: imoveisMatch } = await db.supabase
+        .from('imoveis')
+        .select('*')
+        .eq('usuario_id', userIdDestino)
+        .eq('status', 'disponivel')
+        .ilike('bairro', `%${bairroLead}%`);
+
+      let candidatos = (imoveisMatch || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
+
+      const tipoLead = (leadData.tipo_imovel || '').trim().toLowerCase();
+      if (tipoLead && tipoLead !== 'não informado') {
+        const porTipo = candidatos.filter(i => (i.tipo || '').toLowerCase().includes(tipoLead));
+        if (porTipo.length > 0) candidatos = porTipo;
+      }
+
+      if (candidatos.length === 1) {
+        imovelParaEnviar = candidatos[0];
+        const detalhes = [imovelParaEnviar.titulo, imovelParaEnviar.bairro];
+        if (imovelParaEnviar.valor) detalhes.push(`R$ ${imovelParaEnviar.valor}`);
+        if (imovelParaEnviar.quartos) detalhes.push(`${imovelParaEnviar.quartos} quartos`);
+        contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
+      } else if (candidatos.length >= 2) {
+        contextoImoveis = `\n[VÁRIOS IMÓVEIS DISPONÍVEIS]\nTem ${candidatos.length} imóveis disponíveis em ${bairroLead}. Antes de oferecer opções, pergunte ao cliente detalhes pra refinar — faixa de valor e quantos quartos. Não envie opções agora, só faça 1 pergunta pra estreitar.`;
+      }
+    }
+  } catch (err) {
+    console.error(`[Webhook] Erro na extração pré-resposta:`, err.message);
+  }
+
   // Bloco 1: Resposta da IA (CRÍTICO — se falhar, manda mensagem de erro)
   let respostaEnviada = false;
   try {
-    let contextoHorarios = '';
+    let contextoExtra = '';
     if (userIdDestino) {
       const slotsLivres = await calcularHorariosLivres(userIdDestino);
       if (slotsLivres) {
-        contextoHorarios = `\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
+        contextoExtra += `\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
       }
     }
+    contextoExtra += contextoImoveis;
 
-    const resposta = await gerarResposta(conversa.historico, contextoHorarios || undefined, { nomeCorretor });
+    const resposta = await gerarResposta(conversa.historico, contextoExtra || undefined, { nomeCorretor });
     conversa.historico.push({ role: 'assistant', content: resposta });
     await enviarMensagem(telefone, resposta);
     respostaEnviada = true;
+
+    // Envia foto do imovel logo apos o texto (nao critico)
+    if (imovelParaEnviar && enviarImagem) {
+      try {
+        const capParts = [imovelParaEnviar.titulo];
+        if (imovelParaEnviar.valor) capParts.push(`R$ ${imovelParaEnviar.valor}`);
+        if (imovelParaEnviar.quartos) capParts.push(`${imovelParaEnviar.quartos} quartos`);
+        if (imovelParaEnviar.area) capParts.push(`${imovelParaEnviar.area}m²`);
+        await enviarImagem(telefone, imovelParaEnviar.foto_url, capParts.join(' · '));
+        conversa.imoveisEnviados.add(imovelParaEnviar.id);
+      } catch (e) {
+        console.error(`[Webhook] Erro ao enviar imagem do imovel ${imovelParaEnviar.id}:`, e.message);
+      }
+    }
   } catch (err) {
     console.error(`[Webhook] Erro ao gerar/enviar resposta para ${telefone}:`, err.message);
     if (!respostaEnviada) {
@@ -1146,10 +1201,12 @@ app.post('/webhook', async (req, res) => {
     return;
   }
 
-  // Bloco 2: Extração de dados e persistência (NÃO crítico — falha silenciosamente)
+  // Bloco 2: Persistencia (NAO critico — falha silenciosamente). Reusa leadData extraida acima.
   try {
-    const leadDataBruto = await extrairDadosLead(conversa.historico);
-    const leadData = validarEAjustarLead(leadDataBruto);
+    if (!leadData) {
+      const leadDataBruto = await extrairDadosLead(conversa.historico);
+      leadData = validarEAjustarLead(leadDataBruto);
+    }
 
     if (!userIdDestino) {
       console.error(`[Webhook] Nenhum usuario admin encontrado para atribuir lead ${telefone}`);
