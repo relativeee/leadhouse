@@ -7,7 +7,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
-const { systemPrompt } = require('../prompts/systemPrompt');
+const { buildSystemPrompt } = require('../prompts/systemPrompt');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
@@ -15,11 +15,13 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 /**
  * Gera uma resposta curta e natural para o lead.
  * @param {Array} historico - Array de {role, content} da conversa
+ * @param {string} [contextoExtra] - Contexto adicional (ex: horarios livres)
+ * @param {{nomeCorretor?: string, tempoResposta?: string}} [opcoes]
  * @returns {string} Resposta da IA
  */
-async function gerarResposta(historico, contextoExtra) {
+async function gerarResposta(historico, contextoExtra, opcoes = {}) {
   try {
-    let system = systemPrompt;
+    let system = buildSystemPrompt(opcoes);
     if (contextoExtra) system += '\n\n' + contextoExtra;
 
     const response = await client.messages.create({

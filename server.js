@@ -1093,6 +1093,17 @@ app.post('/webhook', async (req, res) => {
     userIdDestino = admin?.id || null;
   }
 
+  // Busca o nome do corretor pra injetar no prompt da Lia
+  let nomeCorretor = null;
+  if (userIdDestino) {
+    const { data: corretor } = await db.supabase
+      .from('usuarios')
+      .select('nome')
+      .eq('id', userIdDestino)
+      .maybeSingle();
+    nomeCorretor = corretor?.nome || null;
+  }
+
   // Bloco 1: Resposta da IA (CRÍTICO — se falhar, manda mensagem de erro)
   let respostaEnviada = false;
   try {
@@ -1104,7 +1115,7 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
-    const resposta = await gerarResposta(conversa.historico, contextoHorarios || undefined);
+    const resposta = await gerarResposta(conversa.historico, contextoHorarios || undefined, { nomeCorretor });
     conversa.historico.push({ role: 'assistant', content: resposta });
     await enviarMensagem(telefone, resposta);
     respostaEnviada = true;
