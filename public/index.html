@@ -2219,6 +2219,55 @@ function removerFoto() {
 
 let _modalCtx = { type: null, id: null, editing: false };
 
+function _modalFoto(currentUrl) {
+    const tem = !!currentUrl;
+    return `<div class="modal-edit__group modal-edit__group--full" id="modalFotoGroup">
+        <label class="modal-edit__label">Foto</label>
+        <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+            <img id="modalFotoPreview" src="${tem ? currentUrl : ''}" alt="" style="${tem?'':'display:none;'} max-width:180px; max-height:130px; border-radius:8px; object-fit:cover;" data-original="${tem ? '1' : '0'}">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <input type="file" accept="image/*" id="modalFotoInput" onchange="modalFotoSelect(this)" style="font-size:12px;">
+                <button type="button" onclick="modalFotoRemover()" id="modalFotoBtnRemover" style="${tem?'':'display:none;'} background:transparent; border:1px solid #c44; color:#c44; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:12px;">Remover foto</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function modalFotoSelect(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const MAX = 600;
+            let w = img.width, h = img.height;
+            if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const preview = document.getElementById('modalFotoPreview');
+            preview.src = dataUrl;
+            preview.dataset.base64 = dataUrl;
+            preview.style.display = '';
+            document.getElementById('modalFotoBtnRemover').style.display = '';
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function modalFotoRemover() {
+    const preview = document.getElementById('modalFotoPreview');
+    preview.src = '';
+    preview.dataset.base64 = '__REMOVE__';
+    preview.style.display = 'none';
+    document.getElementById('modalFotoBtnRemover').style.display = 'none';
+    document.getElementById('modalFotoInput').value = '';
+}
+
 function _modalInput(name, label, value, type='text', opts) {
     if (type === 'select') {
         return `<div class="modal-edit__group"><label class="modal-edit__label">${label}</label><select class="form-input modal-edit__input" data-field="${name}">${(opts||[]).map(o => `<option value="${o.v||o}" ${(o.v||o)===(value||'')?'selected':''}>${o.l||o}</option>`).join('')}</select></div>`;
@@ -2271,6 +2320,14 @@ async function modalSave() {
         if (el.dataset.field === 'imovel_id') val = val ? parseInt(val) : null;
         fields[el.dataset.field] = val;
     });
+    // Foto editada (se houver alteracao)
+    const fotoPrev = document.getElementById('modalFotoPreview');
+    if (fotoPrev) {
+        const novo = fotoPrev.dataset.base64;
+        if (novo === '__REMOVE__') fields.foto_url = '';
+        else if (novo) fields.foto_url = novo;
+        // Sem dataset.base64 = nao mexeu, nao envia
+    }
     const btn = document.getElementById('modalSaveBtn');
     btn.disabled = true; btn.textContent = 'Salvando...';
     try {
@@ -2304,6 +2361,7 @@ function verImovel(id) {
         ['Cadastrado em', formatarTimestamp(im.created_at)],
     ]);
     const editHtml =
+        _modalFoto(im.foto_url) +
         _modalInput('titulo', 'Título', im.titulo) +
         _modalInput('tipo', 'Tipo', im.tipo, 'select', ['Apartamento','Casa','Terreno','Sala Comercial','Galpão','Cobertura','Flat']) +
         _modalInput('status', 'Status', im.status, 'select', [{v:'disponivel',l:'Disponível'},{v:'reservado',l:'Reservado'},{v:'vendido',l:'Vendido'},{v:'alugado',l:'Alugado'}]) +
