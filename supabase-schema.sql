@@ -14,6 +14,7 @@ create table if not exists imoveis (
   cidade text default '',
   valor text default '',
   quartos text default '',
+  vagas text default '',
   area text default '',
   descricao text default '',
   created_at timestamptz default now(),

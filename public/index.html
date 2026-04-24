@@ -409,6 +409,10 @@
                     <input type="number" class="form-input" id="imvQuartos" placeholder="0" min="0">
                 </div>
                 <div class="form-group form-group--sm">
+                    <label class="form-label">Vagas</label>
+                    <input type="number" class="form-input" id="imvVagas" placeholder="0" min="0">
+                </div>
+                <div class="form-group form-group--sm">
                     <label class="form-label">Area (m2)</label>
                     <input type="text" class="form-input" id="imvArea" placeholder="Ex: 85">
                 </div>
@@ -2084,6 +2088,7 @@ function renderImoveis() {
                 <h3 class="imv-card__title">${esc(im.titulo)}</h3>
                 <div class="imv-card__meta">
                     ${im.quartos ? `<span>🛏 ${esc(im.quartos)}</span>` : ''}
+                    ${im.vagas ? `<span>🚗 ${esc(im.vagas)}</span>` : ''}
                     ${im.area ? `<span>📐 ${esc(im.area)} m²</span>` : ''}
                     ${im.cidade ? `<span>📍 ${esc(im.cidade)}</span>` : ''}
                 </div>
@@ -2143,6 +2148,7 @@ async function salvarImovel() {
         cidade: document.getElementById('imvCidade').value.trim(),
         valor: document.getElementById('imvValor').value.trim(),
         quartos: document.getElementById('imvQuartos').value,
+        vagas: document.getElementById('imvVagas').value,
         area: document.getElementById('imvArea').value.trim(),
         descricao: document.getElementById('imvDescricao').value.trim(),
     };
@@ -2158,7 +2164,7 @@ async function salvarImovel() {
 }
 
 function limparFormImovel() {
-    ['imvTitulo','imvTipo','imvEndereco','imvBairro','imvCidade','imvValor','imvQuartos','imvArea','imvDescricao'].forEach(id => document.getElementById(id).value = '');
+    ['imvTitulo','imvTipo','imvEndereco','imvBairro','imvCidade','imvValor','imvQuartos','imvVagas','imvArea','imvDescricao'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('imvStatus').value = 'disponivel';
     document.querySelectorAll('.form-error').forEach(e => e.textContent = '');
     document.querySelectorAll('.form-input--error').forEach(e => e.classList.remove('form-input--error'));
@@ -2292,6 +2298,7 @@ function verImovel(id) {
         ['Cidade', im.cidade],
         ['Valor', im.valor ? 'R$ ' + im.valor : ''],
         ['Quartos', im.quartos],
+        ['Vagas', im.vagas],
         ['Área', im.area ? im.area + ' m²' : ''],
         ['Descrição', im.descricao],
         ['Cadastrado em', formatarTimestamp(im.created_at)],
@@ -2305,6 +2312,7 @@ function verImovel(id) {
         _modalInput('cidade', 'Cidade', im.cidade) +
         _modalInput('valor', 'Valor (R$)', im.valor) +
         _modalInput('quartos', 'Quartos', im.quartos, 'number') +
+        _modalInput('vagas', 'Vagas', im.vagas, 'number') +
         _modalInput('area', 'Área (m²)', im.area) +
         _modalInput('descricao', 'Descrição', im.descricao, 'textarea');
     _openModal(im.titulo, viewHtml, editHtml, 'imovel', id);

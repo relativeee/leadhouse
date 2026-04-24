@@ -1388,6 +1388,7 @@ app.post('/api/imoveis', async (req, res) => {
       cidade: req.body.cidade || '',
       valor: req.body.valor || '',
       quartos: req.body.quartos || '',
+      vagas: req.body.vagas || '',
       area: req.body.area || '',
       descricao: req.body.descricao || '',
     };
