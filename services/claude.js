@@ -60,7 +60,13 @@ Retorne exatamente neste formato JSON:
   "prazo": "prazo estimado ou 'não informado'",
   "temperatura": "quente | morno | frio",
   "proximo_passo": "ação recomendada para o corretor",
-  "resumo": "resumo de 2-3 linhas da conversa"
+  "resumo": "resumo de 2-3 linhas da conversa",
+  "visita_agendada": {
+    "confirmada": true ou false (true APENAS se o lead aceitou um horário específico E a Lia confirmou),
+    "data": "YYYY-MM-DD ou 'não'",
+    "horario": "HH:MM ou 'não'",
+    "imovel_titulo": "título do imóvel se mencionado, ou 'não especificado'"
+  }
 }`;
 
   try {
@@ -90,6 +96,7 @@ Retorne exatamente neste formato JSON:
       temperatura: 'frio',
       proximo_passo: 'Verificar conversa manualmente',
       resumo: 'Erro na extração automática. Revisar conversa.',
+      visita_agendada: { confirmada: false, data: 'não', horario: 'não', imovel_titulo: 'não especificado' },
     };
   }
 }

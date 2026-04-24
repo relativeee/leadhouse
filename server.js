@@ -1081,8 +1081,8 @@ async function calcularHorariosLivres(userId) {
         }
       }
       if (livres.length > 0) {
-        const label = d === 0 ? 'Hoje' : d === 1 ? 'Amanhã' : `${diasSem[diaSemana]} (${dataStr.slice(8,10)}/${dataStr.slice(5,7)})`;
-        slots.push(`${label}: ${livres.join(', ')}`);
+        const nomeDia = d === 0 ? 'Hoje' : d === 1 ? 'Amanhã' : diasSem[diaSemana];
+        slots.push(`${dataStr} (${nomeDia}): ${livres.join(', ')}`);
       }
     }
     return slots.length > 0 ? slots.join('\n') : null;
@@ -1299,6 +1299,41 @@ app.post('/webhook', async (req, res) => {
     try {
       await salvarLead(telefone, leadData, conversa.historico.filter(m => m.role === 'user').length);
     } catch (_) { /* Sheets opcional */ }
+
+    // Cria visita se a Lia agendou com o lead
+    const va = leadData.visita_agendada;
+    if (
+      userIdDestino && va && va.confirmada === true &&
+      va.data && va.data !== 'não' && /^\d{4}-\d{2}-\d{2}$/.test(va.data) &&
+      va.horario && va.horario !== 'não' && /^\d{2}:\d{2}$/.test(va.horario)
+    ) {
+      try {
+        const { data: jaExiste } = await db.supabase
+          .from('visitas')
+          .select('id')
+          .eq('usuario_id', userIdDestino)
+          .eq('lead_telefone', telefone)
+          .eq('data', va.data)
+          .eq('horario', va.horario)
+          .maybeSingle();
+        if (!jaExiste) {
+          await db.criarVisita({
+            lead_nome: leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Lead WhatsApp',
+            lead_telefone: telefone,
+            imovel_titulo: va.imovel_titulo && va.imovel_titulo !== 'não especificado' ? va.imovel_titulo : '',
+            endereco: '',
+            data: va.data,
+            horario: va.horario,
+            corretor: nomeCorretor || '',
+            observacoes: 'Agendada automaticamente pela Lia via WhatsApp',
+            status: 'agendada',
+          }, userIdDestino);
+          console.log(`[Webhook] Visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
+        }
+      } catch (e) {
+        console.error(`[Webhook] Erro ao criar visita automatica:`, e.message);
+      }
+    }
 
     if (notificarCorretor && leadData.temperatura === 'quente') {
       await notificarCorretor(leadData, telefone);
