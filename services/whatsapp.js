@@ -197,4 +197,28 @@ async function notificarCorretor(leadData, telefoneLead) {
   console.log('[WhatsApp] Corretor notificado sobre lead quente.');
 }
 
-module.exports = { enviarMensagem, enviarImagem, extrairMensagem, notificarCorretor };
+/**
+ * Notifica o corretor que um novo lead acabou de iniciar conversa pelo WhatsApp.
+ * Mensagem mais leve que notificarCorretor — chega antes da qualificacao completa.
+ */
+async function notificarNovoLead(telefoneLead, primeiraMensagem) {
+  const telefoneCorretor = process.env.CORRETOR_TELEFONE;
+  if (!telefoneCorretor) {
+    console.warn('[WhatsApp] CORRETOR_TELEFONE nao configurado. Notificacao de novo lead ignorada.');
+    return;
+  }
+  const trecho = (primeiraMensagem || '').slice(0, 200);
+  const msg =
+    `🆕 *Novo lead no WhatsApp!*\n\n` +
+    `📞 Telefone: ${telefoneLead}\n` +
+    (trecho ? `💬 Primeira mensagem: "${trecho}"\n\n` : '\n') +
+    `A Lia ja esta qualificando. Acompanhe pelo LeadHouse.`;
+  try {
+    await enviarMensagem(telefoneCorretor, msg);
+    console.log('[WhatsApp] Corretor notificado de novo lead.');
+  } catch (e) {
+    console.error('[WhatsApp] Falha ao notificar novo lead:', e.message);
+  }
+}
+
+module.exports = { enviarMensagem, enviarImagem, extrairMensagem, notificarCorretor, notificarNovoLead };

@@ -2387,11 +2387,15 @@ async function excluirImovel(id) {
 // ═══════════════════════════════════════════════
 async function carregarLeadsManuais() {
     try {
-        const [leads, imv] = await Promise.all([
-            apiCall('GET', '/api/leads-manual'),
+        const [manuais, whats, imv] = await Promise.all([
+            apiCall('GET', '/api/leads-manual').catch(() => []),
+            apiCall('GET', '/api/leads').catch(() => []),
             imoveisData.length ? Promise.resolve(imoveisData) : apiCall('GET', '/api/imoveis').catch(() => []),
         ]);
-        leadsManuaisData = leads;
+        // Junta os dois — mantém a flag origem ('manual'|'whatsapp') vinda do banco
+        leadsManuaisData = [...(manuais || []), ...(whats || [])];
+        // Ordena pelos mais recentes primeiro
+        leadsManuaisData.sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
         if (!imoveisData.length) imoveisData = imv;
     } catch(e) { leadsManuaisData = []; }
     renderLeadsManuais();

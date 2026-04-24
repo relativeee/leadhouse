@@ -17,11 +17,11 @@ if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido no .env'); proc
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
-let extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor;
+let extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead;
 let gerarResposta, extrairDadosLead, gerarResumoMatching;
 let salvarLead;
 
-try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
+try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
 try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
@@ -1130,10 +1130,11 @@ app.post('/webhook', async (req, res) => {
   let userIdDestino = null;
   const { data: leadExistente } = await db.supabase
     .from('leads')
-    .select('usuario_id')
+    .select('id, usuario_id')
     .eq('telefone', telefone)
     .eq('origem', 'whatsapp')
     .maybeSingle();
+  const isLeadNovo = !leadExistente;
   if (leadExistente?.usuario_id) {
     userIdDestino = leadExistente.usuario_id;
   } else {
@@ -1294,6 +1295,11 @@ app.post('/webhook', async (req, res) => {
         total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
         historico_json: JSON.stringify(conversa.historico.slice(-30)),
       }, userIdDestino);
+
+      // Notifica corretor sobre novo lead (so na primeira mensagem)
+      if (isLeadNovo && notificarNovoLead) {
+        notificarNovoLead(telefone, mensagem).catch(e => console.error('[Webhook] notificarNovoLead falhou:', e.message));
+      }
     }
 
     try {
