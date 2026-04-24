@@ -2198,7 +2198,7 @@ function mostrarPreview(file) {
             const canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/webp', 0.8);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
             document.getElementById('previewImg').src = dataUrl;
             document.getElementById('previewImg').dataset.base64 = dataUrl;
             document.getElementById('uploadContent').style.display = 'none';
