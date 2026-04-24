@@ -1065,7 +1065,25 @@ app.post('/webhook', async (req, res) => {
   if (conversa.mensagensProcessadas.has(messageId)) return res.sendStatus(200);
   conversa.mensagensProcessadas.add(messageId);
 
-  console.log(`[Webhook] Nova mensagem de ${telefone}: "${mensagem}"`);
+  // Serverless: memoria some em cold start. Se vazio, recupera do Supabase.
+  if (conversa.historico.length === 0) {
+    try {
+      const { data: leadAnterior } = await db.supabase
+        .from('leads')
+        .select('historico_json')
+        .eq('telefone', telefone)
+        .eq('origem', 'whatsapp')
+        .maybeSingle();
+      if (leadAnterior?.historico_json) {
+        const parsed = JSON.parse(leadAnterior.historico_json);
+        if (Array.isArray(parsed) && parsed.length) conversa.historico = parsed;
+      }
+    } catch (e) {
+      console.warn(`[Webhook] Falha ao carregar historico do Supabase para ${telefone}:`, e.message);
+    }
+  }
+
+  console.log(`[Webhook] Nova mensagem de ${telefone}: "${mensagem}" (historico: ${conversa.historico.length})`);
   conversa.historico.push({ role: 'user', content: mensagem });
 
   if (conversa.historico.length > 20) {
