@@ -73,7 +73,7 @@
         <div class="sidebar__plan" id="sidebarPlan">
             <div class="sidebar__plan-label">Plano atual</div>
             <div class="sidebar__plan-name" id="sidebarPlanName">—</div>
-            <a href="https://leadhouses.com.br/#planos" target="_blank" class="sidebar__plan-cta" id="sidebarPlanCta" onclick="handlePlanCta(event)">Fazer upgrade</a>
+            <a href="https://leadhouses.com.br/#planos" target="_blank" rel="noopener noreferrer" class="sidebar__plan-cta" id="sidebarPlanCta" onclick="handlePlanCta(event)">Fazer upgrade</a>
         </div>
         <div class="sidebar__user" id="sidebarUser"></div>
         <div class="sidebar__status">
@@ -89,7 +89,7 @@
 
 <!-- ── Mobile overlay + toggle ── -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Abrir/fechar menu" title="Abrir/fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
 
 <div class="main-content">
 
