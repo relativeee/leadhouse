@@ -1434,6 +1434,9 @@ app.post('/api/imoveis', async (req, res) => {
       descricao: req.body.descricao || '',
     };
     if (req.body.foto_url) imovelData.foto_url = req.body.foto_url;
+    if (Array.isArray(req.body.fotos_extras)) {
+      imovelData.fotos_extras = req.body.fotos_extras.filter(f => typeof f === 'string' && f).slice(0, 2);
+    }
     const imovel = await db.criarImovel(imovelData, req.userId);
     res.status(201).json(imovel);
   } catch (err) { res.status(500).json({ erro: err.message }); }

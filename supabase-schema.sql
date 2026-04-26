@@ -17,6 +17,7 @@ create table if not exists imoveis (
   vagas text default '',
   area text default '',
   descricao text default '',
+  fotos_extras jsonb default '[]'::jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
