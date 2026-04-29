@@ -60,14 +60,17 @@ create table if not exists visitas (
   updated_at timestamptz default now()
 );
 
--- Habilitar RLS (Row Level Security) com acesso publico para a anon key
+-- RLS ativada com policies que NEGAM acesso anon. O backend usa SUPABASE_SERVICE_ROLE
+-- (que bypassa RLS) pra todas as queries. Defesa em profundidade: se a anon_key
+-- vazar, ela sozinha nao consegue ler/editar/apagar nada.
 alter table imoveis enable row level security;
 alter table leads enable row level security;
 alter table visitas enable row level security;
 
-create policy "Acesso total imoveis" on imoveis for all using (true) with check (true);
-create policy "Acesso total leads" on leads for all using (true) with check (true);
-create policy "Acesso total visitas" on visitas for all using (true) with check (true);
+-- Negar tudo pra anon. Service_role bypassa RLS e continua funcionando.
+create policy "Bloqueia anon imoveis" on imoveis for all to anon using (false) with check (false);
+create policy "Bloqueia anon leads" on leads for all to anon using (false) with check (false);
+create policy "Bloqueia anon visitas" on visitas for all to anon using (false) with check (false);
 
 -- Usuarios
 create table if not exists usuarios (
