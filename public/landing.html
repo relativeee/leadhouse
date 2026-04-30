@@ -40,6 +40,14 @@
       overflow-x: hidden;
     }
 
+    #particles-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+    nav, section, .stats-bar, .cta-final, footer { position: relative; z-index: 1; }
+
     .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
     .gold { color: var(--gold-light); }
 
@@ -207,7 +215,7 @@
     .stats-bar {
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
-      padding: 2.5rem 0; background: var(--bg-2);
+      padding: 2.5rem 0; background: rgba(17,17,17,0.55);
     }
     .stats-inner {
       display: grid; grid-template-columns: repeat(4, 1fr);
@@ -248,7 +256,7 @@
     .feature-desc { font-size: 14px; color: var(--text-2); line-height: 1.65; }
 
     /* TESTIMONIALS */
-    .testimonials-section { background: var(--bg-2); }
+    .testimonials-section { background: rgba(17,17,17,0.5); }
     .testimonials-grid {
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
@@ -369,7 +377,7 @@
 
     /* CTA FINAL */
     .cta-final {
-      background: var(--bg-2);
+      background: rgba(17,17,17,0.55);
       border-top: 1px solid var(--border);
       text-align: center; padding: 7rem 2rem;
     }
@@ -379,7 +387,7 @@
     /* FOOTER */
     footer {
       border-top: 1px solid var(--border);
-      padding: 2.5rem 0; background: var(--bg);
+      padding: 2.5rem 0; background: rgba(12,12,12,0.6);
     }
     .footer-inner {
       display: flex; align-items: center; justify-content: space-between;
@@ -410,6 +418,8 @@
   </style>
 </head>
 <body>
+
+  <canvas id="particles-canvas" aria-hidden="true"></canvas>
 
   <nav>
     <div class="nav-inner">
@@ -605,7 +615,7 @@
     </div>
   </section>
 
-  <section id="faq" style="background:var(--bg-2); border-top:1px solid var(--border);">
+  <section id="faq" style="background:rgba(17,17,17,0.5); border-top:1px solid var(--border);">
     <div class="container">
       <div class="section-header reveal" style="text-align:center; margin-left:auto; margin-right:auto;">
         <p class="section-label" style="text-align:center;">FAQ</p>
@@ -676,6 +686,93 @@
         if (!isOpen) item.classList.add('open');
       });
     });
+
+    (function initParticles() {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const canvas = document.getElementById('particles-canvas');
+      if (!canvas || reduceMotion) return;
+
+      const ctx = canvas.getContext('2d');
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      const COUNT = isMobile ? 35 : 80;
+      let width = 0, height = 0, particles = [], rafId = null, paused = false;
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function spawn() {
+        return {
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: Math.random() * 1.5 + 0.5,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: -Math.random() * 0.3 - 0.05,
+          phase: Math.random() * Math.PI * 2,
+          twinkleSpeed: Math.random() * 0.018 + 0.005,
+          baseAlpha: Math.random() * 0.28 + 0.12
+        };
+      }
+
+      function init() {
+        resize();
+        particles = Array.from({ length: COUNT }, spawn);
+      }
+
+      function tick() {
+        ctx.clearRect(0, 0, width, height);
+        for (const p of particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.phase += p.twinkleSpeed;
+
+          if (p.y < -10) { p.y = height + 10; p.x = Math.random() * width; }
+          if (p.x < -10) p.x = width + 10;
+          if (p.x > width + 10) p.x = -10;
+
+          const alpha = p.baseAlpha * (0.45 + 0.55 * Math.sin(p.phase));
+          const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+          halo.addColorStop(0, `rgba(232, 201, 122, ${alpha * 0.7})`);
+          halo.addColorStop(1, 'rgba(232, 201, 122, 0)');
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = `rgba(232, 201, 122, ${Math.min(alpha * 1.6, 0.7)})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      init();
+      tick();
+
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(init, 150);
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          if (rafId) cancelAnimationFrame(rafId);
+          paused = true;
+        } else if (paused) {
+          paused = false;
+          tick();
+        }
+      });
+    })();
   </script>
 </body>
 </html>
