@@ -60,7 +60,7 @@ function verificarToken(token) {
   }
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ erro: 'Token nao fornecido' });
@@ -79,11 +79,28 @@ function authMiddleware(req, res, next) {
 
   // Impersonation: admin pode atuar como outro usuario via header X-Acting-As
   const actAs = req.headers['x-acting-as'];
-  if (actAs && req.isAdmin) {
-    const targetId = parseInt(actAs, 10);
-    if (Number.isFinite(targetId) && targetId > 0 && targetId !== decoded.id) {
-      req.userId = targetId;
-      req.isImpersonating = true;
+  if (actAs) {
+    // Fallback pra tokens antigos sem a claim is_admin: consulta o DB
+    // (custo: +1 query somente em requests com X-Acting-As, raro no fluxo normal)
+    if (!req.isAdmin) {
+      try {
+        const { data: user } = await supabase
+          .from('usuarios')
+          .select('is_admin')
+          .eq('id', decoded.id)
+          .maybeSingle();
+        if (user?.is_admin) req.isAdmin = true;
+      } catch (err) {
+        console.error('[authMiddleware] erro fallback admin check:', err.message);
+      }
+    }
+
+    if (req.isAdmin) {
+      const targetId = parseInt(actAs, 10);
+      if (Number.isFinite(targetId) && targetId > 0 && targetId !== decoded.id) {
+        req.userId = targetId;
+        req.isImpersonating = true;
+      }
     }
   }
 
