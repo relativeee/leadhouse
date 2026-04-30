@@ -9,6 +9,7 @@ const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const db = require('./services/supabase');
 const { registrar, login, authMiddleware } = require('./services/auth');
 const jwt = require('jsonwebtoken');
@@ -959,6 +960,56 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Resumo do audit log autenticado por shared secret (usado por routines/cron externos).
+// Compare timing-safe pra evitar leak via timing.
+app.get('/api/admin/audit-summary', async (req, res) => {
+  try {
+    const secret = process.env.ADMIN_AUDIT_SECRET;
+    if (!secret) return res.status(503).json({ erro: 'Endpoint nao configurado' });
+    const provided = String(req.query.key || '');
+    if (provided.length !== secret.length) return res.status(401).json({ erro: 'Acesso negado' });
+    const secretBuf = Buffer.from(secret, 'utf8');
+    const providedBuf = Buffer.from(provided, 'utf8');
+    if (!crypto.timingSafeEqual(secretBuf, providedBuf)) {
+      return res.status(401).json({ erro: 'Acesso negado' });
+    }
+
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 90);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await db.supabase
+      .from('admin_audit_log')
+      .select('id, real_user_id, acting_as_user_id, method, path, ip, user_agent, created_at')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    // Resolve nomes dos usuarios envolvidos
+    const userIds = [...new Set((data || []).flatMap(r => [r.real_user_id, r.acting_as_user_id]))];
+    let userMap = {};
+    if (userIds.length) {
+      const { data: users } = await db.supabase
+        .from('usuarios')
+        .select('id, nome, email')
+        .in('id', userIds);
+      userMap = Object.fromEntries((users || []).map(u => [u.id, { nome: u.nome, email: u.email }]));
+    }
+
+    res.json({
+      since,
+      days,
+      total: data?.length || 0,
+      events: (data || []).map(r => ({
+        ...r,
+        real_user: userMap[r.real_user_id] || null,
+        acting_as_user: userMap[r.acting_as_user_id] || null,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // Ver dados de um usuario especifico
