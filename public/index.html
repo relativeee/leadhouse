@@ -1697,12 +1697,20 @@ function startImpersonation(userId, userName) {
     if (!userId) return;
     localStorage.setItem('lh_acting_as', String(userId));
     localStorage.setItem('lh_acting_as_name', userName || ('ID ' + userId));
+    localStorage.removeItem('lh_user');
+    localStorage.removeItem('lh_prev_counts');
+    localStorage.removeItem('lh_lastSeenLeads');
+    localStorage.removeItem('lh_lastSeenVisitas');
     location.href = '/';
 }
 
 function stopImpersonation() {
     localStorage.removeItem('lh_acting_as');
     localStorage.removeItem('lh_acting_as_name');
+    localStorage.removeItem('lh_user');
+    localStorage.removeItem('lh_prev_counts');
+    localStorage.removeItem('lh_lastSeenLeads');
+    localStorage.removeItem('lh_lastSeenVisitas');
     location.href = '/';
 }
 
@@ -1743,9 +1751,11 @@ async function refreshPlano() {
         const res = await fetch('/api/auth/me', { headers: getAuthHeaders() });
         if (!res.ok) return;
         const user = await res.json();
-        // Atualiza nome e plano
+        // Atualiza nome na sidebar e no welcome
         const elNome = document.getElementById('sidebarUser');
         if (elNome && user.nome) elNome.textContent = user.nome;
+        const welcomeNameEl = document.getElementById('welcomeName');
+        if (welcomeNameEl && user.nome) welcomeNameEl.textContent = (user.nome.split(' ')[0] || 'corretor');
         renderPlano(user.plano);
         checkPaywall(user.plano);
         // Atualiza localStorage
