@@ -104,6 +104,20 @@ async function authMiddleware(req, res, next) {
     }
   }
 
+  // Audit: registra mutations feitas durante impersonation (fire-and-forget)
+  if (req.isImpersonating && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || null;
+    const ua = (req.headers['user-agent'] || '').slice(0, 200);
+    supabase.from('admin_audit_log').insert({
+      real_user_id: req.realUserId,
+      acting_as_user_id: req.userId,
+      method: req.method,
+      path: (req.originalUrl || req.url || '').split('?')[0].slice(0, 300),
+      ip,
+      user_agent: ua,
+    }).then(() => {}, err => console.warn('[audit]', err.message));
+  }
+
   next();
 }
 

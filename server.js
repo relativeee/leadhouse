@@ -500,18 +500,12 @@ function googleRedirectUri(req) {
   return `${base}/api/google/callback`;
 }
 
-// Inicia o fluxo OAuth — gera link e redireciona
-// Aceita token via query param (?token=...) porque o navegador nao envia headers em redirect
-app.get('/api/google/auth', (req, res) => {
-  if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).send('Google nao configurado');
-  const token = req.query.token;
-  if (!token) return res.status(401).send('Token nao fornecido');
-  let decoded;
-  try { decoded = jwt.verify(token, JWT_SECRET); }
-  catch { return res.status(401).send('Token invalido'); }
-
-  // assina o userId no state pra recuperar no callback
-  const state = jwt.sign({ uid: decoded.id }, JWT_SECRET, { expiresIn: '10m' });
+// Inicia o fluxo OAuth — frontend POSTa com Bearer header e recebe a URL pra navegar.
+// Antes era GET com ?token=<JWT>, mas isso vazava o JWT em logs/historico.
+app.post('/api/google/auth-init', authMiddleware, (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ erro: 'Google nao configurado' });
+  // Quando admin impersona, conectar Google deve afetar o impersonado (req.userId), nao o admin
+  const state = jwt.sign({ uid: req.userId }, JWT_SECRET, { expiresIn: '10m' });
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: googleRedirectUri(req),
@@ -521,7 +515,7 @@ app.get('/api/google/auth', (req, res) => {
     prompt: 'consent',
     state,
   });
-  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
 // Callback do Google — troca code por tokens e salva refresh_token
@@ -895,9 +889,8 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ADMIN — Painel do proprietário
 // ─────────────────────────────────────────────
 async function adminOnly(req, res, next) {
-  // Fast path: JWT ja diz que é admin
-  if (req.isAdmin) return next();
-  // Fallback: token antigo sem is_admin claim — consulta DB pelo usuario real (nao o impersonado)
+  // Sempre consulta DB pra revogacao ser imediata (nao confia no JWT cache de 7 dias).
+  // Custo: +1 query somente em rotas /api/admin/*, raras.
   try {
     const realId = req.realUserId || req.userId;
     const { data: user } = await db.supabase
@@ -952,6 +945,19 @@ app.get('/api/admin/metricas', authMiddleware, adminOnly, async (req, res) => {
       planos,
       receitaMensal: receita.toFixed(2),
     });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Audit log de impersonation (admin ve tudo que foi feito atuando como outros)
+app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { data, error } = await db.supabase
+      .from('admin_audit_log')
+      .select('id, real_user_id, acting_as_user_id, method, path, ip, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 

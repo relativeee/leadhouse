@@ -1507,10 +1507,16 @@ async function toggleGoogle() {
             toast('Erro ao desconectar', 'error');
         }
     } else {
-        // Pra preservar o token JWT no redirect, abre /api/google/auth com header via fetch nao funciona.
-        // Solucao: passa o token na URL como query param e o backend aceita.
-        const token = localStorage.getItem('lh_token');
-        window.location.href = '/api/google/auth?token=' + encodeURIComponent(token);
+        // POST com Bearer header pra nao vazar o JWT na URL/logs.
+        // Backend retorna a URL do Google ja com state assinado.
+        try {
+            const res = await fetch('/api/google/auth-init', { method: 'POST', headers: getAuthHeaders() });
+            if (!res.ok) throw new Error();
+            const { url } = await res.json();
+            window.location.href = url;
+        } catch {
+            toast('Erro ao iniciar conexão com o Google', 'error');
+        }
     }
 }
 
