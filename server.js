@@ -879,13 +879,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
 // ADMIN — Painel do proprietário
 // ─────────────────────────────────────────────
 async function adminOnly(req, res, next) {
+  // Fast path: JWT ja diz que é admin
+  if (req.isAdmin) return next();
+  // Fallback: token antigo sem is_admin claim — consulta DB pelo usuario real (nao o impersonado)
   try {
+    const realId = req.realUserId || req.userId;
     const { data: user } = await db.supabase
       .from('usuarios')
       .select('is_admin')
-      .eq('id', req.userId)
+      .eq('id', realId)
       .maybeSingle();
     if (!user?.is_admin) return res.status(403).json({ erro: 'Acesso restrito' });
+    req.isAdmin = true;
     next();
   } catch (err) {
     console.error('[Admin] erro ao verificar permissao:', err.message);
@@ -967,12 +972,32 @@ function getPlanLimits(plano) {
 // Middleware: bloqueia rotas se usuario nao tem plano ativo
 async function requirePlan(req, res, next) {
   try {
+    // Admin (mesmo impersonando) tem acesso total sem restricao de plano
+    if (req.isAdmin) {
+      req.userPlan = 'elite';
+      req.userLimits = getPlanLimits('elite');
+      return next();
+    }
+    // Fallback pra tokens antigos sem is_admin claim: cheque o usuario real (nao o impersonado)
+    const realId = req.realUserId || req.userId;
+    if (realId !== req.userId) {
+      const { data: realUser } = await db.supabase
+        .from('usuarios')
+        .select('is_admin')
+        .eq('id', realId)
+        .maybeSingle();
+      if (realUser?.is_admin) {
+        req.userPlan = 'elite';
+        req.userLimits = getPlanLimits('elite');
+        req.isAdmin = true;
+        return next();
+      }
+    }
     const { data: user } = await db.supabase
       .from('usuarios')
       .select('plano, is_admin')
       .eq('id', req.userId)
       .maybeSingle();
-    // Admin tem acesso total sem plano
     if (user?.is_admin) {
       req.userPlan = user.plano || 'elite';
       req.userLimits = getPlanLimits('elite');

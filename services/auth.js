@@ -26,19 +26,19 @@ async function registrar(nome, email, senha) {
   const { data, error } = await supabase
     .from('usuarios')
     .insert({ nome, email: email.toLowerCase(), senha_hash })
-    .select('id, nome, email, plano')
+    .select('id, nome, email, plano, is_admin')
     .single();
 
   if (error) throw error;
 
-  const token = jwt.sign({ id: data.id, email: data.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return { token, user: { id: data.id, nome: data.nome, email: data.email, plano: data.plano || null } };
+  const token = jwt.sign({ id: data.id, email: data.email, is_admin: !!data.is_admin }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  return { token, user: { id: data.id, nome: data.nome, email: data.email, plano: data.plano || null, is_admin: !!data.is_admin } };
 }
 
 async function login(email, senha) {
   const { data: user, error } = await supabase
     .from('usuarios')
-    .select('id, nome, email, plano, senha_hash')
+    .select('id, nome, email, plano, senha_hash, is_admin')
     .eq('email', email.toLowerCase())
     .maybeSingle();
 
@@ -48,8 +48,8 @@ async function login(email, senha) {
   const senhaOk = await bcrypt.compare(senha, user.senha_hash);
   if (!senhaOk) throw new Error('E-mail ou senha incorretos');
 
-  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return { token, user: { id: user.id, nome: user.nome, email: user.email, plano: user.plano || null } };
+  const token = jwt.sign({ id: user.id, email: user.email, is_admin: !!user.is_admin }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  return { token, user: { id: user.id, nome: user.nome, email: user.email, plano: user.plano || null, is_admin: !!user.is_admin } };
 }
 
 function verificarToken(token) {
@@ -73,6 +73,20 @@ function authMiddleware(req, res, next) {
 
   req.userId = decoded.id;
   req.userEmail = decoded.email;
+  req.realUserId = decoded.id;
+  req.realUserEmail = decoded.email;
+  req.isAdmin = !!decoded.is_admin;
+
+  // Impersonation: admin pode atuar como outro usuario via header X-Acting-As
+  const actAs = req.headers['x-acting-as'];
+  if (actAs && req.isAdmin) {
+    const targetId = parseInt(actAs, 10);
+    if (Number.isFinite(targetId) && targetId > 0 && targetId !== decoded.id) {
+      req.userId = targetId;
+      req.isImpersonating = true;
+    }
+  }
+
   next();
 }
 

@@ -11,6 +11,15 @@
 </head>
 <body>
 
+<!-- ── Banner de impersonação (admin atuando como outro usuario) ── -->
+<div id="impBanner" class="imp-banner" style="display:none">
+    <span class="imp-banner__text">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:-2px;margin-right:6px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Modo admin — atuando como <b id="impName">—</b>
+    </span>
+    <button class="imp-banner__btn" onclick="stopImpersonation()">Voltar à minha conta</button>
+</div>
+
 <!-- ── Sidebar + Layout ── -->
 <div class="layout">
 
@@ -1661,10 +1670,13 @@ function formatarTimestamp(ts) {
 }
 
 function getToken() { return localStorage.getItem('lh_token'); }
+function getActingAsId() { return localStorage.getItem('lh_acting_as') || null; }
 function getAuthHeaders() {
     const h = { 'Content-Type': 'application/json' };
     const t = getToken();
     if (t) h['Authorization'] = 'Bearer ' + t;
+    const actAs = getActingAsId();
+    if (actAs) h['X-Acting-As'] = actAs;
     return h;
 }
 
@@ -1676,7 +1688,38 @@ function checkAuth() {
 function logout() {
     localStorage.removeItem('lh_token');
     localStorage.removeItem('lh_user');
+    localStorage.removeItem('lh_acting_as');
+    localStorage.removeItem('lh_acting_as_name');
     window.location.href = '/login';
+}
+
+function startImpersonation(userId, userName) {
+    if (!userId) return;
+    localStorage.setItem('lh_acting_as', String(userId));
+    localStorage.setItem('lh_acting_as_name', userName || ('ID ' + userId));
+    location.href = '/';
+}
+
+function stopImpersonation() {
+    localStorage.removeItem('lh_acting_as');
+    localStorage.removeItem('lh_acting_as_name');
+    location.href = '/';
+}
+
+function initImpersonationBanner() {
+    const banner = document.getElementById('impBanner');
+    if (!banner) return;
+    const actAs = localStorage.getItem('lh_acting_as');
+    const name = localStorage.getItem('lh_acting_as_name');
+    if (actAs) {
+        const nameEl = document.getElementById('impName');
+        if (nameEl) nameEl.textContent = name || ('ID ' + actAs);
+        banner.style.display = 'flex';
+        document.body.classList.add('body--impersonating');
+    } else {
+        banner.style.display = 'none';
+        document.body.classList.remove('body--impersonating');
+    }
 }
 
 function paywallAssinar(plan) {
@@ -3489,6 +3532,7 @@ function renderFunil() {
 
 // Drop handlers on columns
 document.addEventListener('DOMContentLoaded', () => {
+    initImpersonationBanner();
     document.querySelectorAll('.kanban__cards').forEach(col => {
         col.addEventListener('dragover', e => {
             e.preventDefault();
@@ -3572,6 +3616,7 @@ async function carregarAdmin() {
                 </div>
                 <div class="admin-user-row__plan">${u.plano ? capitalize(u.plano) : '<span style="color:#666">Sem plano</span>'}</div>
                 <div class="admin-user-row__date">${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}</div>
+                ${u.is_admin ? '' : `<button class="admin-user-row__act" data-uid="${u.id}" data-uname="${esc(u.nome || u.email).replace(/"/g, '&quot;')}" onclick="event.stopPropagation();startImpersonation(this.dataset.uid, this.dataset.uname)">Atuar como</button>`}
             </div>
         `).join('') || '<div style="color:#666;text-align:center;padding:2rem">Nenhum usuário</div>';
     } catch(e) { console.error('[admin]', e); }

@@ -3872,3 +3872,50 @@ tr:hover .td-acoes--row .btn-icon:hover {
 
 /* Footer */
 [data-theme="light"] .dashboard-footer { color: #bbb; }
+
+/* ── Impersonation banner ── */
+.imp-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding: 9px 16px;
+    background: linear-gradient(90deg, #C9A84C 0%, #E8C97A 100%);
+    color: #0c0c0c;
+    font-size: 13px; font-weight: 500;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+    flex-wrap: wrap;
+}
+.imp-banner__text { display: inline-flex; align-items: center; }
+.imp-banner__text b { font-weight: 700; margin-left: 4px; }
+.imp-banner__btn {
+    background: rgba(0,0,0,0.18);
+    border: 1px solid rgba(0,0,0,0.25);
+    color: #0c0c0c;
+    font-weight: 600; font-size: 12px;
+    padding: 5px 14px; border-radius: 4px; cursor: pointer;
+    transition: background 0.15s;
+}
+.imp-banner__btn:hover { background: rgba(0,0,0,0.3); color: #fff; }
+body.body--impersonating { padding-top: 38px; }
+body.body--impersonating .sidebar { top: 38px; }
+body.body--impersonating .sidebar-toggle { top: calc(38px + 14px); }
+@media (max-width: 600px) {
+    .imp-banner { font-size: 12px; padding: 7px 12px; gap: 10px; }
+    .imp-banner__btn { padding: 4px 10px; font-size: 11px; }
+    body.body--impersonating { padding-top: 56px; }
+    body.body--impersonating .sidebar { top: 56px; }
+}
+
+/* Botao "Atuar como" na lista admin */
+.admin-user-row { position: relative; }
+.admin-user-row__act {
+    background: rgba(201,168,76,0.12);
+    border: 1px solid rgba(201,168,76,0.35);
+    color: var(--gold, #C9A84C);
+    font-size: 11.5px; font-weight: 600;
+    padding: 5px 11px; border-radius: 4px; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.admin-user-row__act:hover { background: var(--gold, #C9A84C); color: #0c0c0c; }
+[data-theme="light"] .admin-user-row__act { color: #8a7028; }
