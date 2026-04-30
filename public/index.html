@@ -1074,16 +1074,16 @@
         <div class="config-sub" id="configInteg" style="display:none">
             <div class="conta-section__title">Integrações</div>
             <div class="canais-grid">
-                <div class="canal-card">
+                <div class="canal-card" id="wppBox">
                     <div class="canal-card__icon canal-card__icon--wapp">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
                     </div>
                     <div class="canal-card__info">
                         <h3 class="canal-card__name">WhatsApp Business</h3>
                         <p class="canal-card__desc">Receba e responda leads via WhatsApp com IA</p>
-                        <span class="canal-card__status canal-card__status--review">Em análise pela Meta</span>
+                        <span class="canal-card__status" id="wppStatus">Verificando...</span>
                     </div>
-                    <button class="btn btn--outline canal-card__btn" disabled>Em análise</button>
+                    <button id="btnWpp" type="button" class="btn btn--outline canal-card__btn" disabled>Aguardando</button>
                 </div>
                 <div class="canal-card">
                     <div class="canal-card__icon canal-card__icon--insta">
@@ -1357,6 +1357,7 @@ async function carregarConta() {
         carregarHorarioTrabalho(user.horario_trabalho);
         syncPrefButtons();
         renderGoogle(user.google_email);
+        refreshWppStatus();
         carregarPlano();
     } catch {}
 }
@@ -1510,6 +1511,38 @@ async function toggleGoogle() {
         // Solucao: passa o token na URL como query param e o backend aceita.
         const token = localStorage.getItem('lh_token');
         window.location.href = '/api/google/auth?token=' + encodeURIComponent(token);
+    }
+}
+
+function renderWhatsApp(connected) {
+    const status = document.getElementById('wppStatus');
+    const btn = document.getElementById('btnWpp');
+    if (!status || !btn) return;
+    if (connected) {
+        status.textContent = 'Recebendo leads via WhatsApp';
+        status.style.color = '#8AD4A0';
+        btn.textContent = 'Conectado';
+        btn.disabled = true;
+        btn.dataset.connected = '1';
+        btn.classList.add('canal-card__btn--connected');
+    } else {
+        status.textContent = 'Aguardando primeira conversa';
+        status.style.color = '#888';
+        btn.textContent = 'Aguardando';
+        btn.disabled = true;
+        btn.dataset.connected = '';
+        btn.classList.remove('canal-card__btn--connected');
+    }
+}
+
+async function refreshWppStatus() {
+    try {
+        const res = await fetch('/api/whatsapp/status', { headers: getAuthHeaders() });
+        if (!res.ok) return renderWhatsApp(false);
+        const { connected } = await res.json();
+        renderWhatsApp(!!connected);
+    } catch {
+        renderWhatsApp(false);
     }
 }
 
@@ -1757,6 +1790,7 @@ async function refreshPlano() {
         const welcomeNameEl = document.getElementById('welcomeName');
         if (welcomeNameEl && user.nome) welcomeNameEl.textContent = (user.nome.split(' ')[0] || 'corretor');
         renderPlano(user.plano);
+        refreshWppStatus();
         checkPaywall(user.plano);
         // Atualiza localStorage
         localStorage.setItem('lh_user', JSON.stringify(user));

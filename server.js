@@ -600,6 +600,22 @@ app.post('/api/google/disconnect', authMiddleware, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────
+// WHATSAPP — status (corretor "conectado" se tem conversas)
+// ─────────────────────────────────────────────
+app.get('/api/whatsapp/status', authMiddleware, async (req, res) => {
+  try {
+    const { count } = await db.supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('usuario_id', req.userId)
+      .eq('origem', 'whatsapp');
+    res.json({ connected: (count || 0) > 0, leadsCount: count || 0 });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // Helper: pega access_token a partir do refresh_token salvo
 async function googleAccessToken(refresh_token) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
