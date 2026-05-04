@@ -5,6 +5,27 @@
  */
 
 require('dotenv').config();
+
+// Sentry — inicializa ANTES de require('express') pra capturar erros early
+let Sentry = null;
+if (process.env.SENTRY_DSN) {
+  try {
+    Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || (process.env.VERCEL_ENV || 'production'),
+      release: process.env.VERCEL_GIT_COMMIT_SHA || undefined,
+      tracesSampleRate: 0.1,
+      // Nao envia req body por padrao (privacidade)
+      sendDefaultPii: false,
+    });
+    console.log('[Sentry] inicializado');
+  } catch (e) {
+    console.warn('[Sentry] erro ao inicializar:', e.message);
+    Sentry = null;
+  }
+}
+
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
@@ -2031,6 +2052,26 @@ app.use((req, res) => {
     return res.status(404).json({ erro: 'Endpoint nao encontrado', path: req.path });
   }
   res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+
+// Error handler global — captura qualquer Error nao tratado nas rotas
+app.use((err, req, res, next) => {
+  console.error('[unhandled]', err.message, err.stack);
+  if (Sentry) {
+    Sentry.captureException(err, { tags: { path: req.path, method: req.method } });
+  }
+  if (res.headersSent) return next(err);
+  res.status(500).json({ erro: 'Erro interno do servidor' });
+});
+
+// Captura erros nao-handled fora do request lifecycle
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+  if (Sentry) Sentry.captureException(reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  if (Sentry) Sentry.captureException(err);
 });
 
 // ─────────────────────────────────────────────

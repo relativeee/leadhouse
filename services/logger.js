@@ -14,6 +14,11 @@
 const ENV = process.env.NODE_ENV || 'development';
 const PRETTY = ENV === 'development';
 
+let Sentry = null;
+if (process.env.SENTRY_DSN) {
+  try { Sentry = require('@sentry/node'); } catch {}
+}
+
 function emit(level, event, ctx = {}) {
   const payload = {
     ts: new Date().toISOString(),
@@ -28,6 +33,18 @@ function emit(level, event, ctx = {}) {
     console.log(`\x1b[${c}m[${level}]\x1b[0m ${event}${ctxStr}`);
   } else {
     console.log(JSON.stringify(payload));
+  }
+
+  // Erros e warnings vao tambem pro Sentry quando configurado
+  if (Sentry && (level === 'error' || level === 'warn')) {
+    try {
+      const { err, ...rest } = ctx;
+      if (err instanceof Error) {
+        Sentry.captureException(err, { tags: { event }, extra: rest, level });
+      } else {
+        Sentry.captureMessage(event, { tags: { event }, extra: ctx, level });
+      }
+    } catch {}
   }
 }
 
