@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Página não encontrada — LeadHouse</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #0c0c0c;
+      color: #F2EEE6;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .wrap { max-width: 480px; }
+    .code {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(72px, 14vw, 128px);
+      font-weight: 600;
+      color: #C9A84C;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(20px, 4vw, 28px);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    p {
+      font-size: 15px;
+      color: #9A9080;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #C9A84C;
+      color: #0c0c0c;
+    }
+    .btn-primary:hover { background: #E8C97A; transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent;
+      color: #9A9080;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .btn-ghost:hover { color: #F2EEE6; border-color: rgba(255,255,255,0.3); }
+
+    .glow {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 50% 40%, rgba(201,168,76,0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="code">404</div>
+    <h1>Página não encontrada</h1>
+    <p>O endereço que você acessou não existe, foi movido ou expirou. Sem stress — vamos te levar de volta.</p>
+    <div class="actions">
+      <a href="/" class="btn btn-primary">Ir pro painel</a>
+      <a href="/login" class="btn btn-ghost">Fazer login</a>
+    </div>
+  </div>
+</body>
+</html>

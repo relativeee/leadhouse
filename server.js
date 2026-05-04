@@ -1774,10 +1774,44 @@ app.post('/api/agente/resumo', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// Health check
+// Health check — status do app + integracoes
 // ─────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  const checks = {
+    app: 'ok',
+    db: 'unknown',
+    stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not_configured',
+    resend: process.env.RESEND_API_KEY ? 'configured' : 'not_configured',
+    whatsapp: process.env.WHATSAPP_PHONE_ID ? 'configured' : 'not_configured',
+    claude: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured',
+    google: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not_configured',
+  };
+  // Testa conexao com Supabase (timeout curto)
+  try {
+    const t0 = Date.now();
+    const { error } = await db.supabase.from('usuarios').select('id', { count: 'exact', head: true }).limit(1);
+    checks.db = error ? 'error' : 'ok';
+    checks.db_latency_ms = Date.now() - t0;
+  } catch (e) { checks.db = 'error'; }
+
+  const allOk = checks.db === 'ok';
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    checks,
+  });
+});
+app.get('/api/health', (req, res) => res.redirect('/health'));
+
+// ─────────────────────────────────────────────
+// 404 — depois de TODAS as rotas (deve ser ultimo handler antes do export)
+// ─────────────────────────────────────────────
+app.use((req, res) => {
+  // API endpoints retornam JSON, browser visits retornam HTML
+  if (req.path.startsWith('/api/') || req.path.startsWith('/webhook')) {
+    return res.status(404).json({ erro: 'Endpoint nao encontrado', path: req.path });
+  }
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
 });
 
 // ─────────────────────────────────────────────

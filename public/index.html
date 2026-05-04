@@ -1261,12 +1261,12 @@
 <!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
 
-<!-- ── Tela de bloqueio: usuario sem plano ── -->
+<!-- ── Tela de bloqueio: usuario sem plano / trial expirado ── -->
 <div class="paywall" id="paywall" style="display:none">
     <div class="paywall__inner">
         <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.5" style="margin-bottom:1.5rem"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <h1>Escolha seu plano</h1>
-        <p>Pra acessar o LeadHouse e parar de perder vendas, escolha um plano abaixo. Você pode trocar ou cancelar quando quiser.</p>
+        <h1 id="paywallTitle">Escolha seu plano</h1>
+        <p id="paywallSub">Pra acessar o LeadHouse e parar de perder vendas, escolha um plano abaixo. Você pode trocar ou cancelar quando quiser.</p>
         <div class="paywall__planos" id="paywallPlanos">
             <div class="plan-card" data-plan="start">
                 <div class="plan-card__name">Start</div>
@@ -1788,8 +1788,19 @@ function isPlanActive(user) {
 
 function checkPaywall(user) {
     const paywall = document.getElementById('paywall');
+    const titleEl = document.getElementById('paywallTitle');
+    const subEl   = document.getElementById('paywallSub');
     if (!paywall) return;
     if (!isPlanActive(user)) {
+        // Diferenciar: trial expirado vs nunca teve plano
+        const trialExpired = user && user.plano === 'trial' && user.trial_expires_at && new Date(user.trial_expires_at).getTime() < Date.now();
+        if (trialExpired && titleEl && subEl) {
+            titleEl.textContent = 'Seu trial acabou';
+            subEl.textContent = 'Os 14 dias gratuitos terminaram. Escolha um plano pra continuar — todos os seus leads, imóveis e visitas continuam guardados.';
+        } else if (titleEl && subEl) {
+            titleEl.textContent = 'Escolha seu plano';
+            subEl.textContent = 'Pra acessar o LeadHouse e parar de perder vendas, escolha um plano abaixo. Você pode trocar ou cancelar quando quiser.';
+        }
         paywall.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     } else {
