@@ -1312,6 +1312,7 @@
       <img id="qrImage" style="display:none;max-width:280px;width:100%;background:#fff;padding:1rem;border-radius:8px;margin:0 auto" alt="QR Code do WhatsApp" />
       <p id="qrStatus" style="margin-top:1rem;font-size:13px;color:var(--text-2)"></p>
       <p id="qrConnected" style="margin-top:1rem;font-size:14px;color:#8AD4A0;display:none"><b>Conectado!</b> Você pode fechar essa janela.</p>
+      <button id="qrRefreshBtn" class="btn btn--ghost" style="display:none;margin-top:1rem" onclick="abrirQRModal()">Gerar novo QR Code</button>
     </div>
   </div>
 </div>
@@ -1680,10 +1681,15 @@ async function abrirQRModal() {
     const status = document.getElementById('qrStatus');
     const connected = document.getElementById('qrConnected');
 
+    const refreshBtn = document.getElementById('qrRefreshBtn');
+
     img.style.display = 'none';
     loading.style.display = '';
+    loading.textContent = 'Gerando QR Code...';
     status.textContent = '';
+    status.style.color = 'var(--text-2)';
     connected.style.display = 'none';
+    refreshBtn.style.display = 'none';
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
@@ -1696,6 +1702,7 @@ async function abrirQRModal() {
             img.style.display = 'block';
             loading.style.display = 'none';
             status.textContent = 'Aguardando escaneamento...';
+            refreshBtn.style.display = 'inline-block';
             iniciarPollStatus();
         } else {
             loading.textContent = 'QR não disponível ainda. Tentando de novo em 3s...';
@@ -1703,6 +1710,7 @@ async function abrirQRModal() {
         }
     } catch (e) {
         loading.textContent = 'Erro: ' + (e.message || 'tente novamente');
+        refreshBtn.style.display = 'inline-block';
         toast(e.message || 'Erro ao gerar QR', 'erro');
     }
 }
@@ -1720,13 +1728,17 @@ function iniciarPollStatus() {
                 document.getElementById('qrConnected').style.display = '';
                 document.getElementById('qrImage').style.display = 'none';
                 document.getElementById('qrStatus').textContent = '';
+                document.getElementById('qrRefreshBtn').style.display = 'none';
                 renderWppPersonal('connected', data.phoneNumber);
                 setTimeout(fecharQRModal, 2500);
                 toast('WhatsApp conectado!', 'success');
             } else if (tick > 60) {
                 // 5 minutos sem conectar — para de polling
                 clearInterval(_wppPersonalPoller); _wppPersonalPoller = null;
-                document.getElementById('qrStatus').textContent = 'QR expirou. Feche e tente de novo.';
+                document.getElementById('qrImage').style.display = 'none';
+                document.getElementById('qrStatus').textContent = 'QR expirou. Clique abaixo pra gerar um novo.';
+                document.getElementById('qrStatus').style.color = '#E08A5C';
+                document.getElementById('qrRefreshBtn').style.display = 'inline-block';
             }
         } catch {}
     }, 5000);
