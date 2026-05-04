@@ -1774,6 +1774,112 @@ app.post('/api/agente/resumo', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// Importacao CSV de leads
+// ─────────────────────────────────────────────
+function parseCsvLine(line, sep) {
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === sep) { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCsv(text) {
+  // Remove BOM
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim().length);
+  if (!lines.length) return { headers: [], rows: [] };
+  // Detecta separador (; ou ,)
+  const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+  const headers = parseCsvLine(lines[0], sep).map(h => h.trim().toLowerCase());
+  const rows = lines.slice(1).map(line => {
+    const vals = parseCsvLine(line, sep);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
+    return obj;
+  });
+  return { headers, rows };
+}
+
+const LEAD_TEMPLATE_HEADERS = ['nome','telefone','email','objetivo','tipo_imovel','bairro','faixa_valor','pagamento','prazo','temperatura','observacoes'];
+
+app.get('/api/leads/template.csv', authMiddleware, (req, res) => {
+  const exemplo = ['Maria Silva','83999998888','maria@email.com','comprar','apartamento','Manaira','500-700 mil','financiado','3 meses','morno','Procura 2 quartos com vaga'];
+  const csv = '﻿' + LEAD_TEMPLATE_HEADERS.join(';') + '\n' + exemplo.join(';') + '\n';
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="leadhouse-template-leads.csv"');
+  res.send(csv);
+});
+
+app.post('/api/leads/importar', authMiddleware, requirePlan, async (req, res) => {
+  try {
+    const csvText = String(req.body?.csv || '');
+    if (!csvText.trim()) return res.status(400).json({ erro: 'CSV vazio' });
+    const { headers, rows } = parseCsv(csvText);
+    if (!rows.length) return res.status(400).json({ erro: 'Nenhuma linha encontrada apos o header' });
+    if (!headers.includes('telefone') && !headers.includes('nome')) {
+      return res.status(400).json({ erro: 'CSV precisa ter ao menos as colunas "nome" e "telefone"' });
+    }
+
+    // Verifica limite do plano (admin/trial bypassam)
+    if (!req.isAdmin && req.userPlan !== 'trial') {
+      const max = req.userLimits?.maxLeads;
+      if (Number.isFinite(max) && max !== Infinity) {
+        const { count } = await db.supabase.from('leads').select('id', { count: 'exact', head: true }).eq('usuario_id', req.userId);
+        if ((count || 0) + rows.length > max) {
+          return res.status(403).json({ erro: `Limite de ${max} leads excedido. Faca upgrade pra importar.`, code: 'LIMIT_REACHED' });
+        }
+      }
+    }
+
+    // Normaliza temperatura
+    const temps = new Set(['frio','morno','quente']);
+    const validRows = [];
+    const erros = [];
+    rows.forEach((r, idx) => {
+      const tel = String(r.telefone || '').replace(/\D/g, '');
+      if (!tel) { erros.push({ linha: idx + 2, motivo: 'telefone vazio' }); return; }
+      const temp = (r.temperatura || 'frio').toLowerCase();
+      validRows.push({
+        usuario_id: req.userId,
+        nome: r.nome || '',
+        telefone: tel,
+        email: r.email || '',
+        objetivo: r.objetivo || '',
+        tipo_imovel: r.tipo_imovel || '',
+        bairro: r.bairro || '',
+        faixa_valor: r.faixa_valor || '',
+        pagamento: r.pagamento || '',
+        prazo: r.prazo || '',
+        temperatura: temps.has(temp) ? temp : 'frio',
+        observacoes: r.observacoes || '',
+        origem: 'csv',
+      });
+    });
+
+    if (!validRows.length) return res.status(400).json({ erro: 'Nenhuma linha valida pra importar', erros });
+
+    const { data, error } = await db.supabase.from('leads').insert(validRows).select('id');
+    if (error) throw error;
+    res.json({ importados: data?.length || 0, ignorados: erros.length, erros });
+  } catch (err) {
+    console.error('[importar leads]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // LGPD — exportar dados / deletar conta
 // ─────────────────────────────────────────────
 function toCsvRow(values) {

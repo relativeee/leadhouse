@@ -524,10 +524,16 @@
             <h1 class="page-header__title">Leads</h1>
             <p class="page-header__sub">Acompanhe, qualifique e avance oportunidades com mais controle</p>
         </div>
-        <button class="btn btn--primary page-header__cta" onclick="toggleForm('leads')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>Novo lead</span>
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn--outline" onclick="abrirImportLeads()" title="Importar lista de leads em CSV">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Importar CSV</span>
+            </button>
+            <button class="btn btn--primary page-header__cta" onclick="toggleForm('leads')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Novo lead</span>
+            </button>
+        </div>
     </header>
 
     <div class="stat-strip">
@@ -3683,6 +3689,57 @@ function voltarConfig() {
 // ═══════════════════════════════════════════════
 // LGPD — exportar dados / excluir conta
 // ═══════════════════════════════════════════════
+async function baixarTemplateLeads() {
+    try {
+        const res = await fetch('/api/leads/template.csv', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Erro');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'leadhouse-template-leads.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch { toast('Erro ao baixar template', 'erro'); }
+}
+
+async function abrirImportLeads() {
+    const escolha = confirm('Importar leads de um arquivo CSV?\n\nClique OK pra escolher o arquivo, ou Cancelar pra primeiro baixar o modelo.');
+    if (!escolha) {
+        await baixarTemplateLeads();
+        toast('Modelo baixado — preencha e clique em Importar CSV de novo', 'success');
+        return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv';
+    input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const text = await file.text();
+        const linhas = text.split('\n').filter(l => l.trim()).length - 1;
+        if (linhas < 1) { toast('CSV vazio', 'erro'); return; }
+        if (!confirm(`Importar ${linhas} lead${linhas > 1 ? 's' : ''} desse arquivo?`)) return;
+        try {
+            const res = await fetch('/api/leads/importar', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ csv: text }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.erro || 'Erro');
+            toast(`${data.importados} leads importados${data.ignorados ? ` (${data.ignorados} ignorados)` : ''}`, 'success');
+            if (typeof carregarLeadsManual === 'function') carregarLeadsManual();
+            else location.reload();
+        } catch (e) {
+            toast(e.message || 'Erro ao importar', 'erro');
+        }
+    };
+    input.click();
+}
+
 async function exportar(arquivo) {
     try {
         const res = await fetch('/api/exportar/' + arquivo, { headers: getAuthHeaders() });
