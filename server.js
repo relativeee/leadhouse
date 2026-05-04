@@ -2031,6 +2031,7 @@ app.get('/health', async (req, res) => {
     whatsapp: process.env.WHATSAPP_PHONE_ID ? 'configured' : 'not_configured',
     claude: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured',
     google: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not_configured',
+    sentry: Sentry ? 'initialized' : (process.env.SENTRY_DSN ? 'env_set_but_not_init' : 'not_configured'),
   };
   // Testa conexao com Supabase (timeout curto)
   try {
