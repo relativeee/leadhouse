@@ -2013,6 +2013,12 @@ app.post('/api/conta/excluir', authMiddleware, async (req, res) => {
   }
 });
 
+// Endpoint TEMPORARIO pra validar Sentry — remover depois de confirmar que funciona
+app.get('/api/_sentry-test', (req, res) => {
+  if (req.query.key !== 'leadhouse-test-2026') return res.status(404).json({ erro: 'nope' });
+  throw new Error('Sentry test exception — se você ta vendo isso no Sentry, integração funciona!');
+});
+
 // ─────────────────────────────────────────────
 // Health check — status do app + integracoes
 // ─────────────────────────────────────────────
