@@ -50,6 +50,9 @@ try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.war
 let emails = null;
 try { emails = require('./services/emails'); } catch (e) { console.warn('[Init] emails service indisponivel:', e.message); }
 
+let evolution = null;
+try { evolution = require('./services/evolution'); } catch (e) { console.warn('[Init] evolution service indisponivel:', e.message); }
+
 const app = express();
 
 // ─────────────────────────────────────────────
@@ -638,6 +641,141 @@ app.post('/api/google/disconnect', authMiddleware, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// WHATSAPP PESSOAL via Evolution API (cada corretor escaneia QR)
+// ─────────────────────────────────────────────
+app.post('/api/whatsapp-personal/connect', authMiddleware, async (req, res) => {
+  if (!evolution) return res.status(503).json({ erro: 'Evolution API nao configurada' });
+  try {
+    const result = await evolution.createInstance(req.userId);
+    await db.supabase.from('usuarios').update({
+      evolution_instance_name: result.instanceName,
+      evolution_instance_status: 'connecting',
+    }).eq('id', req.userId);
+    res.json({ instanceName: result.instanceName, qrcode: result.qrcode, pairingCode: result.pairingCode });
+  } catch (err) {
+    console.error('[whatsapp-personal/connect]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.get('/api/whatsapp-personal/qr', authMiddleware, async (req, res) => {
+  if (!evolution) return res.status(503).json({ erro: 'Evolution API nao configurada' });
+  try {
+    const data = await evolution.getQRCode(req.userId);
+    if (!data) return res.status(404).json({ erro: 'Sem instancia ativa' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.get('/api/whatsapp-personal/status', authMiddleware, async (req, res) => {
+  if (!evolution) return res.json({ state: 'not_configured' });
+  try {
+    const { data: u } = await db.supabase.from('usuarios').select('evolution_instance_name, evolution_instance_status, evolution_phone_number').eq('id', req.userId).maybeSingle();
+    if (!u?.evolution_instance_name) return res.json({ state: 'never_connected' });
+    const live = await evolution.getStatus(req.userId);
+    // Sincroniza DB com estado real
+    if (live.state === 'open' && u.evolution_instance_status !== 'connected') {
+      await db.supabase.from('usuarios').update({ evolution_instance_status: 'connected', evolution_connected_at: new Date().toISOString() }).eq('id', req.userId);
+    }
+    res.json({ state: live.state, phoneNumber: u.evolution_phone_number, instanceName: u.evolution_instance_name });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/whatsapp-personal/disconnect', authMiddleware, async (req, res) => {
+  if (!evolution) return res.status(503).json({ erro: 'Evolution API nao configurada' });
+  try {
+    await evolution.deleteInstance(req.userId);
+    await db.supabase.from('usuarios').update({
+      evolution_instance_name: null,
+      evolution_instance_status: 'disconnected',
+      evolution_phone_number: null,
+      evolution_connected_at: null,
+    }).eq('id', req.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Webhook que a Evolution chama quando algo acontece (mensagem recebida, conexao mudou, etc.)
+app.post('/webhook/evolution', async (req, res) => {
+  // Resposta rapida pra Evolution nao retentar — processamento async
+  res.json({ received: true });
+  try {
+    const event = req.body?.event;
+    const instanceName = req.body?.instance;
+    if (!event || !instanceName) return;
+
+    // Identifica o usuario dono dessa instancia
+    const { data: user } = await db.supabase
+      .from('usuarios')
+      .select('id, nome, email, evolution_phone_number')
+      .eq('evolution_instance_name', instanceName)
+      .maybeSingle();
+    if (!user) {
+      console.warn('[evolution webhook] instancia sem dono:', instanceName);
+      return;
+    }
+
+    if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
+      const state = req.body?.data?.state;
+      const me = req.body?.data?.wuid || req.body?.data?.user?.id || null; // ex: 5583991040402@s.whatsapp.net
+      const phoneNumber = me ? me.split('@')[0] : null;
+      const updates = { evolution_instance_status: state === 'open' ? 'connected' : (state || 'disconnected') };
+      if (phoneNumber) updates.evolution_phone_number = phoneNumber;
+      if (state === 'open') updates.evolution_connected_at = new Date().toISOString();
+      await db.supabase.from('usuarios').update(updates).eq('id', user.id);
+      return;
+    }
+
+    if (event === 'messages.upsert' || event === 'MESSAGES_UPSERT') {
+      const msg = req.body?.data;
+      if (!msg || msg.key?.fromMe) return; // Ignora mensagens enviadas por nos
+      const remoteJid = msg.key?.remoteJid || '';
+      if (remoteJid.endsWith('@g.us')) return; // Ignora grupos por enquanto
+      const telefone = remoteJid.split('@')[0];
+      const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+      if (!texto.trim()) return;
+
+      // Por enquanto, so registra no DB — integracao com Lia (Claude) vem em iteracao posterior.
+      // Cria/atualiza lead com origem='whatsapp'
+      const { data: existente } = await db.supabase
+        .from('leads')
+        .select('id, total_mensagens')
+        .eq('usuario_id', user.id)
+        .eq('telefone', telefone)
+        .eq('origem', 'whatsapp')
+        .maybeSingle();
+
+      if (existente) {
+        await db.supabase.from('leads').update({
+          total_mensagens: (existente.total_mensagens || 0) + 1,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existente.id);
+      } else {
+        await db.supabase.from('leads').insert({
+          usuario_id: user.id,
+          telefone,
+          nome: msg.pushName || '',
+          origem: 'whatsapp',
+          total_mensagens: 1,
+          temperatura: 'frio',
+          observacoes: texto.slice(0, 500),
+        });
+      }
+      console.log(`[evolution] msg recebida user=${user.id} de=${telefone}`);
+    }
+  } catch (err) {
+    console.error('[evolution webhook] erro:', err.message);
+    if (Sentry) Sentry.captureException(err);
   }
 });
 
