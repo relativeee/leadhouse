@@ -991,10 +991,15 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
 // CRON — trial expirando (Vercel Cron diario 13:00 UTC = 10:00 Fortaleza)
 // ─────────────────────────────────────────────
 app.get('/api/cron/trial-expiring', async (req, res) => {
-  // Vercel Cron envia Authorization: Bearer ${CRON_SECRET}
-  const expected = process.env.CRON_SECRET;
-  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!expected || provided !== expected) {
+  // Auth dupla: (a) CRON_SECRET via Bearer (Vercel injeta automaticamente se setado),
+  // OU (b) User-Agent vercel-cron/* quando CRON_SECRET nao esta configurado.
+  // (b) eh fallback aceito pelo proprio Vercel quando CRON_SECRET ausente.
+  const expected = (process.env.CRON_SECRET || '').trim();
+  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  const isVercelCron = ua.includes('vercel-cron');
+  const authOk = (expected && provided === expected) || (!expected && isVercelCron);
+  if (!authOk) {
     return res.status(401).json({ erro: 'Acesso negado' });
   }
   if (!emails) return res.json({ enviados: 0, motivo: 'emails service indisponivel' });
