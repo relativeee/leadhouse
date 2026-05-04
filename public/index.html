@@ -304,7 +304,11 @@
                     <tbody id="dashLeadsBody"></tbody>
                 </table>
             </div>
-            <div class="empty-state" id="dashEmpty" style="display:none;"><div class="empty-state__icon">--</div><div class="empty-state__text">Nenhum lead encontrado</div></div>
+            <div class="empty-state" id="dashEmpty" style="display:none;">
+                <svg class="empty-state__svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <div class="empty-state__text">Nenhum lead com esses filtros</div>
+                <div class="empty-state__sub">Tente outra temperatura ou cadastre um novo lead</div>
+            </div>
         </div>
     </section>
 </main>
@@ -1773,10 +1777,19 @@ function paywallAssinar(plan) {
     window.location.href = 'https://leadhouses.com.br/api/checkout?plan=' + plan;
 }
 
-function checkPaywall(plano) {
+function isPlanActive(user) {
+    if (!user || !user.plano) return false;
+    if (user.plano === 'trial') {
+        const exp = user.trial_expires_at ? new Date(user.trial_expires_at).getTime() : 0;
+        return exp > Date.now();
+    }
+    return true;
+}
+
+function checkPaywall(user) {
     const paywall = document.getElementById('paywall');
     if (!paywall) return;
-    if (!plano) {
+    if (!isPlanActive(user)) {
         paywall.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     } else {
@@ -1795,20 +1808,21 @@ async function refreshPlano() {
         if (elNome && user.nome) elNome.textContent = user.nome;
         const welcomeNameEl = document.getElementById('welcomeName');
         if (welcomeNameEl && user.nome) welcomeNameEl.textContent = (user.nome.split(' ')[0] || 'corretor');
-        renderPlano(user.plano);
+        renderPlano(user);
         refreshWppStatus();
-        checkPaywall(user.plano);
+        checkPaywall(user);
         // Atualiza localStorage
         localStorage.setItem('lh_user', JSON.stringify(user));
     } catch {}
 }
 
-function renderPlano(plano) {
+function renderPlano(user) {
     const nameEl = document.getElementById('sidebarPlanName');
     const ctaEl  = document.getElementById('sidebarPlanCta');
     const wrapEl = document.getElementById('sidebarPlan');
     if (!nameEl || !ctaEl || !wrapEl) return;
 
+    const plano = typeof user === 'string' ? user : (user?.plano || null);
     const planos = {
         start: { label: 'Start' },
         pro:   { label: 'Pro' },
@@ -1818,7 +1832,14 @@ function renderPlano(plano) {
     const key = (plano || '').toLowerCase();
     const info = planos[key];
 
-    if (info) {
+    if (key === 'trial' && typeof user === 'object' && user?.trial_expires_at) {
+        const ms = new Date(user.trial_expires_at).getTime() - Date.now();
+        const dias = Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+        nameEl.textContent = dias > 0 ? `Trial · ${dias} dia${dias > 1 ? 's' : ''}` : 'Trial expirado';
+        ctaEl.textContent = 'Escolher plano';
+        ctaEl.dataset.action = 'upgrade';
+        wrapEl.classList.add('sidebar__plan--trial');
+    } else if (info) {
         nameEl.textContent = info.label;
         ctaEl.textContent = 'Gerenciar plano';
         ctaEl.dataset.action = 'portal';
@@ -3771,14 +3792,13 @@ function toggleSidebar() {
         const user = JSON.parse(localStorage.getItem('lh_user') || '{}');
         const el = document.getElementById('sidebarUser');
         if (el && user.nome) el.textContent = user.nome;
-        renderPlano(user.plano);
+        renderPlano(user);
     } catch {}
 
-    // Buscar plano atualizado do servidor (caso tenha mudado via webhook)
     // Mostra paywall imediato baseado no localStorage (evita flicker)
     try {
         const cached = JSON.parse(localStorage.getItem('lh_user') || '{}');
-        if (!cached.plano) checkPaywall(null);
+        if (!isPlanActive(cached)) checkPaywall(cached);
     } catch {}
 
     refreshPlano();

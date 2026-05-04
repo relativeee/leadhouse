@@ -6,6 +6,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('./supabase');
+let emails = null;
+try { emails = require('./emails'); } catch {}
+
+const TRIAL_DAYS = 14;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido'); process.exit(1); }
@@ -23,16 +27,25 @@ async function registrar(nome, email, senha) {
 
   const senha_hash = await bcrypt.hash(senha, 10);
 
+  // Trial automatico de 14 dias
+  const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
   const { data, error } = await supabase
     .from('usuarios')
-    .insert({ nome, email: email.toLowerCase(), senha_hash })
-    .select('id, nome, email, plano, is_admin')
+    .insert({ nome, email: email.toLowerCase(), senha_hash, plano: 'trial', trial_expires_at: trialExpiresAt })
+    .select('id, nome, email, plano, is_admin, trial_expires_at')
     .single();
 
   if (error) throw error;
 
   const token = jwt.sign({ id: data.id, email: data.email, is_admin: !!data.is_admin }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return { token, user: { id: data.id, nome: data.nome, email: data.email, plano: data.plano || null, is_admin: !!data.is_admin } };
+
+  // Welcome email (fire-and-forget)
+  if (emails?.sendWelcome) {
+    emails.sendWelcome({ to: data.email, nome: data.nome }).catch(e => console.error('[welcome email]', e.message));
+  }
+
+  return { token, user: { id: data.id, nome: data.nome, email: data.email, plano: data.plano, is_admin: !!data.is_admin, trial_expires_at: data.trial_expires_at } };
 }
 
 async function login(email, senha) {

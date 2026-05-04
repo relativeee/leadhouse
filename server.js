@@ -26,6 +26,9 @@ try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notif
 try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
+let emails = null;
+try { emails = require('./services/emails'); } catch (e) { console.warn('[Init] emails service indisponivel:', e.message); }
+
 const app = express();
 
 // ─────────────────────────────────────────────
@@ -70,10 +73,24 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           .from('usuarios')
           .update(update)
           .eq('email', email)
-          .select('id, email');
+          .select('id, email, nome');
         if (error) console.error('[Stripe] erro ao atualizar plano:', error.message);
         else if (!data || data.length === 0) console.error(`[Stripe] nenhum usuario encontrado para ${email} (raw: ${rawEmail})`);
-        else console.log(`[Stripe] plano ${plan} ativado para ${email}`);
+        else {
+          console.log(`[Stripe] plano ${plan} ativado para ${email}`);
+          if (emails?.sendPaymentSuccess) {
+            emails.sendPaymentSuccess({ to: data[0].email, nome: data[0].nome, plano: plan }).catch(e => console.error('[email] payment_success:', e.message));
+          }
+        }
+      }
+    }
+
+    // Pagamento falhou (cobranca recorrente)
+    if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data.object;
+      if (invoice.customer && emails?.sendPaymentFailed) {
+        const { data: u } = await db.supabase.from('usuarios').select('email, nome').eq('stripe_customer_id', invoice.customer).maybeSingle();
+        if (u) emails.sendPaymentFailed({ to: u.email, nome: u.nome }).catch(e => console.error('[email] payment_failed:', e.message));
       }
     }
 
@@ -88,13 +105,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       };
       const plan = PRICE_TO_PLAN[priceId] || sub.metadata?.plan || null;
       if (plan && sub.customer) {
-        // Se foi marcado pra cancelar no fim do periodo, mantem o plano ate la
         const { error } = await db.supabase
           .from('usuarios')
           .update({ plano: plan })
           .eq('stripe_customer_id', sub.customer);
         if (error) console.error('[Stripe] erro update subscription:', error.message);
         else console.log(`[Stripe] plano atualizado para ${plan} (customer ${sub.customer}, cancel_at_period_end=${sub.cancel_at_period_end})`);
+
+        // Email de cancelamento agendado (cancela no fim do periodo)
+        if (sub.cancel_at_period_end && emails?.sendSubscriptionCanceled) {
+          const { data: u } = await db.supabase.from('usuarios').select('email, nome').eq('stripe_customer_id', sub.customer).maybeSingle();
+          if (u) {
+            const fimAcesso = sub.current_period_end ? sub.current_period_end * 1000 : null;
+            emails.sendSubscriptionCanceled({ to: u.email, nome: u.nome, fimAcesso }).catch(e => console.error('[email] canceled:', e.message));
+          }
+        }
       }
     }
 
@@ -871,7 +896,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho, bloqueios_json, is_admin')
+      .select('id, nome, email, plano, stripe_customer_id, google_email, google_refresh_token, horario_trabalho, bloqueios_json, is_admin, trial_expires_at')
       .eq('id', req.userId)
       .maybeSingle();
     if (error || !data) return res.status(404).json({ erro: 'Usuario nao encontrado' });
@@ -960,6 +985,46 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// ─────────────────────────────────────────────
+// CRON — trial expirando (Vercel Cron diario 13:00 UTC = 10:00 Fortaleza)
+// ─────────────────────────────────────────────
+app.get('/api/cron/trial-expiring', async (req, res) => {
+  // Vercel Cron envia Authorization: Bearer ${CRON_SECRET}
+  const expected = process.env.CRON_SECRET;
+  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!expected || provided !== expected) {
+    return res.status(401).json({ erro: 'Acesso negado' });
+  }
+  if (!emails) return res.json({ enviados: 0, motivo: 'emails service indisponivel' });
+
+  try {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    // Janela de 1 dia centrada nos marcos 3 dias e 1 dia restantes
+    const ranges = [
+      { dias: 3, since: new Date(now + 3 * day - 12 * 60 * 60 * 1000).toISOString(), until: new Date(now + 3 * day + 12 * 60 * 60 * 1000).toISOString() },
+      { dias: 1, since: new Date(now + 1 * day - 12 * 60 * 60 * 1000).toISOString(), until: new Date(now + 1 * day + 12 * 60 * 60 * 1000).toISOString() },
+    ];
+    let total = 0;
+    for (const r of ranges) {
+      const { data: users } = await db.supabase
+        .from('usuarios')
+        .select('email, nome')
+        .eq('plano', 'trial')
+        .gte('trial_expires_at', r.since)
+        .lt('trial_expires_at', r.until);
+      for (const u of users || []) {
+        await emails.sendTrialExpiring({ to: u.email, nome: u.nome, diasRestantes: r.dias }).catch(e => console.error('[cron] trial email:', e.message));
+        total++;
+      }
+    }
+    res.json({ enviados: total });
+  } catch (err) {
+    console.error('[cron trial-expiring]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // Resumo do audit log autenticado por shared secret (usado por routines/cron externos).
@@ -1068,7 +1133,7 @@ async function requirePlan(req, res, next) {
     }
     const { data: user } = await db.supabase
       .from('usuarios')
-      .select('plano, is_admin')
+      .select('plano, is_admin, trial_expires_at')
       .eq('id', req.userId)
       .maybeSingle();
     if (user?.is_admin) {
@@ -1076,6 +1141,18 @@ async function requirePlan(req, res, next) {
       req.userLimits = getPlanLimits('elite');
       req.isAdmin = true;
       return next();
+    }
+    // Trial ativo: trata como pro (acesso completo + IA)
+    if (user?.plano === 'trial') {
+      const expiresAt = user.trial_expires_at ? new Date(user.trial_expires_at).getTime() : 0;
+      if (expiresAt > Date.now()) {
+        req.userPlan = 'trial';
+        req.userLimits = getPlanLimits('pro');
+        req.isTrial = true;
+        return next();
+      }
+      // Trial expirou
+      return res.status(402).json({ erro: 'Trial expirado', code: 'TRIAL_EXPIRED' });
     }
     if (!user?.plano) return res.status(402).json({ erro: 'Plano necessario', code: 'NO_PLAN' });
     req.userPlan = user.plano;
