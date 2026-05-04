@@ -1042,6 +1042,11 @@
             <h3>Meu Plano</h3>
             <p>Assinatura, upgrade e faturamento</p>
         </div>
+        <div class="config-card" onclick="abrirConfig('dados')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <h3>Meus Dados</h3>
+            <p>Exportar ou excluir conta (LGPD)</p>
+        </div>
     </div>
 
     <!-- Sub-views (escondidas por padrão) -->
@@ -1151,6 +1156,25 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- SUB: Meus Dados (LGPD) -->
+        <div class="config-sub" id="configDados" style="display:none">
+            <div class="conta-section__title">Meus Dados</div>
+            <p style="color:var(--text-2);font-size:14px;margin-bottom:1.5rem">Direitos garantidos pela LGPD: você pode exportar todos os seus dados ou excluir sua conta a qualquer momento.</p>
+
+            <div class="conta-section__title" style="font-size:14px;margin-top:1rem">Exportar dados</div>
+            <p style="color:var(--text-2);font-size:13px;margin-bottom:0.75rem">Baixe seus dados em formato Excel (CSV) ou completo (JSON).</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:2rem">
+                <button class="btn btn--outline" onclick="exportar('leads.csv')">Leads (CSV)</button>
+                <button class="btn btn--outline" onclick="exportar('imoveis.csv')">Imóveis (CSV)</button>
+                <button class="btn btn--outline" onclick="exportar('visitas.csv')">Visitas (CSV)</button>
+                <button class="btn btn--outline" onclick="exportar('todos.json')">Todos os dados (JSON)</button>
+            </div>
+
+            <div class="conta-section__title" style="font-size:14px;margin-top:1rem;color:#FF8A7A">Zona de perigo</div>
+            <p style="color:var(--text-2);font-size:13px;margin-bottom:0.75rem">Excluir a conta apaga permanentemente todos os seus leads, imóveis, visitas e cancela sua assinatura. <b>Não tem volta.</b></p>
+            <button class="btn" style="background:transparent;color:#FF8A7A;border:1px solid rgba(255,138,122,0.4)" onclick="excluirConta()">Excluir minha conta</button>
         </div>
 
         <!-- SUB: Plano -->
@@ -3645,7 +3669,7 @@ function abrirConfig(secao) {
     document.getElementById('configGrid').style.display = 'none';
     document.getElementById('configSubview').style.display = '';
     document.querySelectorAll('.config-sub').forEach(el => el.style.display = 'none');
-    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano' };
+    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados' };
     const el = document.getElementById(map[secao]);
     if (el) el.style.display = '';
     if (secao === 'aparencia') syncPrefButtons();
@@ -3654,6 +3678,51 @@ function abrirConfig(secao) {
 function voltarConfig() {
     document.getElementById('configGrid').style.display = '';
     document.getElementById('configSubview').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// LGPD — exportar dados / excluir conta
+// ═══════════════════════════════════════════════
+async function exportar(arquivo) {
+    try {
+        const res = await fetch('/api/exportar/' + arquivo, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Erro ao exportar');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || arquivo;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('Download iniciado', 'success');
+    } catch (e) {
+        toast('Erro ao exportar', 'erro');
+    }
+}
+
+async function excluirConta() {
+    const confirma1 = confirm('ATENÇÃO: vai apagar TODOS os seus leads, imóveis, visitas e cancelar sua assinatura. Não tem volta.\n\nTem certeza?');
+    if (!confirma1) return;
+    const palavra = prompt('Pra confirmar, digite EXCLUIR (em maiúsculas):');
+    if (palavra !== 'EXCLUIR') { toast('Confirmação incorreta — nada foi feito', 'erro'); return; }
+    try {
+        const res = await fetch('/api/conta/excluir', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ confirmar: 'EXCLUIR' }),
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.erro || 'Erro');
+        }
+        alert('Conta excluída. Você será redirecionado.');
+        localStorage.clear();
+        window.location.href = 'https://leadhouses.com.br';
+    } catch (e) {
+        toast(e.message || 'Erro ao excluir conta', 'erro');
+    }
 }
 
 // ═══════════════════════════════════════════════

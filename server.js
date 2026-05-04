@@ -1774,6 +1774,119 @@ app.post('/api/agente/resumo', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// LGPD — exportar dados / deletar conta
+// ─────────────────────────────────────────────
+function toCsvRow(values) {
+  return values.map(v => {
+    if (v == null) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n;]/.test(s) ? `"${s}"` : s;
+  }).join(';');
+}
+function rowsToCsv(headers, rows) {
+  const lines = [toCsvRow(headers)];
+  for (const r of rows) lines.push(toCsvRow(headers.map(h => r[h])));
+  return '﻿' + lines.join('\n'); // BOM pra Excel abrir UTF-8 correto
+}
+
+app.get('/api/exportar/leads.csv', authMiddleware, async (req, res) => {
+  try {
+    const { data } = await db.supabase
+      .from('leads')
+      .select('id, nome, telefone, email, objetivo, tipo_imovel, bairro, faixa_valor, pagamento, prazo, temperatura, proximo_passo, resumo, observacoes, origem, total_mensagens, created_at')
+      .eq('usuario_id', req.userId)
+      .order('created_at', { ascending: false });
+    const headers = ['id','nome','telefone','email','objetivo','tipo_imovel','bairro','faixa_valor','pagamento','prazo','temperatura','proximo_passo','resumo','observacoes','origem','total_mensagens','created_at'];
+    const csv = rowsToCsv(headers, data || []);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="leadhouse-leads-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send(csv);
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+app.get('/api/exportar/imoveis.csv', authMiddleware, async (req, res) => {
+  try {
+    const { data } = await db.supabase
+      .from('imoveis')
+      .select('id, titulo, tipo, status, endereco, bairro, cidade, valor, quartos, vagas, area, descricao, created_at')
+      .eq('usuario_id', req.userId)
+      .order('created_at', { ascending: false });
+    const headers = ['id','titulo','tipo','status','endereco','bairro','cidade','valor','quartos','vagas','area','descricao','created_at'];
+    const csv = rowsToCsv(headers, data || []);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="leadhouse-imoveis-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send(csv);
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+app.get('/api/exportar/visitas.csv', authMiddleware, async (req, res) => {
+  try {
+    const { data } = await db.supabase
+      .from('visitas')
+      .select('id, lead_nome, lead_telefone, imovel_titulo, endereco, data, horario, corretor, observacoes, status, created_at')
+      .eq('usuario_id', req.userId)
+      .order('data', { ascending: false });
+    const headers = ['id','lead_nome','lead_telefone','imovel_titulo','endereco','data','horario','corretor','observacoes','status','created_at'];
+    const csv = rowsToCsv(headers, data || []);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="leadhouse-visitas-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send(csv);
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// Exportacao LGPD completa em JSON: tudo que temos do usuario num arquivo so
+app.get('/api/exportar/todos.json', authMiddleware, async (req, res) => {
+  try {
+    const [{ data: user }, { data: leads }, { data: imoveis }, { data: visitas }] = await Promise.all([
+      db.supabase.from('usuarios').select('id, nome, email, plano, trial_expires_at, google_email, horario_trabalho, created_at').eq('id', req.userId).maybeSingle(),
+      db.supabase.from('leads').select('*').eq('usuario_id', req.userId),
+      db.supabase.from('imoveis').select('*').eq('usuario_id', req.userId),
+      db.supabase.from('visitas').select('*').eq('usuario_id', req.userId),
+    ]);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="leadhouse-meus-dados-${new Date().toISOString().slice(0,10)}.json"`);
+    res.json({
+      exportado_em: new Date().toISOString(),
+      conta: user || null,
+      leads: leads || [],
+      imoveis: imoveis || [],
+      visitas: visitas || [],
+    });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// LGPD: usuario pode deletar a propria conta + todos os dados associados.
+// Requer confirmacao via body { confirmar: 'EXCLUIR' } pra evitar acidente.
+app.post('/api/conta/excluir', authMiddleware, async (req, res) => {
+  if (req.body?.confirmar !== 'EXCLUIR') {
+    return res.status(400).json({ erro: 'Envie { "confirmar": "EXCLUIR" } no body' });
+  }
+  if (req.isImpersonating) {
+    return res.status(403).json({ erro: 'Nao pode excluir conta enquanto impersonando' });
+  }
+  try {
+    // Cancela assinatura no Stripe se existir, antes de apagar
+    const { data: u } = await db.supabase.from('usuarios').select('stripe_customer_id').eq('id', req.userId).maybeSingle();
+    if (stripe && u?.stripe_customer_id) {
+      try {
+        const subs = await stripe.subscriptions.list({ customer: u.stripe_customer_id, status: 'active' });
+        for (const sub of subs.data) await stripe.subscriptions.cancel(sub.id);
+      } catch (e) { console.error('[conta/excluir] erro ao cancelar Stripe:', e.message); }
+    }
+    // Apaga dados em ordem (FKs nao sao explicitas mas seguro deletar dependentes primeiro)
+    await db.supabase.from('leads').delete().eq('usuario_id', req.userId);
+    await db.supabase.from('imoveis').delete().eq('usuario_id', req.userId);
+    await db.supabase.from('visitas').delete().eq('usuario_id', req.userId);
+    await db.supabase.from('password_resets').delete().eq('user_id', req.userId);
+    await db.supabase.from('usuarios').delete().eq('id', req.userId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[conta/excluir]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // Health check — status do app + integracoes
 // ─────────────────────────────────────────────
 app.get('/health', async (req, res) => {
