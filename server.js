@@ -2062,10 +2062,13 @@ app.use((req, res) => {
 });
 
 // Error handler global — captura qualquer Error nao tratado nas rotas
-app.use((err, req, res, next) => {
+app.use(async (err, req, res, next) => {
   console.error('[unhandled]', err.message, err.stack);
   if (Sentry) {
     Sentry.captureException(err, { tags: { path: req.path, method: req.method } });
+    // Flush antes de responder — Vercel serverless mata a funcao apos o response,
+    // sem flush os eventos ficam na queue e nunca chegam no Sentry.
+    try { await Sentry.flush(2000); } catch {}
   }
   if (res.headersSent) return next(err);
   res.status(500).json({ erro: 'Erro interno do servidor' });
