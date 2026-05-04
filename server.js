@@ -745,33 +745,75 @@ app.post('/webhook/evolution', async (req, res) => {
       const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
       if (!texto.trim()) return;
 
-      // Por enquanto, so registra no DB — integracao com Lia (Claude) vem em iteracao posterior.
-      // Cria/atualiza lead com origem='whatsapp'
-      const { data: existente } = await db.supabase
-        .from('leads')
-        .select('id, total_mensagens')
-        .eq('usuario_id', user.id)
-        .eq('telefone', telefone)
-        .eq('origem', 'whatsapp')
-        .maybeSingle();
+      // Dedup por messageId — Evolution as vezes reentrega o mesmo evento
+      const messageId = msg.key?.id;
+      const conversa = getConversa(telefone);
+      if (messageId && conversa.mensagensProcessadas.has(messageId)) return;
+      if (messageId) conversa.mensagensProcessadas.add(messageId);
 
-      if (existente) {
-        await db.supabase.from('leads').update({
-          total_mensagens: (existente.total_mensagens || 0) + 1,
-          updated_at: new Date().toISOString(),
-        }).eq('id', existente.id);
-      } else {
-        await db.supabase.from('leads').insert({
-          usuario_id: user.id,
-          telefone,
-          nome: msg.pushName || '',
-          origem: 'whatsapp',
-          total_mensagens: 1,
-          temperatura: 'frio',
-          observacoes: texto.slice(0, 500),
-        });
+      // Cold start: serverless perde memoria. Recupera historico do DB se vazio.
+      if (conversa.historico.length === 0) {
+        try {
+          const { data: leadAnterior } = await db.supabase
+            .from('leads')
+            .select('historico_json')
+            .eq('telefone', telefone)
+            .eq('usuario_id', user.id)
+            .eq('origem', 'whatsapp')
+            .maybeSingle();
+          if (leadAnterior?.historico_json) {
+            const parsed = JSON.parse(leadAnterior.historico_json);
+            if (Array.isArray(parsed) && parsed.length) conversa.historico = parsed;
+          }
+        } catch (e) {
+          console.warn(`[evolution] falha ao carregar historico de ${telefone}:`, e.message);
+        }
       }
-      console.log(`[evolution] msg recebida user=${user.id} de=${telefone}`);
+
+      console.log(`[evolution] msg user=${user.id} de=${telefone}: "${texto}" (hist=${conversa.historico.length})`);
+      conversa.historico.push({ role: 'user', content: texto });
+      if (conversa.historico.length > 20) conversa.historico = conversa.historico.slice(-20);
+
+      // Bloco 1: Lia gera resposta e responde via Evolution (CRITICO)
+      try {
+        if (!gerarResposta || !evolution) {
+          console.warn('[evolution] Lia ou evolution service indisponivel');
+          return;
+        }
+        const resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: user.nome });
+        conversa.historico.push({ role: 'assistant', content: resposta });
+        await evolution.sendText(user.id, telefone, resposta);
+      } catch (err) {
+        console.error(`[evolution] erro ao gerar/enviar resposta pra ${telefone}:`, err.message);
+        try { await evolution.sendText(user.id, telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch {}
+        return;
+      }
+
+      // Bloco 2: Persistencia (NAO critico — historico_json alimenta a aba Comunicacoes)
+      try {
+        let leadData = { nome: msg.pushName || '', temperatura: 'frio' };
+        if (extrairDadosLead && validarEAjustarLead) {
+          const bruto = await extrairDadosLead(conversa.historico);
+          leadData = validarEAjustarLead(bruto);
+        }
+        const totalMsgsUser = conversa.historico.filter(m => m.role === 'user').length;
+        await db.upsertLeadWhatsApp(telefone, {
+          nome: leadData.nome || msg.pushName || '',
+          objetivo: leadData.objetivo || '',
+          tipo_imovel: leadData.tipo_imovel || '',
+          bairro: leadData.bairro || '',
+          faixa_valor: leadData.faixa_valor || '',
+          pagamento: leadData.pagamento || '',
+          prazo: leadData.prazo || '',
+          temperatura: leadData.temperatura || 'frio',
+          proximo_passo: leadData.proximo_passo || '',
+          resumo: leadData.resumo || '',
+          total_mensagens: totalMsgsUser,
+          historico_json: JSON.stringify(conversa.historico.slice(-30)),
+        }, user.id);
+      } catch (err) {
+        console.error(`[evolution] erro persistencia ${telefone}:`, err.message);
+      }
     }
   } catch (err) {
     console.error('[evolution webhook] erro:', err.message);
