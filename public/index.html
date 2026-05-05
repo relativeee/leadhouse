@@ -3996,64 +3996,118 @@ async function carregarAdmin() {
     } catch(e) { console.error('[admin]', e); }
 }
 
+let _admUserCache = null;
+
 async function verUsuarioAdmin(id) {
     try {
         const data = await apiCall('GET', '/api/admin/usuarios/' + id);
-        const u = data.user;
-        const podeExcluir = !u.is_admin;
-        const acaoExcluir = podeExcluir
-            ? `<div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--line)">
-                 <button class="btn" style="background:transparent;color:#FF8A7A;border:1px solid rgba(255,138,122,0.4)" onclick="excluirUsuarioAdmin(${u.id}, '${esc(u.nome || u.email).replace(/'/g, "\\'")}', '${esc(u.email).replace(/'/g, "\\'")}')">Excluir conta</button>
-                 <p style="font-size:12px;color:var(--text-2);margin-top:0.5rem">Apaga permanentemente o usuário e todos os dados (leads, imóveis, visitas) + cancela Stripe + desconecta WhatsApp. Não tem volta.</p>
-               </div>`
-            : '<p style="margin-top:1.5rem;color:var(--text-2);font-size:13px">Esse é um admin — não pode ser excluído pelo painel.</p>';
-        const viewHtml = `
-            <div class="lead-modal__head">
-                <div class="lead-modal__avatar">${_initials(u.nome)}</div>
-                <div>
-                    <div class="lead-modal__name">${esc(u.nome)}</div>
-                    <div class="lead-modal__tel">${esc(u.email)}</div>
-                </div>
-            </div>
-            <div class="lead-modal__grid">
-                <div class="modal__field"><div class="modal__label">Plano</div><div class="modal__value">${u.plano ? capitalize(u.plano) : 'Sem plano'}</div></div>
-                <div class="modal__field"><div class="modal__label">Google</div><div class="modal__value">${u.google_email || 'Não conectado'}</div></div>
-                <div class="modal__field"><div class="modal__label">Leads</div><div class="modal__value">${data.leads.length}</div></div>
-                <div class="modal__field"><div class="modal__label">Imóveis</div><div class="modal__value">${data.imoveis.length}</div></div>
-                <div class="modal__field"><div class="modal__label">Visitas</div><div class="modal__value">${data.visitas.length}</div></div>
-                <div class="modal__field"><div class="modal__label">Cadastro</div><div class="modal__value">${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}</div></div>
-            </div>
-            ${acaoExcluir}
-        `;
-        document.getElementById('modalTitle').textContent = u.nome;
+        _admUserCache = data;
+        renderAdmUserView();
+        document.getElementById('modalTitle').textContent = data.user.nome;
         document.getElementById('modalEditBtn').style.display = 'none';
         document.getElementById('modalFooter').style.display = 'none';
-        document.getElementById('modalContent').innerHTML = viewHtml;
         document.getElementById('modalOverlay').classList.add('modal-overlay--open');
     } catch(e) { toast('Erro ao carregar usuário', 'erro'); }
 }
 
-async function excluirUsuarioAdmin(id, nome, email) {
-    const conf1 = confirm(`Tem certeza que quer EXCLUIR a conta de ${nome} (${email})?\n\nIsso vai:\n• Cancelar a assinatura Stripe (se existir)\n• Desconectar o WhatsApp\n• Apagar TODOS os dados (leads, imóveis, visitas)\n• Apagar o usuário do sistema\n\nNão tem como recuperar.`);
-    if (!conf1) return;
-    const senha = prompt(`Pra confirmar, digite sua senha de administrador:`);
+function renderAdmUserView() {
+    if (!_admUserCache) return;
+    const data = _admUserCache;
+    const u = data.user;
+    const podeExcluir = !u.is_admin;
+    const dangerSection = podeExcluir
+        ? `<div class="conta-section__title" style="font-size:14px;margin-top:2rem;color:#FF8A7A">Zona de perigo</div>
+           <p style="color:var(--text-2);font-size:13px;margin-bottom:0.75rem">Excluir a conta apaga permanentemente todos os leads, imóveis e visitas, cancela a assinatura Stripe e desconecta o WhatsApp. <b>Não tem volta.</b></p>
+           <button class="btn" style="background:transparent;color:#FF8A7A;border:1px solid rgba(255,138,122,0.4)" onclick="renderAdmUserDeleteConfirm()">Excluir conta</button>`
+        : `<p style="margin-top:2rem;color:var(--text-2);font-size:13px">Esse é um admin — não pode ser excluído pelo painel.</p>`;
+    document.getElementById('modalContent').innerHTML = `
+        <div class="lead-modal__head">
+            <div class="lead-modal__avatar">${_initials(u.nome)}</div>
+            <div>
+                <div class="lead-modal__name">${esc(u.nome)}</div>
+                <div class="lead-modal__tel">${esc(u.email)}</div>
+            </div>
+        </div>
+        <div class="lead-modal__grid">
+            <div class="modal__field"><div class="modal__label">Plano</div><div class="modal__value">${u.plano ? capitalize(u.plano) : 'Sem plano'}</div></div>
+            <div class="modal__field"><div class="modal__label">Google</div><div class="modal__value">${u.google_email || 'Não conectado'}</div></div>
+            <div class="modal__field"><div class="modal__label">Leads</div><div class="modal__value">${data.leads.length}</div></div>
+            <div class="modal__field"><div class="modal__label">Imóveis</div><div class="modal__value">${data.imoveis.length}</div></div>
+            <div class="modal__field"><div class="modal__label">Visitas</div><div class="modal__value">${data.visitas.length}</div></div>
+            <div class="modal__field"><div class="modal__label">Cadastro</div><div class="modal__value">${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '--'}</div></div>
+        </div>
+        ${dangerSection}
+    `;
+}
+
+function renderAdmUserDeleteConfirm() {
+    if (!_admUserCache) return;
+    const u = _admUserCache.user;
+    document.getElementById('modalContent').innerHTML = `
+        <div class="lead-modal__head">
+            <div class="lead-modal__avatar" style="background:rgba(255,138,122,0.15);color:#FF8A7A">!</div>
+            <div>
+                <div class="lead-modal__name">Excluir conta de ${esc(u.nome || u.email)}</div>
+                <div class="lead-modal__tel" style="color:#FF8A7A">Ação irreversível</div>
+            </div>
+        </div>
+        <div style="background:rgba(255,138,122,0.06);border:1px solid rgba(255,138,122,0.2);border-radius:10px;padding:1rem 1.25rem;margin:1rem 0">
+            <p style="font-size:13px;color:var(--text-2);margin:0 0 0.5rem">Vai acontecer agora:</p>
+            <ul style="font-size:13px;color:var(--text-2);margin:0;padding-left:1.25rem;line-height:1.7">
+                <li>Cancelar a assinatura Stripe ${u.stripe_customer_id ? '' : '<span style="color:var(--text-2);opacity:0.5">(não tem)</span>'}</li>
+                <li>Desconectar o WhatsApp pessoal (Evolution)</li>
+                <li>Apagar <b>${_admUserCache.leads.length}</b> leads, <b>${_admUserCache.imoveis.length}</b> imóveis, <b>${_admUserCache.visitas.length}</b> visitas</li>
+                <li>Apagar o registro do usuário</li>
+            </ul>
+        </div>
+        <div class="modal__field" style="margin-top:1rem">
+            <div class="modal__label">Sua senha de administrador</div>
+            <input type="password" class="form-input" id="admDeleteSenha" placeholder="Digite sua senha pra confirmar" autocomplete="current-password" />
+            <p id="admDeleteErr" style="color:#FF8A7A;font-size:12px;margin:0.5rem 0 0;display:none"></p>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:1.5rem;justify-content:flex-end">
+            <button class="btn btn--ghost" onclick="renderAdmUserView()">Cancelar</button>
+            <button class="btn" id="admDeleteBtn" style="background:#FF8A7A;color:#0A0A0A;border:0;font-weight:700" onclick="confirmarExcluirUsuarioAdmin()">Excluir definitivamente</button>
+        </div>
+    `;
+    setTimeout(() => document.getElementById('admDeleteSenha')?.focus(), 100);
+    document.getElementById('admDeleteSenha')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmarExcluirUsuarioAdmin();
+    });
+}
+
+async function confirmarExcluirUsuarioAdmin() {
+    if (!_admUserCache) return;
+    const u = _admUserCache.user;
+    const senhaEl = document.getElementById('admDeleteSenha');
+    const errEl = document.getElementById('admDeleteErr');
+    const btn = document.getElementById('admDeleteBtn');
+    const senha = senhaEl?.value || '';
     if (!senha) {
-        toast('Cancelado', 'erro');
+        errEl.textContent = 'Digite sua senha';
+        errEl.style.display = '';
         return;
     }
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
     try {
-        const res = await fetch('/api/admin/usuarios/' + id, {
+        const res = await fetch('/api/admin/usuarios/' + u.id, {
             method: 'DELETE',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ senha }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.erro || 'Falha ao excluir');
-        toast(`Conta ${email} excluída`, 'success');
+        toast(`Conta de ${u.email} excluída`, 'success');
+        _admUserCache = null;
         document.getElementById('modalOverlay').classList.remove('modal-overlay--open');
         carregarAdmin();
     } catch (e) {
-        toast('Erro: ' + e.message, 'erro');
+        errEl.textContent = e.message || 'Erro ao excluir';
+        errEl.style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'Excluir definitivamente';
     }
 }
 
