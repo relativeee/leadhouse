@@ -1303,10 +1303,11 @@ app.get('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) =
 
 // Excluir usuario (admin only). Cancela Stripe, derruba instancia Evolution,
 // apaga dados em ordem de dependencia e por fim o registro do usuario.
-// Body: { confirmar: "EXCLUIR" } pra evitar acidente.
+// Body: { senha: "<senha do admin>" } — autentica a acao.
 app.delete('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) => {
-  if (req.body?.confirmar !== 'EXCLUIR') {
-    return res.status(400).json({ erro: 'Envie { "confirmar": "EXCLUIR" } no body' });
+  const senha = req.body?.senha;
+  if (!senha || typeof senha !== 'string') {
+    return res.status(400).json({ erro: 'Envie { "senha": "..." } no body' });
   }
   const targetId = parseInt(req.params.id, 10);
   if (!Number.isFinite(targetId) || targetId <= 0) {
@@ -1317,6 +1318,21 @@ app.delete('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res
     return res.status(403).json({ erro: 'Nao pode excluir sua propria conta por aqui' });
   }
   try {
+    // Verifica senha do admin (autenticacao da acao destrutiva)
+    const { data: admin } = await db.supabase
+      .from('usuarios')
+      .select('senha_hash')
+      .eq('id', req.realUserId)
+      .maybeSingle();
+    if (!admin?.senha_hash) {
+      return res.status(401).json({ erro: 'Admin nao tem senha configurada' });
+    }
+    const bcrypt = require('bcryptjs');
+    const senhaOk = await bcrypt.compare(senha, admin.senha_hash);
+    if (!senhaOk) {
+      return res.status(401).json({ erro: 'Senha incorreta' });
+    }
+
     const { data: alvo } = await db.supabase
       .from('usuarios')
       .select('id, email, is_admin, stripe_customer_id, evolution_instance_name')

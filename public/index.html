@@ -4036,8 +4036,8 @@ async function verUsuarioAdmin(id) {
 async function excluirUsuarioAdmin(id, nome, email) {
     const conf1 = confirm(`Tem certeza que quer EXCLUIR a conta de ${nome} (${email})?\n\nIsso vai:\n• Cancelar a assinatura Stripe (se existir)\n• Desconectar o WhatsApp\n• Apagar TODOS os dados (leads, imóveis, visitas)\n• Apagar o usuário do sistema\n\nNão tem como recuperar.`);
     if (!conf1) return;
-    const digitado = prompt(`Pra confirmar, digite EXCLUIR (em maiúsculas):`);
-    if (digitado !== 'EXCLUIR') {
+    const senha = prompt(`Pra confirmar, digite sua senha de administrador:`);
+    if (!senha) {
         toast('Cancelado', 'erro');
         return;
     }
@@ -4045,7 +4045,7 @@ async function excluirUsuarioAdmin(id, nome, email) {
         const res = await fetch('/api/admin/usuarios/' + id, {
             method: 'DELETE',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ confirmar: 'EXCLUIR' }),
+            body: JSON.stringify({ senha }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.erro || 'Falha ao excluir');
