@@ -1301,6 +1301,61 @@ app.get('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) =
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
+// Excluir usuario (admin only). Cancela Stripe, derruba instancia Evolution,
+// apaga dados em ordem de dependencia e por fim o registro do usuario.
+// Body: { confirmar: "EXCLUIR" } pra evitar acidente.
+app.delete('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) => {
+  if (req.body?.confirmar !== 'EXCLUIR') {
+    return res.status(400).json({ erro: 'Envie { "confirmar": "EXCLUIR" } no body' });
+  }
+  const targetId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(targetId) || targetId <= 0) {
+    return res.status(400).json({ erro: 'ID invalido' });
+  }
+  // Nao permitir excluir a si mesmo nem outros admins (evita lockout)
+  if (targetId === req.realUserId) {
+    return res.status(403).json({ erro: 'Nao pode excluir sua propria conta por aqui' });
+  }
+  try {
+    const { data: alvo } = await db.supabase
+      .from('usuarios')
+      .select('id, email, is_admin, stripe_customer_id, evolution_instance_name')
+      .eq('id', targetId)
+      .maybeSingle();
+    if (!alvo) return res.status(404).json({ erro: 'Usuario nao encontrado' });
+    if (alvo.is_admin) {
+      return res.status(403).json({ erro: 'Nao e possivel excluir outro admin pelo painel' });
+    }
+
+    // Cancela Stripe se existir
+    if (stripe && alvo.stripe_customer_id) {
+      try {
+        const subs = await stripe.subscriptions.list({ customer: alvo.stripe_customer_id, status: 'active' });
+        for (const sub of subs.data) await stripe.subscriptions.cancel(sub.id);
+      } catch (e) { console.error('[admin/excluir] Stripe:', e.message); }
+    }
+
+    // Derruba instancia Evolution se existir
+    if (evolution && alvo.evolution_instance_name) {
+      try { await evolution.deleteInstance(targetId); } catch (e) { console.error('[admin/excluir] Evolution:', e.message); }
+    }
+
+    // Apaga dependentes primeiro
+    await db.supabase.from('leads').delete().eq('usuario_id', targetId);
+    await db.supabase.from('imoveis').delete().eq('usuario_id', targetId);
+    await db.supabase.from('visitas').delete().eq('usuario_id', targetId);
+    await db.supabase.from('password_resets').delete().eq('user_id', targetId);
+    await db.supabase.from('usuarios').delete().eq('id', targetId);
+
+    console.log(`[admin/excluir] admin=${req.realUserId} (${req.realUserEmail}) excluiu user=${targetId} (${alvo.email})`);
+
+    res.json({ ok: true, deletedId: targetId, deletedEmail: alvo.email });
+  } catch (err) {
+    console.error('[admin/excluir]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // Proteger todas as rotas /api (exceto auth e webhook)
 // ─────────────────────────────────────────────
 // Limites por plano
