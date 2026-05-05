@@ -9,7 +9,7 @@ const { supabase } = require('./supabase');
 let emails = null;
 try { emails = require('./emails'); } catch {}
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 3;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido'); process.exit(1); }
@@ -27,7 +27,7 @@ async function registrar(nome, email, senha) {
 
   const senha_hash = await bcrypt.hash(senha, 10);
 
-  // Trial automatico de 14 dias
+  // Trial automatico (TRIAL_DAYS dias)
   const trialExpiresAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data, error } = await supabase

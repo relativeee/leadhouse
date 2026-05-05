@@ -64,7 +64,7 @@ async function send({ to, subject, html }) {
 async function sendWelcome({ to, nome }) {
   const content = `
     <p style="font-size:15px;line-height:1.6">Olá ${nome || ''}, seja bem-vindo(a) à LeadHouse!</p>
-    <p style="font-size:15px;line-height:1.6">Você ganhou <b>14 dias gratuitos</b> pra testar tudo — leads ilimitados, integração com WhatsApp e o agente de IA. Sem cartão de crédito.</p>
+    <p style="font-size:15px;line-height:1.6">Você ganhou <b>3 dias gratuitos</b> pra testar tudo — leads ilimitados, integração com WhatsApp e o agente de IA. Sem cartão de crédito.</p>
     ${btn(SITE_URL, 'Acessar minha conta')}
     <p style="font-size:14px;line-height:1.6;color:#aaa">Em 5 minutos você consegue:</p>
     <ul style="font-size:14px;line-height:1.8;color:#aaa;padding-left:20px">
@@ -74,7 +74,7 @@ async function sendWelcome({ to, nome }) {
     </ul>
     <p style="font-size:13px;color:#888;line-height:1.6">Qualquer dúvida, é só responder este email.</p>
   `;
-  return send({ to, subject: 'Bem-vindo à LeadHouse — 14 dias grátis', html: wrap(content, 'Boas-vindas') });
+  return send({ to, subject: 'Bem-vindo à LeadHouse — 3 dias grátis', html: wrap(content, 'Boas-vindas') });
 }
 
 async function sendTrialExpiring({ to, nome, diasRestantes }) {

@@ -1991,7 +1991,7 @@ function checkPaywall(user) {
         const trialExpired = user && user.plano === 'trial' && user.trial_expires_at && new Date(user.trial_expires_at).getTime() < Date.now();
         if (trialExpired && titleEl && subEl) {
             titleEl.textContent = 'Seu trial acabou';
-            subEl.textContent = 'Os 14 dias gratuitos terminaram. Escolha um plano pra continuar — todos os seus leads, imóveis e visitas continuam guardados.';
+            subEl.textContent = 'Os 3 dias gratuitos terminaram. Escolha um plano pra continuar — todos os seus leads, imóveis e visitas continuam guardados.';
         } else if (titleEl && subEl) {
             titleEl.textContent = 'Escolha seu plano';
             subEl.textContent = 'Pra acessar o LeadHouse e parar de perder vendas, escolha um plano abaixo. Você pode trocar ou cancelar quando quiser.';
