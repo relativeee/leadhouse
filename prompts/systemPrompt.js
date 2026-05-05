@@ -347,7 +347,9 @@ Nesses casos, diga:
 **FIM DO PROMPT**`;
 
 function buildSystemPrompt({ nomeCorretor, tempoResposta } = {}) {
-  const nome = (nomeCorretor && String(nomeCorretor).trim()) || 'Lead House';
+  // Usa o nome do corretor que recebeu (idealmente primeiro nome, mais natural no WA).
+  // Fallback "seu corretor" pra casos raros onde o nome do corretor nao foi carregado.
+  const nome = (nomeCorretor && String(nomeCorretor).trim()) || 'seu corretor';
   const tempo = (tempoResposta && String(tempoResposta).trim()) || '30 minutos';
   return TEMPLATE
     .replace(/\{\{NOME_CORRETOR\}\}/g, nome)

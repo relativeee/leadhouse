@@ -780,7 +780,9 @@ app.post('/webhook/evolution', async (req, res) => {
           console.warn('[evolution] Lia ou evolution service indisponivel');
           return;
         }
-        const resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: user.nome });
+        // Primeiro nome soa mais natural no WhatsApp ("Lucas te encontra" vs "Lucas Tavares te encontra")
+        const primeiroNome = (user.nome || '').trim().split(/\s+/)[0] || 'seu corretor';
+        const resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: primeiroNome });
         conversa.historico.push({ role: 'assistant', content: resposta });
         await evolution.sendText(user.id, telefone, resposta);
       } catch (err) {
@@ -1601,6 +1603,7 @@ app.post('/webhook', async (req, res) => {
   }
 
   // Busca o nome do corretor pra injetar no prompt da Lia
+  // Usa primeiro nome — soa mais natural no WhatsApp brasileiro
   let nomeCorretor = null;
   if (userIdDestino) {
     const { data: corretor } = await db.supabase
@@ -1608,7 +1611,7 @@ app.post('/webhook', async (req, res) => {
       .select('nome')
       .eq('id', userIdDestino)
       .maybeSingle();
-    nomeCorretor = corretor?.nome || null;
+    if (corretor?.nome) nomeCorretor = corretor.nome.trim().split(/\s+/)[0] || null;
   }
 
   // Extração pré-resposta: permite Lia saber quais imoveis oferecer
