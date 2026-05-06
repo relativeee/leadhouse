@@ -125,8 +125,9 @@ async function deleteInstance(userId) {
  */
 async function sendText(userId, telefone, texto) {
   const instanceName = instanceNameFor(userId);
-  // Pausa humana 1.5-4s antes
-  const pause = 1500 + Math.random() * 2500;
+  // Pausa humana curta (0.5-1.5s). O `delay: 1200` no body adiciona typing indicator
+  // de mais 1.2s no proprio WhatsApp — efeito humano combinado.
+  const pause = 500 + Math.random() * 1000;
   await new Promise(r => setTimeout(r, pause));
   const number = String(telefone).replace(/\D/g, '');
   return call(`/message/sendText/${instanceName}`, {

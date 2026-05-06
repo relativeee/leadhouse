@@ -707,12 +707,12 @@ app.post('/api/whatsapp-personal/disconnect', authMiddleware, async (req, res) =
 
 // Webhook que a Evolution chama quando algo acontece (mensagem recebida, conexao mudou, etc.)
 app.post('/webhook/evolution', async (req, res) => {
-  // Resposta rapida pra Evolution nao retentar — processamento async
-  res.json({ received: true });
+  // IMPORTANTE: NAO chamar res.json() no comeco. Em serverless do Vercel a funcao
+  // pode ser morta logo apos a resposta — precisamos terminar tudo antes de responder.
   try {
     const event = req.body?.event;
     const instanceName = req.body?.instance;
-    if (!event || !instanceName) return;
+    if (!event || !instanceName) return res.json({ received: true });
 
     // Identifica o usuario dono dessa instancia
     const { data: user } = await db.supabase
@@ -722,33 +722,33 @@ app.post('/webhook/evolution', async (req, res) => {
       .maybeSingle();
     if (!user) {
       console.warn('[evolution webhook] instancia sem dono:', instanceName);
-      return;
+      return res.json({ received: true });
     }
 
     if (event === 'connection.update' || event === 'CONNECTION_UPDATE') {
       const state = req.body?.data?.state;
-      const me = req.body?.data?.wuid || req.body?.data?.user?.id || null; // ex: 5583991040402@s.whatsapp.net
+      const me = req.body?.data?.wuid || req.body?.data?.user?.id || null;
       const phoneNumber = me ? me.split('@')[0] : null;
       const updates = { evolution_instance_status: state === 'open' ? 'connected' : (state || 'disconnected') };
       if (phoneNumber) updates.evolution_phone_number = phoneNumber;
       if (state === 'open') updates.evolution_connected_at = new Date().toISOString();
       await db.supabase.from('usuarios').update(updates).eq('id', user.id);
-      return;
+      return res.json({ received: true });
     }
 
     if (event === 'messages.upsert' || event === 'MESSAGES_UPSERT') {
       const msg = req.body?.data;
-      if (!msg || msg.key?.fromMe) return; // Ignora mensagens enviadas por nos
+      if (!msg || msg.key?.fromMe) return res.json({ received: true });
       const remoteJid = msg.key?.remoteJid || '';
-      if (remoteJid.endsWith('@g.us')) return; // Ignora grupos por enquanto
+      if (remoteJid.endsWith('@g.us')) return res.json({ received: true });
       const telefone = remoteJid.split('@')[0];
       const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-      if (!texto.trim()) return;
+      if (!texto.trim()) return res.json({ received: true });
 
-      // Dedup por messageId — Evolution as vezes reentrega o mesmo evento
+      // Dedup por messageId
       const messageId = msg.key?.id;
       const conversa = getConversa(telefone);
-      if (messageId && conversa.mensagensProcessadas.has(messageId)) return;
+      if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
       if (messageId) conversa.mensagensProcessadas.add(messageId);
 
       // Cold start: serverless perde memoria. Recupera historico do DB se vazio.
@@ -774,52 +774,76 @@ app.post('/webhook/evolution', async (req, res) => {
       conversa.historico.push({ role: 'user', content: texto });
       if (conversa.historico.length > 20) conversa.historico = conversa.historico.slice(-20);
 
-      // Bloco 1: Lia gera resposta e responde via Evolution (CRITICO)
+      // Bloco 1: Lia gera resposta
+      let resposta;
       try {
         if (!gerarResposta || !evolution) {
           console.warn('[evolution] Lia ou evolution service indisponivel');
-          return;
+          return res.json({ received: true });
         }
-        // Primeiro nome soa mais natural no WhatsApp ("Lucas te encontra" vs "Lucas Tavares te encontra")
         const primeiroNome = (user.nome || '').trim().split(/\s+/)[0] || 'seu corretor';
-        const resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: primeiroNome });
+        resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: primeiroNome });
         conversa.historico.push({ role: 'assistant', content: resposta });
-        await evolution.sendText(user.id, telefone, resposta);
       } catch (err) {
-        console.error(`[evolution] erro ao gerar/enviar resposta pra ${telefone}:`, err.message);
+        console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
         try { await evolution.sendText(user.id, telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch {}
-        return;
+        return res.json({ received: true });
       }
 
-      // Bloco 2: Persistencia (NAO critico — historico_json alimenta a aba Comunicacoes)
+      // Bloco 2: SALVA HISTORICO ANTES de mandar — garante persistencia mesmo se Evolution falhar
+      // ou se o Vercel matar a funcao depois. Aba Comunicacoes le dessa coluna.
+      const totalMsgsUser = conversa.historico.filter(m => m.role === 'user').length;
       try {
-        let leadData = { nome: msg.pushName || '', temperatura: 'frio' };
-        if (extrairDadosLead && validarEAjustarLead) {
-          const bruto = await extrairDadosLead(conversa.historico);
-          leadData = validarEAjustarLead(bruto);
-        }
-        const totalMsgsUser = conversa.historico.filter(m => m.role === 'user').length;
         await db.upsertLeadWhatsApp(telefone, {
-          nome: leadData.nome || msg.pushName || '',
-          objetivo: leadData.objetivo || '',
-          tipo_imovel: leadData.tipo_imovel || '',
-          bairro: leadData.bairro || '',
-          faixa_valor: leadData.faixa_valor || '',
-          pagamento: leadData.pagamento || '',
-          prazo: leadData.prazo || '',
-          temperatura: leadData.temperatura || 'frio',
-          proximo_passo: leadData.proximo_passo || '',
-          resumo: leadData.resumo || '',
+          nome: msg.pushName || '',
+          temperatura: 'frio',
           total_mensagens: totalMsgsUser,
           historico_json: JSON.stringify(conversa.historico.slice(-30)),
         }, user.id);
       } catch (err) {
-        console.error(`[evolution] erro persistencia ${telefone}:`, err.message);
+        console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
       }
+
+      // Bloco 3: Envia resposta via Evolution
+      try {
+        await evolution.sendText(user.id, telefone, resposta);
+      } catch (err) {
+        console.error(`[evolution] erro ao enviar via Evolution pra ${telefone}:`, err.message);
+      }
+
+      // Bloco 4: Enriquece lead com extracao de dados (best effort)
+      // Roda em background — se Vercel matar antes, ok. Historico ja foi salvo no Bloco 2.
+      try {
+        if (extrairDadosLead && validarEAjustarLead) {
+          const bruto = await extrairDadosLead(conversa.historico);
+          const leadData = validarEAjustarLead(bruto);
+          await db.upsertLeadWhatsApp(telefone, {
+            nome: leadData.nome || msg.pushName || '',
+            objetivo: leadData.objetivo || '',
+            tipo_imovel: leadData.tipo_imovel || '',
+            bairro: leadData.bairro || '',
+            faixa_valor: leadData.faixa_valor || '',
+            pagamento: leadData.pagamento || '',
+            prazo: leadData.prazo || '',
+            temperatura: leadData.temperatura || 'frio',
+            proximo_passo: leadData.proximo_passo || '',
+            resumo: leadData.resumo || '',
+            total_mensagens: totalMsgsUser,
+            historico_json: JSON.stringify(conversa.historico.slice(-30)),
+          }, user.id);
+        }
+      } catch (err) {
+        console.error(`[evolution] erro extracao lead ${telefone}:`, err.message);
+      }
+
+      return res.json({ received: true });
     }
+    // Evento desconhecido (qrcode_updated, etc) — apenas confirma recebimento
+    return res.json({ received: true });
   } catch (err) {
     console.error('[evolution webhook] erro:', err.message);
     if (Sentry) Sentry.captureException(err);
+    if (!res.headersSent) res.status(500).json({ erro: 'erro interno' });
   }
 });
 
