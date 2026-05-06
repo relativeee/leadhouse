@@ -55,6 +55,10 @@ try { evolution = require('./services/evolution'); } catch (e) { console.warn('[
 
 const app = express();
 
+// Vercel coloca um proxy na frente — precisamos confiar pra rate-limit e
+// req.ip funcionarem com o header X-Forwarded-For corretamente.
+app.set('trust proxy', 1);
+
 // ─────────────────────────────────────────────
 // Stripe webhook (precisa do raw body — antes do express.json)
 // ─────────────────────────────────────────────
