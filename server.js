@@ -755,7 +755,8 @@ app.post('/webhook/evolution', async (req, res) => {
       if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
       if (messageId) conversa.mensagensProcessadas.add(messageId);
 
-      // Cold start: serverless perde memoria. Recupera historico do DB se vazio.
+      // Cold start: serverless perde memoria. Recupera historico + imoveis ja
+      // enviados do DB (persistencia via historico_json estruturado).
       if (conversa.historico.length === 0) {
         try {
           const { data: leadAnterior } = await db.supabase
@@ -767,7 +768,16 @@ app.post('/webhook/evolution', async (req, res) => {
             .maybeSingle();
           if (leadAnterior?.historico_json) {
             const parsed = JSON.parse(leadAnterior.historico_json);
-            if (Array.isArray(parsed) && parsed.length) conversa.historico = parsed;
+            // Formato novo: { v: 2, messages: [...], imoveisEnviados: [...] }
+            // Formato antigo (compat): [...] direto
+            if (Array.isArray(parsed)) {
+              conversa.historico = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              if (Array.isArray(parsed.messages)) conversa.historico = parsed.messages;
+              if (Array.isArray(parsed.imoveisEnviados)) {
+                conversa.imoveisEnviados = new Set(parsed.imoveisEnviados);
+              }
+            }
           }
         } catch (e) {
           console.warn(`[evolution] falha ao carregar historico de ${telefone}:`, e.message);
@@ -780,7 +790,7 @@ app.post('/webhook/evolution', async (req, res) => {
       // antes de oferecer visita; manter contexto evita Lia repetir perguntas.
       if (conversa.historico.length > 40) conversa.historico = conversa.historico.slice(-40);
 
-      // Cache de imoveis ja oferecidos nesse contato (evita repetir)
+      // Cache de imoveis ja oferecidos nesse contato (vem do DB se carregou)
       if (!conversa.imoveisEnviados) conversa.imoveisEnviados = new Set();
 
       // Bloco PRE-RESPOSTA: extrai dados pra decidir se tem imovel pra oferecer
@@ -877,12 +887,18 @@ app.post('/webhook/evolution', async (req, res) => {
       // Bloco 2: SALVA HISTORICO ANTES de mandar — garante persistencia mesmo se Evolution falhar
       // ou se o Vercel matar a funcao depois. Aba Comunicacoes le dessa coluna.
       const totalMsgsUser = conversa.historico.filter(m => m.role === 'user').length;
+      // Formato novo: serializa historico + imoveis ja oferecidos (evita re-mandar mesma foto em cold starts)
+      const buildHistoricoJson = () => JSON.stringify({
+        v: 2,
+        messages: conversa.historico.slice(-40),
+        imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+      });
       try {
         await db.upsertLeadWhatsApp(telefone, {
           nome: msg.pushName || '',
           temperatura: 'frio',
           total_mensagens: totalMsgsUser,
-          historico_json: JSON.stringify(conversa.historico.slice(-40)),
+          historico_json: buildHistoricoJson(),
         }, user.id);
       } catch (err) {
         console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
@@ -929,7 +945,7 @@ app.post('/webhook/evolution', async (req, res) => {
             proximo_passo: ld.proximo_passo || '',
             resumo: ld.resumo || '',
             total_mensagens: totalMsgsUser,
-            historico_json: JSON.stringify(conversa.historico.slice(-40)),
+            historico_json: buildHistoricoJson(),
           }, user.id);
         }
       } catch (err) {
@@ -1690,7 +1706,12 @@ app.post('/webhook', async (req, res) => {
         .maybeSingle();
       if (leadAnterior?.historico_json) {
         const parsed = JSON.parse(leadAnterior.historico_json);
-        if (Array.isArray(parsed) && parsed.length) conversa.historico = parsed;
+        // Compat: array (formato antigo) OU objeto { messages, imoveisEnviados } (novo)
+        if (Array.isArray(parsed) && parsed.length) {
+          conversa.historico = parsed;
+        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) {
+          conversa.historico = parsed.messages;
+        }
       }
     } catch (e) {
       console.warn(`[Webhook] Falha ao carregar historico do Supabase para ${telefone}:`, e.message);
@@ -1967,7 +1988,12 @@ app.get('/api/leads/:telefone/conversa', async (req, res) => {
     if (!lead) return res.status(404).json({ erro: 'Lead nao encontrado' });
     let historico = [];
     if (lead.historico_json) {
-      try { historico = JSON.parse(lead.historico_json); } catch {}
+      try {
+        const parsed = JSON.parse(lead.historico_json);
+        // Compat: array OU objeto { messages, imoveisEnviados }
+        if (Array.isArray(parsed)) historico = parsed;
+        else if (parsed && Array.isArray(parsed.messages)) historico = parsed.messages;
+      } catch {}
     }
     // Fallback: se o lead está em memória, usa o histórico da memória
     if (!historico.length && conversas[req.params.telefone]) {
