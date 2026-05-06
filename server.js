@@ -983,7 +983,7 @@ app.post('/webhook/evolution', async (req, res) => {
             .eq('horario', va.horario)
             .maybeSingle();
           if (!jaExiste) {
-            await db.criarVisita({
+            const novaVisita = await db.criarVisita({
               lead_nome: leadDataExtraida.nome && leadDataExtraida.nome !== 'não informado' ? leadDataExtraida.nome : (msg.pushName || 'Lead WhatsApp'),
               lead_telefone: telefone,
               imovel_titulo: va.imovel_titulo && va.imovel_titulo !== 'não especificado' ? va.imovel_titulo : '',
@@ -995,6 +995,8 @@ app.post('/webhook/evolution', async (req, res) => {
               status: 'agendada',
             }, user.id);
             console.log(`[evolution] visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
+            // Cria evento no Google Calendar do corretor (se conectado)
+            criarEventoGCal(user.id, novaVisita).catch(e => console.error('[gcal evolution]', e.message));
           }
         }
       } catch (err) {
@@ -1972,7 +1974,7 @@ app.post('/webhook', async (req, res) => {
           .eq('horario', va.horario)
           .maybeSingle();
         if (!jaExiste) {
-          await db.criarVisita({
+          const novaVisita = await db.criarVisita({
             lead_nome: leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Lead WhatsApp',
             lead_telefone: telefone,
             imovel_titulo: va.imovel_titulo && va.imovel_titulo !== 'não especificado' ? va.imovel_titulo : '',
@@ -1984,6 +1986,8 @@ app.post('/webhook', async (req, res) => {
             status: 'agendada',
           }, userIdDestino);
           console.log(`[Webhook] Visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
+          // Cria evento no Google Calendar do corretor (se conectado)
+          criarEventoGCal(userIdDestino, novaVisita).catch(e => console.error('[gcal meta]', e.message));
         }
       } catch (e) {
         console.error(`[Webhook] Erro ao criar visita automatica:`, e.message);
