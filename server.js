@@ -881,8 +881,29 @@ app.post('/webhook/evolution', async (req, res) => {
           return res.json({ received: true });
         }
 
-        // Monta contextoExtra com horarios livres (pra Lia oferecer slot real) + imoveis
+        // Monta contextoExtra com:
+        // 1. Dados ja coletados (pra Lia NAO repetir perguntas — instrucao explicita)
+        // 2. Horarios livres (pra oferecer slot real)
+        // 3. Imoveis pra oferecer
         let contextoExtra = '';
+
+        // Bloco anti-repeticao: lista o que ja foi coletado e impede Lia de perguntar de novo
+        if (leadDataExtraida) {
+          const ld = leadDataExtraida;
+          const coletados = [];
+          const naoInformado = (v) => !v || v === 'não informado' || v === 'nao informado';
+          if (!naoInformado(ld.nome)) coletados.push(`nome: ${ld.nome}`);
+          if (!naoInformado(ld.objetivo)) coletados.push(`intenção: ${ld.objetivo}`);
+          if (!naoInformado(ld.tipo_imovel)) coletados.push(`tipo de imóvel: ${ld.tipo_imovel}`);
+          if (!naoInformado(ld.bairro)) coletados.push(`bairro/região: ${ld.bairro}`);
+          if (!naoInformado(ld.faixa_valor)) coletados.push(`faixa de valor: ${ld.faixa_valor}`);
+          if (!naoInformado(ld.pagamento)) coletados.push(`forma de pagamento: ${ld.pagamento}`);
+          if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
+          if (coletados.length) {
+            contextoExtra += `\n[DADOS JÁ COLETADOS — NÃO PERGUNTE NOVAMENTE]\n${coletados.join('\n')}\n\nNao pergunte sobre nada acima. Use os dados ja coletados pra avancar a conversa. Pergunte SOMENTE sobre o que falta da lista das 7 informacoes-chave (ver secao 4 do prompt).`;
+          }
+        }
+
         try {
           const slotsLivres = await calcularHorariosLivres(user.id);
           if (slotsLivres) {
