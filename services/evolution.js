@@ -141,22 +141,48 @@ async function sendText(userId, telefone, texto) {
 }
 
 /**
- * Envia imagem com legenda. `urlOrBase64` pode ser URL publica ou string base64.
- * Inclui pequena pausa antes pra parecer humano.
+ * Baixa uma URL e converte pra base64 puro (sem prefixo `data:`).
+ * Necessario porque algumas instalacoes do Evolution nao conseguem buscar URLs
+ * (CORS, tokens, etc) — mandar base64 elimina essa dependencia de rede.
+ */
+async function urlParaBase64(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`fetch da imagem falhou: ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  return buf.toString('base64');
+}
+
+/**
+ * Envia imagem com legenda. Aceita URL ou base64 — se for URL, baixa primeiro
+ * e converte (mais confiavel que deixar Evolution baixar).
  */
 async function sendImage(userId, telefone, urlOrBase64, caption = '') {
   const instanceName = instanceNameFor(userId);
   await new Promise(r => setTimeout(r, 500 + Math.random() * 800));
   const number = String(telefone).replace(/\D/g, '');
+
+  // Se for URL, baixa e converte pra base64
+  let media = urlOrBase64;
+  const isUrl = typeof urlOrBase64 === 'string' && /^https?:\/\//i.test(urlOrBase64);
+  if (isUrl) {
+    try {
+      media = await urlParaBase64(urlOrBase64);
+      console.log(`[evolution.sendImage] URL convertida pra base64 (${media.length} chars)`);
+    } catch (err) {
+      console.error(`[evolution.sendImage] falha ao baixar URL ${urlOrBase64}:`, err.message);
+      throw err;
+    }
+  }
+
   const body = {
     number,
     mediatype: 'image',
     mimetype: 'image/jpeg',
-    media: urlOrBase64,
+    media,
     caption: caption || undefined,
     fileName: 'imovel.jpg',
   };
-  console.log(`[evolution.sendImage] instance=${instanceName} to=${number} mediaPreview=${String(urlOrBase64).slice(0, 80)}...`);
+  console.log(`[evolution.sendImage] instance=${instanceName} to=${number} mode=${isUrl ? 'base64-from-url' : 'direct'}`);
   try {
     const r = await call(`/message/sendMedia/${instanceName}`, { method: 'POST', body });
     console.log(`[evolution.sendImage] OK`);
