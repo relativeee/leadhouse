@@ -161,22 +161,26 @@ async function sendImage(userId, telefone, urlOrBase64, caption = '') {
   await new Promise(r => setTimeout(r, 500 + Math.random() * 800));
   const number = String(telefone).replace(/\D/g, '');
 
-  // Se for URL, baixa e converte pra base64 com prefixo data URL.
-  // Evolution v2.x exige formato 'data:image/jpeg;base64,...' (nao aceita base64 puro).
+  // Evolution v2.x valida `media` com isURL || isBase64 (validator.js).
+  // - URL: deve ser http/https e nao retornar erro pro Evolution baixar
+  // - base64: PURO, sem prefixo 'data:image/...,'
+  // Vamos baixar a URL nos mesmos e mandar base64 puro (mais confiavel
+  // que deixar Evolution baixar em redes restritas).
   let media = urlOrBase64;
   const isUrl = typeof urlOrBase64 === 'string' && /^https?:\/\//i.test(urlOrBase64);
   if (isUrl) {
     try {
-      const b64 = await urlParaBase64(urlOrBase64);
-      media = `data:image/jpeg;base64,${b64}`;
-      console.log(`[evolution.sendImage] URL convertida pra data URL (${media.length} chars)`);
+      // base64 puro, sem prefixo data:
+      media = await urlParaBase64(urlOrBase64);
+      console.log(`[evolution.sendImage] URL convertida pra base64 puro (${media.length} chars)`);
     } catch (err) {
       console.error(`[evolution.sendImage] falha ao baixar URL ${urlOrBase64}:`, err.message);
       throw err;
     }
-  } else if (typeof urlOrBase64 === 'string' && !urlOrBase64.startsWith('data:')) {
-    // Caller passou base64 puro — adiciona prefixo
-    media = `data:image/jpeg;base64,${urlOrBase64}`;
+  } else if (typeof urlOrBase64 === 'string' && urlOrBase64.startsWith('data:')) {
+    // Caller passou data URL — extrai so a parte base64
+    const idx = urlOrBase64.indexOf('base64,');
+    if (idx >= 0) media = urlOrBase64.slice(idx + 7);
   }
 
   const body = {
