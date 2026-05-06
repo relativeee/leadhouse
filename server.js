@@ -875,8 +875,21 @@ app.post('/webhook/evolution', async (req, res) => {
           console.warn('[evolution] Lia ou evolution service indisponivel');
           return res.json({ received: true });
         }
+
+        // Monta contextoExtra com horarios livres (pra Lia oferecer slot real) + imoveis
+        let contextoExtra = '';
+        try {
+          const slotsLivres = await calcularHorariosLivres(user.id);
+          if (slotsLivres) {
+            contextoExtra += `\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
+          }
+        } catch (e) {
+          console.warn(`[evolution] erro calcularHorariosLivres:`, e.message);
+        }
+        if (contextoImoveis) contextoExtra += contextoImoveis;
+
         const primeiroNome = (user.nome || '').trim().split(/\s+/)[0] || 'seu corretor';
-        resposta = await gerarResposta(conversa.historico, contextoImoveis || undefined, { nomeCorretor: primeiroNome });
+        resposta = await gerarResposta(conversa.historico, contextoExtra || undefined, { nomeCorretor: primeiroNome });
         conversa.historico.push({ role: 'assistant', content: resposta });
       } catch (err) {
         console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
@@ -950,6 +963,42 @@ app.post('/webhook/evolution', async (req, res) => {
         }
       } catch (err) {
         console.error(`[evolution] erro upsert enriquecido ${telefone}:`, err.message);
+      }
+
+      // Bloco 5: Cria visita automaticamente se Lia agendou (visita_agendada.confirmada)
+      try {
+        const va = leadDataExtraida?.visita_agendada;
+        if (
+          va && va.confirmada === true &&
+          va.data && va.data !== 'não' && /^\d{4}-\d{2}-\d{2}$/.test(va.data) &&
+          va.horario && va.horario !== 'não' && /^\d{2}:\d{2}$/.test(va.horario)
+        ) {
+          // Evita duplicar
+          const { data: jaExiste } = await db.supabase
+            .from('visitas')
+            .select('id')
+            .eq('usuario_id', user.id)
+            .eq('lead_telefone', telefone)
+            .eq('data', va.data)
+            .eq('horario', va.horario)
+            .maybeSingle();
+          if (!jaExiste) {
+            await db.criarVisita({
+              lead_nome: leadDataExtraida.nome && leadDataExtraida.nome !== 'não informado' ? leadDataExtraida.nome : (msg.pushName || 'Lead WhatsApp'),
+              lead_telefone: telefone,
+              imovel_titulo: va.imovel_titulo && va.imovel_titulo !== 'não especificado' ? va.imovel_titulo : '',
+              endereco: '',
+              data: va.data,
+              horario: va.horario,
+              corretor: user.nome || '',
+              observacoes: 'Agendada automaticamente pela Lia via WhatsApp',
+              status: 'agendada',
+            }, user.id);
+            console.log(`[evolution] visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
+          }
+        }
+      } catch (err) {
+        console.error(`[evolution] erro criar visita ${telefone}:`, err.message);
       }
 
       return res.json({ received: true });
