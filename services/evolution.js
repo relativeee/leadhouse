@@ -146,19 +146,25 @@ async function sendText(userId, telefone, texto) {
  */
 async function sendImage(userId, telefone, urlOrBase64, caption = '') {
   const instanceName = instanceNameFor(userId);
-  // Pausa curta antes (envio de midia ja tem typing implicito no app)
   await new Promise(r => setTimeout(r, 500 + Math.random() * 800));
   const number = String(telefone).replace(/\D/g, '');
-  return call(`/message/sendMedia/${instanceName}`, {
-    method: 'POST',
-    body: {
-      number,
-      mediatype: 'image',
-      media: urlOrBase64,
-      caption: caption || undefined,
-      fileName: 'imovel.jpg',
-    },
-  });
+  const body = {
+    number,
+    mediatype: 'image',
+    mimetype: 'image/jpeg',
+    media: urlOrBase64,
+    caption: caption || undefined,
+    fileName: 'imovel.jpg',
+  };
+  console.log(`[evolution.sendImage] instance=${instanceName} to=${number} mediaPreview=${String(urlOrBase64).slice(0, 80)}...`);
+  try {
+    const r = await call(`/message/sendMedia/${instanceName}`, { method: 'POST', body });
+    console.log(`[evolution.sendImage] OK`);
+    return r;
+  } catch (err) {
+    console.error(`[evolution.sendImage] FALHA status=${err.status} msg=${err.message} body=`, err.body);
+    throw err;
+  }
 }
 
 module.exports = {
