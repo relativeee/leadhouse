@@ -543,8 +543,13 @@ app.put('/api/auth/me', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────
 // Google Calendar — OAuth + criacao de eventos
 // ─────────────────────────────────────────────
+// Usa scope NAO-SENSITIVE do Google: 'calendar.app.created' so permite ao app
+// criar/ler/editar os eventos que ELE PROPRIO criou — nao precisa verificacao
+// Google e qualquer corretor pode conectar sem ser test user. Em troca, nao
+// conseguimos ler outros eventos do calendario do corretor (mas tambem nao
+// precisamos — calcularHorariosLivres usa nosso DB local, nao o GCal).
 const GOOGLE_SCOPES = [
-  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/calendar.app.created',
   'https://www.googleapis.com/auth/userinfo.email',
   'openid',
 ].join(' ');
