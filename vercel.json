@@ -9,10 +9,16 @@
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["public/**", "prompts/**", "services/**", "utils/**"]
+        "includeFiles": ["public/**", "prompts/**", "services/**", "utils/**"],
+        "maxDuration": 60
       }
     }
   ],
+  "functions": {
+    "server.js": {
+      "maxDuration": 60
+    }
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/server.js" },
     { "src": "/webhook(.*)", "dest": "/server.js" },

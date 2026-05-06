@@ -780,13 +780,16 @@ app.post('/webhook/evolution', async (req, res) => {
       if (!conversa.imoveisEnviados) conversa.imoveisEnviados = new Set();
 
       // Bloco PRE-RESPOSTA: extrai dados pra decidir se tem imovel pra oferecer
+      // (resultado tambem reaproveitado no Bloco 4 — economiza 1 chamada Claude ~3s)
       let contextoImoveis = '';
       let imovelParaEnviar = null;
       let imovelEhAlternativo = false;
+      let leadDataExtraida = null;
       try {
         if (extrairDadosLead && validarEAjustarLead) {
           const bruto = await extrairDadosLead(conversa.historico);
           const leadData = validarEAjustarLead(bruto);
+          leadDataExtraida = leadData;
           const bairroLead = (leadData.bairro || '').trim();
           if (bairroLead && bairroLead !== 'não informado') {
             const tipoLead = (leadData.tipo_imovel || '').trim().toLowerCase();
@@ -905,29 +908,28 @@ app.post('/webhook/evolution', async (req, res) => {
         }
       }
 
-      // Bloco 4: Enriquece lead com extracao de dados (best effort)
-      // Roda em background — se Vercel matar antes, ok. Historico ja foi salvo no Bloco 2.
+      // Bloco 4: Enriquece lead com leadData ja extraida no pre-resposta (sem novo Claude call).
+      // Se a extracao falhou la, pula esse bloco — historico ja foi salvo no Bloco 2.
       try {
-        if (extrairDadosLead && validarEAjustarLead) {
-          const bruto = await extrairDadosLead(conversa.historico);
-          const leadData = validarEAjustarLead(bruto);
+        if (leadDataExtraida) {
+          const ld = leadDataExtraida;
           await db.upsertLeadWhatsApp(telefone, {
-            nome: leadData.nome || msg.pushName || '',
-            objetivo: leadData.objetivo || '',
-            tipo_imovel: leadData.tipo_imovel || '',
-            bairro: leadData.bairro || '',
-            faixa_valor: leadData.faixa_valor || '',
-            pagamento: leadData.pagamento || '',
-            prazo: leadData.prazo || '',
-            temperatura: leadData.temperatura || 'frio',
-            proximo_passo: leadData.proximo_passo || '',
-            resumo: leadData.resumo || '',
+            nome: ld.nome || msg.pushName || '',
+            objetivo: ld.objetivo || '',
+            tipo_imovel: ld.tipo_imovel || '',
+            bairro: ld.bairro || '',
+            faixa_valor: ld.faixa_valor || '',
+            pagamento: ld.pagamento || '',
+            prazo: ld.prazo || '',
+            temperatura: ld.temperatura || 'frio',
+            proximo_passo: ld.proximo_passo || '',
+            resumo: ld.resumo || '',
             total_mensagens: totalMsgsUser,
             historico_json: JSON.stringify(conversa.historico.slice(-40)),
           }, user.id);
         }
       } catch (err) {
-        console.error(`[evolution] erro extracao lead ${telefone}:`, err.message);
+        console.error(`[evolution] erro upsert enriquecido ${telefone}:`, err.message);
       }
 
       return res.json({ received: true });
