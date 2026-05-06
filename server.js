@@ -772,7 +772,84 @@ app.post('/webhook/evolution', async (req, res) => {
 
       console.log(`[evolution] msg user=${user.id} de=${telefone}: "${texto}" (hist=${conversa.historico.length})`);
       conversa.historico.push({ role: 'user', content: texto });
-      if (conversa.historico.length > 20) conversa.historico = conversa.historico.slice(-20);
+      // 40 mensagens = ~20 trocas. Conversa de qualificacao chega facil em 10-15 trocas
+      // antes de oferecer visita; manter contexto evita Lia repetir perguntas.
+      if (conversa.historico.length > 40) conversa.historico = conversa.historico.slice(-40);
+
+      // Cache de imoveis ja oferecidos nesse contato (evita repetir)
+      if (!conversa.imoveisEnviados) conversa.imoveisEnviados = new Set();
+
+      // Bloco PRE-RESPOSTA: extrai dados pra decidir se tem imovel pra oferecer
+      let contextoImoveis = '';
+      let imovelParaEnviar = null;
+      let imovelEhAlternativo = false;
+      try {
+        if (extrairDadosLead && validarEAjustarLead) {
+          const bruto = await extrairDadosLead(conversa.historico);
+          const leadData = validarEAjustarLead(bruto);
+          const bairroLead = (leadData.bairro || '').trim();
+          if (bairroLead && bairroLead !== 'não informado') {
+            const tipoLead = (leadData.tipo_imovel || '').trim().toLowerCase();
+            const valorAlvo = parseValorLead(leadData.faixa_valor);
+
+            // 1) Tenta no bairro exato
+            const { data: imoveisBairro } = await db.supabase
+              .from('imoveis')
+              .select('*')
+              .eq('usuario_id', user.id)
+              .eq('status', 'disponivel')
+              .ilike('bairro', `%${bairroLead}%`);
+
+            let candidatos = (imoveisBairro || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
+            if (tipoLead && tipoLead !== 'não informado') {
+              const porTipo = candidatos.filter(i => (i.tipo || '').toLowerCase().includes(tipoLead));
+              if (porTipo.length > 0) candidatos = porTipo;
+            }
+
+            if (candidatos.length === 1) {
+              imovelParaEnviar = candidatos[0];
+            } else if (candidatos.length >= 2) {
+              contextoImoveis = `\n[VÁRIOS IMÓVEIS DISPONÍVEIS]\nTem ${candidatos.length} imóveis disponíveis em ${bairroLead}. Antes de oferecer opções, pergunte ao cliente detalhes pra refinar — faixa de valor e quantos quartos. Não envie opções agora, só faça 1 pergunta pra estreitar.`;
+            } else {
+              // 2) Fallback: nada no bairro exato — busca alternativo
+              const { data: imoveisTodos } = await db.supabase
+                .from('imoveis')
+                .select('*')
+                .eq('usuario_id', user.id)
+                .eq('status', 'disponivel');
+
+              let alternativos = (imoveisTodos || []).filter(i => i.foto_url && !conversa.imoveisEnviados.has(i.id));
+              if (tipoLead && tipoLead !== 'não informado') {
+                const porTipo = alternativos.filter(i => (i.tipo || '').toLowerCase().includes(tipoLead));
+                if (porTipo.length > 0) alternativos = porTipo;
+              }
+              if (valorAlvo && alternativos.length > 1) {
+                alternativos = alternativos
+                  .map(i => ({ i, d: distanciaValor(i.valor, valorAlvo) }))
+                  .sort((a, b) => a.d - b.d)
+                  .map(x => x.i);
+              }
+              if (alternativos.length > 0) {
+                imovelParaEnviar = alternativos[0];
+                imovelEhAlternativo = true;
+              }
+            }
+
+            if (imovelParaEnviar) {
+              const detalhes = [imovelParaEnviar.titulo, imovelParaEnviar.bairro];
+              if (imovelParaEnviar.valor) detalhes.push(`R$ ${imovelParaEnviar.valor}`);
+              if (imovelParaEnviar.quartos) detalhes.push(`${imovelParaEnviar.quartos} quartos`);
+              if (imovelEhAlternativo) {
+                contextoImoveis = `\n[IMÓVEL ALTERNATIVO PRA OFERECER]\nNão temos imóvel disponível no bairro "${bairroLead}" no momento. Logo após sua próxima mensagem, o sistema vai enviar automaticamente a foto de um imóvel parecido: ${detalhes.join(' · ')}. Na sua resposta, seja honesta: diga que nesse bairro específico não tem no momento, mas tem esse outro com características parecidas em ${imovelParaEnviar.bairro}, e que vai mandar a foto pra ele ver. Pergunte se o bairro ${imovelParaEnviar.bairro} também pode interessar. Não descreva a foto — ela vai junto.`;
+              } else {
+                contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[evolution] erro pre-resposta (busca imovel):`, err.message);
+      }
 
       // Bloco 1: Lia gera resposta
       let resposta;
@@ -782,7 +859,7 @@ app.post('/webhook/evolution', async (req, res) => {
           return res.json({ received: true });
         }
         const primeiroNome = (user.nome || '').trim().split(/\s+/)[0] || 'seu corretor';
-        resposta = await gerarResposta(conversa.historico, undefined, { nomeCorretor: primeiroNome });
+        resposta = await gerarResposta(conversa.historico, contextoImoveis || undefined, { nomeCorretor: primeiroNome });
         conversa.historico.push({ role: 'assistant', content: resposta });
       } catch (err) {
         console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
@@ -798,7 +875,7 @@ app.post('/webhook/evolution', async (req, res) => {
           nome: msg.pushName || '',
           temperatura: 'frio',
           total_mensagens: totalMsgsUser,
-          historico_json: JSON.stringify(conversa.historico.slice(-30)),
+          historico_json: JSON.stringify(conversa.historico.slice(-40)),
         }, user.id);
       } catch (err) {
         console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
@@ -809,6 +886,23 @@ app.post('/webhook/evolution', async (req, res) => {
         await evolution.sendText(user.id, telefone, resposta);
       } catch (err) {
         console.error(`[evolution] erro ao enviar via Evolution pra ${telefone}:`, err.message);
+      }
+
+      // Bloco 3b: Se tem imovel pra oferecer, manda foto + caption logo depois (best-effort)
+      if (imovelParaEnviar && evolution.sendImage) {
+        try {
+          const capParts = [imovelParaEnviar.titulo];
+          if (imovelParaEnviar.bairro) capParts.push(imovelParaEnviar.bairro);
+          if (imovelParaEnviar.valor) capParts.push(`R$ ${imovelParaEnviar.valor}`);
+          if (imovelParaEnviar.quartos) capParts.push(`${imovelParaEnviar.quartos} quartos`);
+          if (imovelParaEnviar.vagas) capParts.push(`${imovelParaEnviar.vagas} vagas`);
+          if (imovelParaEnviar.area) capParts.push(`${imovelParaEnviar.area}m²`);
+          const caption = capParts.join(' · ');
+          await evolution.sendImage(user.id, telefone, imovelParaEnviar.foto_url, caption);
+          conversa.imoveisEnviados.add(imovelParaEnviar.id);
+        } catch (err) {
+          console.error(`[evolution] erro ao enviar foto do imovel ${imovelParaEnviar.id}:`, err.message);
+        }
       }
 
       // Bloco 4: Enriquece lead com extracao de dados (best effort)
@@ -829,7 +923,7 @@ app.post('/webhook/evolution', async (req, res) => {
             proximo_passo: leadData.proximo_passo || '',
             resumo: leadData.resumo || '',
             total_mensagens: totalMsgsUser,
-            historico_json: JSON.stringify(conversa.historico.slice(-30)),
+            historico_json: JSON.stringify(conversa.historico.slice(-40)),
           }, user.id);
         }
       } catch (err) {
@@ -1772,7 +1866,7 @@ app.post('/webhook', async (req, res) => {
         proximo_passo: leadData.proximo_passo || '',
         resumo: leadData.resumo || '',
         total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
-        historico_json: JSON.stringify(conversa.historico.slice(-30)),
+        historico_json: JSON.stringify(conversa.historico.slice(-40)),
       }, userIdDestino);
 
       // Notifica corretor sobre novo lead (so na primeira mensagem)

@@ -140,6 +140,27 @@ async function sendText(userId, telefone, texto) {
   });
 }
 
+/**
+ * Envia imagem com legenda. `urlOrBase64` pode ser URL publica ou string base64.
+ * Inclui pequena pausa antes pra parecer humano.
+ */
+async function sendImage(userId, telefone, urlOrBase64, caption = '') {
+  const instanceName = instanceNameFor(userId);
+  // Pausa curta antes (envio de midia ja tem typing implicito no app)
+  await new Promise(r => setTimeout(r, 500 + Math.random() * 800));
+  const number = String(telefone).replace(/\D/g, '');
+  return call(`/message/sendMedia/${instanceName}`, {
+    method: 'POST',
+    body: {
+      number,
+      mediatype: 'image',
+      media: urlOrBase64,
+      caption: caption || undefined,
+      fileName: 'imovel.jpg',
+    },
+  });
+}
+
 module.exports = {
   instanceNameFor,
   createInstance,
@@ -147,4 +168,5 @@ module.exports = {
   getStatus,
   deleteInstance,
   sendText,
+  sendImage,
 };
