@@ -4042,7 +4042,9 @@ async function refreshNotifStatus() {
 
     if (naoSuportaPush) {
         // iOS Safari (fora do PWA) cai aqui — mostra passo-a-passo de instalacao
-        if (isIOS && !isStandalone) {
+        // Tambem trata iPadOS 13+ que se identifica como "Macintosh" em UA
+        const isIPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+        if ((isIOS || isIPadOS) && !isStandalone) {
             card.className = 'notif-card notif-card--info';
             heroIcon.className = 'notif-hero__icon notif-hero__icon--info';
             text.textContent = 'Instale o app pra ativar';
@@ -4053,6 +4055,15 @@ async function refreshNotifStatus() {
             text.textContent = 'Navegador nao suportado';
             sub.textContent = 'Abra o LeadHouse no Chrome ou Safari atualizado.';
         }
+        // Diagnostico: aparece pequeninho abaixo pra debugar deteccao
+        const diag = document.createElement('div');
+        diag.style.cssText = 'margin-top:1rem;padding:0.75rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.4;font-family:monospace;word-break:break-all';
+        diag.innerHTML = `<div style="font-weight:600;margin-bottom:4px;color:var(--text-secondary);font-family:var(--font-body)">Diagnostico (pra suporte):</div>
+            iOS: ${isIOS} · iPadOS: ${isIPadOS} · standalone: ${isStandalone}<br>
+            SW: ${'serviceWorker' in navigator} · PushManager: ${'PushManager' in window} · Notif: ${typeof Notification !== 'undefined'}<br>
+            navigator.standalone: ${String(window.navigator.standalone)}<br>
+            UA: ${navigator.userAgent.slice(0, 120)}`;
+        card.appendChild(diag);
         return;
     }
 
