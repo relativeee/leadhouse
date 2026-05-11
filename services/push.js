@@ -44,6 +44,20 @@ function disponivel() {
 }
 
 function diagnostico() {
+  // Lista todas env vars que comecam com VAPID (sem expor valores) — pra
+  // detectar se o nome foi colocado errado (ex: VAPIDPUBLICKEY sem _ )
+  const vapidEnvs = {};
+  for (const key of Object.keys(process.env)) {
+    if (/^vapid/i.test(key)) {
+      const v = process.env[key] || '';
+      vapidEnvs[key] = {
+        length: v.length,
+        first8: v.slice(0, 8),
+        last4: v.slice(-4),
+        hasSpaces: /\s/.test(v),
+      };
+    }
+  }
   return {
     configurado,
     erro: erroConfig,
@@ -52,6 +66,7 @@ function diagnostico() {
     publicKeyLength: PUB.length,
     privateKeyLength: PRIV.length,
     subject: SUBJECT ? SUBJECT.slice(0, 40) + (SUBJECT.length > 40 ? '...' : '') : null,
+    todasVapidEnvVars: vapidEnvs,
   };
 }
 
