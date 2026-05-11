@@ -53,6 +53,9 @@ try { emails = require('./services/emails'); } catch (e) { console.warn('[Init] 
 let evolution = null;
 try { evolution = require('./services/evolution'); } catch (e) { console.warn('[Init] evolution service indisponivel:', e.message); }
 
+let criarToolHandlers = null;
+try { ({ criarToolHandlers } = require('./services/liaTools')); } catch (e) { console.warn('[Init] liaTools indisponivel:', e.message); }
+
 const app = express();
 
 // Vercel coloca um proxy na frente — precisamos confiar pra rate-limit e
@@ -915,7 +918,25 @@ app.post('/webhook/evolution', async (req, res) => {
         if (contextoImoveis) contextoExtra += contextoImoveis;
 
         const primeiroNome = (user.nome || '').trim().split(/\s+/)[0] || 'seu corretor';
-        resposta = await gerarResposta(conversa.historico, contextoExtra || undefined, { nomeCorretor: primeiroNome });
+
+        // Tool handlers (imoveis + enviando_arquivos) — Lia decide quando acionar.
+        // sendImage usa evolution.sendImage com o instance do corretor.
+        const toolHandlers = criarToolHandlers ? criarToolHandlers({
+          userId: user.id,
+          telefone,
+          conversa,
+          db,
+          sendImage: (tel, urlOuB64, caption) => evolution.sendImage(user.id, tel, urlOuB64, caption),
+        }) : undefined;
+
+        const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, {
+          nomeCorretor: primeiroNome,
+          toolHandlers,
+        });
+        resposta = respLia.texto;
+        if (respLia.toolsExecutadas?.length) {
+          console.log(`[evolution] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
+        }
         conversa.historico.push({ role: 'assistant', content: resposta });
       } catch (err) {
         console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
@@ -950,8 +971,10 @@ app.post('/webhook/evolution', async (req, res) => {
         console.error(`[evolution] erro ao enviar via Evolution pra ${telefone}:`, err.message);
       }
 
-      // Bloco 3b: Se tem imovel pra oferecer, manda foto + caption logo depois (best-effort)
-      if (imovelParaEnviar && evolution.sendImage) {
+      // Bloco 3b: Fallback de foto — se Lia NAO acionou enviando_arquivos via tool,
+      // mas o pre-resposta achou um imovel compativel, manda foto + caption.
+      // (Tool ja adiciona o id em conversa.imoveisEnviados — o check abaixo evita duplicata.)
+      if (imovelParaEnviar && evolution.sendImage && !conversa.imoveisEnviados.has(imovelParaEnviar.id)) {
         try {
           const capParts = [imovelParaEnviar.titulo];
           if (imovelParaEnviar.bairro) capParts.push(imovelParaEnviar.bairro);
@@ -1921,13 +1944,30 @@ app.post('/webhook', async (req, res) => {
     }
     contextoExtra += contextoImoveis;
 
-    const resposta = await gerarResposta(conversa.historico, contextoExtra || undefined, { nomeCorretor });
+    // Tool handlers (imoveis + enviando_arquivos) — sendImage usa enviarImagem da Meta API.
+    // Requer userIdDestino conhecido (sem ele nao tem dono dos imoveis pra consultar).
+    const toolHandlers = (criarToolHandlers && userIdDestino) ? criarToolHandlers({
+      userId: userIdDestino,
+      telefone,
+      conversa,
+      db,
+      sendImage: (tel, urlOuB64, caption) => enviarImagem(tel, urlOuB64, caption),
+    }) : undefined;
+
+    const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, {
+      nomeCorretor,
+      toolHandlers,
+    });
+    const resposta = respLia.texto;
+    if (respLia.toolsExecutadas?.length) {
+      console.log(`[meta] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
+    }
     conversa.historico.push({ role: 'assistant', content: resposta });
     await enviarMensagem(telefone, resposta);
     respostaEnviada = true;
 
-    // Envia foto do imovel logo apos o texto (nao critico)
-    if (imovelParaEnviar && enviarImagem) {
+    // Envia foto do imovel logo apos o texto (nao critico) — SKIP se Lia ja enviou via tool.
+    if (imovelParaEnviar && enviarImagem && !conversa.imoveisEnviados.has(imovelParaEnviar.id)) {
       try {
         const capParts = [imovelParaEnviar.titulo];
         if (imovelParaEnviar.valor) capParts.push(`R$ ${imovelParaEnviar.valor}`);

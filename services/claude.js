@@ -12,26 +12,109 @@ const { buildSystemPrompt } = require('../prompts/systemPrompt');
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 
+// Schemas das tools que a Lia pode acionar.
+// O loop de tool_use so eh ativado se o caller passar `toolHandlers` em opcoes.
+const TOOL_SCHEMAS = [
+  {
+    name: 'imoveis',
+    description: 'Consulta o banco de imoveis disponiveis do corretor. Use sempre que o lead perguntar sobre imoveis, mencionar criterios (bairro, tipo, valor, quartos), ou citar um imovel especifico. Retorna lista com id, titulo, bairro, tipo, valor, quartos, area, status.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bairro: { type: 'string', description: 'Bairro ou regiao que o lead pediu (ex: Manaira, Tambau). Opcional.' },
+        tipo: { type: 'string', description: 'Tipo de imovel (apartamento, casa, comercial, terreno, cobertura). Opcional.' },
+        quartos_min: { type: 'integer', description: 'Numero minimo de quartos. Opcional.' },
+        valor_max: { type: 'number', description: 'Valor maximo em reais (ex: 600000 para 600 mil). Opcional.' },
+        valor_min: { type: 'number', description: 'Valor minimo em reais. Opcional.' },
+        nome: { type: 'string', description: 'Busca por nome/titulo do imovel ou edificio (ex: "Solar", "Edificio Ondas"). Opcional.' },
+      },
+    },
+  },
+  {
+    name: 'enviando_arquivos',
+    description: 'Envia a foto principal de um imovel para o lead via WhatsApp. Use apos `imoveis` quando o lead pedir foto ou demonstrar interesse visual. NUNCA chute id_imovel — sempre use um id retornado por `imoveis`.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id_imovel: { type: 'integer', description: 'ID do imovel retornado pela tool `imoveis`.' },
+      },
+      required: ['id_imovel'],
+    },
+  },
+];
+
 /**
- * Gera uma resposta curta e natural para o lead.
+ * Gera resposta da Lia, opcionalmente com tool use (imoveis / enviando_arquivos).
+ *
  * @param {Array} historico - Array de {role, content} da conversa
- * @param {string} [contextoExtra] - Contexto adicional (ex: horarios livres)
- * @param {{nomeCorretor?: string, tempoResposta?: string}} [opcoes]
- * @returns {string} Resposta da IA
+ * @param {string} [contextoExtra] - Contexto adicional (ex: horarios livres, dados ja coletados)
+ * @param {Object} [opcoes]
+ * @param {string} [opcoes.nomeCorretor]
+ * @param {string} [opcoes.tempoResposta]
+ * @param {Object} [opcoes.toolHandlers] - { imoveis, enviando_arquivos } — se ausente, sem tools
+ * @returns {Promise<{texto: string, toolsExecutadas: Array}>}
  */
 async function gerarResposta(historico, contextoExtra, opcoes = {}) {
   try {
     let system = buildSystemPrompt(opcoes);
     if (contextoExtra) system += '\n\n' + contextoExtra;
 
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 300,
-      system,
-      messages: historico,
-    });
+    const { toolHandlers } = opcoes;
+    const useTools = !!toolHandlers;
+    const tools = useTools ? TOOL_SCHEMAS : undefined;
 
-    return response.content[0].text.trim();
+    const messages = historico.map(m => ({ role: m.role, content: m.content }));
+    const toolsExecutadas = [];
+    const MAX_ITER = 5;
+
+    for (let iter = 0; iter < MAX_ITER; iter++) {
+      const response = await client.messages.create({
+        model: MODEL,
+        max_tokens: 600,
+        system,
+        messages,
+        ...(tools ? { tools } : {}),
+      });
+
+      // Se parou por end_turn ou nao tem tool_use, extrai texto e retorna
+      if (response.stop_reason !== 'tool_use') {
+        const textBlock = response.content.find(b => b.type === 'text');
+        const texto = (textBlock?.text || '').trim();
+        return { texto, toolsExecutadas };
+      }
+
+      // tool_use: executa cada tool, monta tool_result e continua o loop
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+      messages.push({ role: 'assistant', content: response.content });
+
+      const toolResults = [];
+      for (const block of toolUseBlocks) {
+        const handler = toolHandlers[block.name];
+        let resultPayload;
+        try {
+          if (!handler) {
+            resultPayload = { erro: `tool ${block.name} nao disponivel` };
+          } else {
+            resultPayload = await handler(block.input || {});
+          }
+        } catch (err) {
+          console.error(`[Claude.tool] ${block.name} falhou:`, err.message);
+          resultPayload = { erro: err.message || 'falha na execucao' };
+        }
+        toolsExecutadas.push({ nome: block.name, input: block.input, resultado: resultPayload });
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: typeof resultPayload === 'string' ? resultPayload : JSON.stringify(resultPayload),
+        });
+      }
+
+      messages.push({ role: 'user', content: toolResults });
+    }
+
+    // Estouro de iteracoes — fallback
+    console.warn('[Claude] tool_use loop estourou MAX_ITER, retornando fallback');
+    return { texto: 'Desculpe, tive um problema aqui. Pode repetir?', toolsExecutadas };
   } catch (err) {
     console.error('[Claude] Erro ao gerar resposta:', err.message);
     throw err;
