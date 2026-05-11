@@ -4,6 +4,12 @@
 -- ============================================
 -- Tabela que guarda as Web Push subscriptions de cada corretor.
 -- Um corretor pode ter varias subscriptions (1 por device/browser).
+--
+-- NOTA: Igual as outras tabelas (leads, imoveis, visitas), NAO usamos
+-- Row Level Security aqui. O servidor LeadHouse usa JWT proprio (nao
+-- Supabase Auth), entao auth.uid() nao resolve e RLS bloquearia tudo.
+-- Ownership por usuario_id e enforced no application layer (filtros
+-- nos endpoints e queries).
 
 create table if not exists push_subscriptions (
   id bigint generated always as identity primary key,
@@ -16,22 +22,11 @@ create table if not exists push_subscriptions (
   last_used_at timestamptz default now()
 );
 
--- Index pra buscar todas subscriptions de um corretor rapidamente
 create index if not exists idx_push_subscriptions_usuario_id on push_subscriptions(usuario_id);
 
--- RLS: cada corretor so ve suas proprias subscriptions
-alter table push_subscriptions enable row level security;
-
--- Service role bypassa RLS automaticamente. Politicas abaixo sao
--- pro caso de algum codigo client-side usar anon_key (nao deveria).
+-- Se RLS foi habilitada por engano (versao anterior dessa migration),
+-- desabilita pra liberar inserts/selects do servidor.
+alter table push_subscriptions disable row level security;
 drop policy if exists "owner_select" on push_subscriptions;
-create policy "owner_select" on push_subscriptions
-  for select using (auth.uid()::text = usuario_id::text);
-
 drop policy if exists "owner_insert" on push_subscriptions;
-create policy "owner_insert" on push_subscriptions
-  for insert with check (auth.uid()::text = usuario_id::text);
-
 drop policy if exists "owner_delete" on push_subscriptions;
-create policy "owner_delete" on push_subscriptions
-  for delete using (auth.uid()::text = usuario_id::text);
