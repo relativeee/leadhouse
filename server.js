@@ -793,8 +793,8 @@ app.post('/api/push/test', authMiddleware, async (req, res) => {
   if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
   try {
     const r = await pushService.sendPushParaCorretor(req.userId, {
-      title: 'LeadHouse — Tudo certo ✅',
-      body: 'Suas notificacoes estao ativadas. Voce vai receber alerta quando um lead novo chegar.',
+      title: '✅ Notificações ativadas',
+      body: 'Você vai ser avisado aqui sempre que um lead novo chegar ou a Lia agendar uma visita.',
       url: '/',
       tag: 'test',
     });
