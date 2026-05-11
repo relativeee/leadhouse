@@ -56,6 +56,9 @@ try { evolution = require('./services/evolution'); } catch (e) { console.warn('[
 let criarToolHandlers = null;
 try { ({ criarToolHandlers } = require('./services/liaTools')); } catch (e) { console.warn('[Init] liaTools indisponivel:', e.message); }
 
+let pushService = null;
+try { pushService = require('./services/push'); } catch (e) { console.warn('[Init] push service indisponivel:', e.message); }
+
 const app = express();
 
 // Vercel coloca um proxy na frente — precisamos confiar pra rate-limit e
@@ -717,6 +720,56 @@ app.post('/api/whatsapp-personal/disconnect', authMiddleware, async (req, res) =
   }
 });
 
+// ─────────────────────────────────────────────
+// Push Notifications (Web Push API)
+// ─────────────────────────────────────────────
+// GET /api/push/key — frontend pega a public VAPID key pra subscribe()
+app.get('/api/push/key', (req, res) => {
+  if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
+  res.json({ publicKey: pushService.publicKey() });
+});
+
+// POST /api/push/subscribe — salva a subscription do device do corretor
+app.post('/api/push/subscribe', authMiddleware, async (req, res) => {
+  if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
+  try {
+    const sub = req.body?.subscription;
+    if (!sub) return res.status(400).json({ erro: 'subscription ausente' });
+    const ua = req.headers['user-agent'] || null;
+    await pushService.salvarSubscription(req.userId, sub, ua);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[push.subscribe]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// POST /api/push/unsubscribe — remove subscription (corretor desativou push)
+app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
+  try {
+    await pushService?.removerSubscription(req.body?.endpoint);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// POST /api/push/test — envia push de teste pro proprio corretor (debug/UX)
+app.post('/api/push/test', authMiddleware, async (req, res) => {
+  if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
+  try {
+    const r = await pushService.sendPushParaCorretor(req.userId, {
+      title: 'LeadHouse — Tudo certo ✅',
+      body: 'Suas notificacoes estao ativadas. Voce vai receber alerta quando um lead novo chegar.',
+      url: '/',
+      tag: 'test',
+    });
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // Webhook que a Evolution chama quando algo acontece (mensagem recebida, conexao mudou, etc.)
 app.post('/webhook/evolution', async (req, res) => {
   // IMPORTANTE: NAO chamar res.json() no comeco. Em serverless do Vercel a funcao
@@ -953,7 +1006,11 @@ app.post('/webhook/evolution', async (req, res) => {
         messages: conversa.historico.slice(-40),
         imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
       });
+      let isNovoLead = false;
       try {
+        // Detecta lead novo: se totalMsgsUser === 1, e a primeira mensagem desse contato
+        // (apos cold start, historico_json ja teria mais mensagens).
+        isNovoLead = totalMsgsUser === 1;
         await db.upsertLeadWhatsApp(telefone, {
           nome: msg.pushName || '',
           temperatura: 'frio',
@@ -962,6 +1019,18 @@ app.post('/webhook/evolution', async (req, res) => {
         }, user.id);
       } catch (err) {
         console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
+      }
+
+      // Push notification pro corretor: lead novo iniciou conversa
+      if (isNovoLead && pushService?.disponivel()) {
+        const nomeLead = msg.pushName || 'Novo lead';
+        const previa = texto.length > 80 ? texto.slice(0, 77) + '...' : texto;
+        pushService.sendPushParaCorretor(user.id, {
+          title: `🔥 ${nomeLead} entrou em contato`,
+          body: previa,
+          url: '/?tab=comunicacoes',
+          tag: `lead-${telefone}`,
+        }).catch(e => console.error('[push novo lead evolution]', e.message));
       }
 
       // Bloco 3: Envia resposta via Evolution
@@ -1046,6 +1115,17 @@ app.post('/webhook/evolution', async (req, res) => {
             console.log(`[evolution] visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
             // Cria evento no Google Calendar do corretor (se conectado)
             criarEventoGCal(user.id, novaVisita).catch(e => console.error('[gcal evolution]', e.message));
+            // Push notification pro corretor: visita agendada pela Lia
+            if (pushService?.disponivel()) {
+              const nomeLead = novaVisita.lead_nome || 'Lead';
+              const dataBr = va.data.split('-').reverse().join('/');
+              pushService.sendPushParaCorretor(user.id, {
+                title: '📅 Lia agendou uma visita',
+                body: `${nomeLead} — ${dataBr} às ${va.horario}${novaVisita.imovel_titulo ? ' · ' + novaVisita.imovel_titulo : ''}`,
+                url: '/?tab=visitas',
+                tag: `visita-${novaVisita.id}`,
+              }).catch(e => console.error('[push visita evolution]', e.message));
+            }
           }
         }
       } catch (err) {
@@ -2054,6 +2134,16 @@ app.post('/webhook', async (req, res) => {
           console.log(`[Webhook] Visita agendada automaticamente: ${telefone} em ${va.data} ${va.horario}`);
           // Cria evento no Google Calendar do corretor (se conectado)
           criarEventoGCal(userIdDestino, novaVisita).catch(e => console.error('[gcal meta]', e.message));
+          // Push notification pro corretor: visita agendada pela Lia
+          if (pushService?.disponivel()) {
+            const dataBr = va.data.split('-').reverse().join('/');
+            pushService.sendPushParaCorretor(userIdDestino, {
+              title: '📅 Lia agendou uma visita',
+              body: `${novaVisita.lead_nome} — ${dataBr} às ${va.horario}${novaVisita.imovel_titulo ? ' · ' + novaVisita.imovel_titulo : ''}`,
+              url: '/?tab=visitas',
+              tag: `visita-${novaVisita.id}`,
+            }).catch(e => console.error('[push visita meta]', e.message));
+          }
         }
       } catch (e) {
         console.error(`[Webhook] Erro ao criar visita automatica:`, e.message);
@@ -2062,6 +2152,17 @@ app.post('/webhook', async (req, res) => {
 
     if (notificarCorretor && leadData.temperatura === 'quente') {
       await notificarCorretor(leadData, telefone);
+    }
+    // Push notification pro corretor: lead novo via WhatsApp Business (Meta)
+    if (isLeadNovo && userIdDestino && pushService?.disponivel()) {
+      const nomeLead = leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Novo lead';
+      const previa = mensagem.length > 80 ? mensagem.slice(0, 77) + '...' : mensagem;
+      pushService.sendPushParaCorretor(userIdDestino, {
+        title: `🔥 ${nomeLead} entrou em contato`,
+        body: previa,
+        url: '/?tab=comunicacoes',
+        tag: `lead-${telefone}`,
+      }).catch(e => console.error('[push novo lead meta]', e.message));
     }
   } catch (err) {
     console.error(`[Webhook] Erro ao extrair/salvar lead ${telefone}:`, err.message);

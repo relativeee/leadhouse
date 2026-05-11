@@ -2687,6 +2687,48 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ─────────────────────────────────────────────
+   Notificacoes push — status indicator na aba Conta
+   ───────────────────────────────────────────── */
+.notif-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.notif-status__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+}
+.notif-status__dot--on {
+    background: #4ADE80;
+    box-shadow: 0 0 0 0 rgba(74,222,128,0.6);
+    animation: livePulse 2s ease infinite;
+}
+.notif-status__dot--off {
+    background: var(--text-muted);
+}
+.notif-status__text {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.notif-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+@media (max-width: 540px) {
+    .notif-actions { flex-direction: column; align-items: stretch; }
+    .notif-actions .btn { width: 100%; }
+}
+
+/* ─────────────────────────────────────────────
    MOBILE: Modal vira sheet (slide do bottom)
    Em <= 540px, o modal centralizado vira um bottom sheet
    ocupando 100% da largura, com border-radius so em cima

@@ -1054,6 +1054,11 @@
             <h3>Aparência</h3>
             <p>Tema claro/escuro e tamanho do texto</p>
         </div>
+        <div class="config-card" onclick="abrirConfig('notif')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <h3>Notificações</h3>
+            <p>Receba alerta no celular quando lead chegar</p>
+        </div>
         <div class="config-card" onclick="abrirConfig('plano')">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             <h3>Meu Plano</h3>
@@ -1156,6 +1161,27 @@
                     <button class="btn btn--outline canal-card__btn canal-card__btn--connected" disabled>Conectado</button>
                 </div>
             </div>
+        </div>
+
+        <!-- SUB: Notificações -->
+        <div class="config-sub" id="configNotif" style="display:none">
+            <div class="conta-section__title">Notificações no celular</div>
+            <p style="color:var(--text-2);font-size:14px;margin-bottom:1.25rem;line-height:1.5">
+                Quando ativadas, você recebe um aviso na tela do celular sempre que um lead novo entrar em contato ou a Lia agendar uma visita — mesmo com o app fechado.
+            </p>
+            <div id="notifStatus" class="notif-status" style="margin-bottom:1.5rem">
+                <div class="notif-status__dot" id="notifStatusDot"></div>
+                <div class="notif-status__text" id="notifStatusText">Verificando...</div>
+            </div>
+            <div class="notif-actions">
+                <button id="notifAtivarBtn" class="btn btn--primary" onclick="ativarNotificacoesPush()" style="display:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                    Ativar notificações
+                </button>
+                <button id="notifDesativarBtn" class="btn btn--ghost" onclick="desativarNotificacoesPush()" style="display:none">Desativar</button>
+                <button id="notifTestarBtn" class="btn btn--ghost" onclick="testarNotificacaoPush()" style="display:none">Enviar teste</button>
+            </div>
+            <p id="notifAjuda" style="color:var(--text-muted);font-size:12px;margin-top:1rem;line-height:1.5"></p>
         </div>
 
         <!-- SUB: Aparência -->
@@ -3913,10 +3939,128 @@ function abrirConfig(secao) {
     document.getElementById('configGrid').style.display = 'none';
     document.getElementById('configSubview').style.display = '';
     document.querySelectorAll('.config-sub').forEach(el => el.style.display = 'none');
-    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados' };
+    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif' };
     const el = document.getElementById(map[secao]);
     if (el) el.style.display = '';
     if (secao === 'aparencia') syncPrefButtons();
+    if (secao === 'notif') refreshNotifStatus();
+}
+
+// ═══════════════════════════════════════════════
+// Push Notifications — UI
+// ═══════════════════════════════════════════════
+function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+}
+
+async function refreshNotifStatus() {
+    const dot = document.getElementById('notifStatusDot');
+    const text = document.getElementById('notifStatusText');
+    const ativarBtn = document.getElementById('notifAtivarBtn');
+    const desativarBtn = document.getElementById('notifDesativarBtn');
+    const testarBtn = document.getElementById('notifTestarBtn');
+    const ajuda = document.getElementById('notifAjuda');
+
+    ativarBtn.style.display = 'none';
+    desativarBtn.style.display = 'none';
+    testarBtn.style.display = 'none';
+    ajuda.textContent = '';
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        dot.className = 'notif-status__dot notif-status__dot--off';
+        text.textContent = 'Navegador nao suporta notificacoes';
+        ajuda.textContent = 'Tente abrir o LeadHouse no Chrome/Safari atualizado, ou instale como app na tela inicial.';
+        return;
+    }
+    if (Notification.permission === 'denied') {
+        dot.className = 'notif-status__dot notif-status__dot--off';
+        text.textContent = 'Bloqueadas nas configuracoes do navegador';
+        ajuda.textContent = 'Voce bloqueou as notificacoes anteriormente. Para reativar, abra as configuracoes do site no navegador e libere notificacoes.';
+        return;
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub && Notification.permission === 'granted') {
+        dot.className = 'notif-status__dot notif-status__dot--on';
+        text.textContent = 'Ativadas — voce vai receber alertas';
+        desativarBtn.style.display = '';
+        testarBtn.style.display = '';
+    } else {
+        dot.className = 'notif-status__dot notif-status__dot--off';
+        text.textContent = 'Desativadas';
+        ativarBtn.style.display = '';
+    }
+}
+
+async function ativarNotificacoesPush() {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            toast('Navegador nao suporta notificacoes', 'erro');
+            return;
+        }
+        // Pega a VAPID public key do servidor
+        const keyRes = await fetch('/api/push/key');
+        if (!keyRes.ok) throw new Error('Servico de push indisponivel');
+        const { publicKey } = await keyRes.json();
+        if (!publicKey) throw new Error('Chave do servidor ausente');
+
+        // Pede permissao (browser mostra prompt nativo)
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+            toast('Permissao negada', 'info');
+            refreshNotifStatus();
+            return;
+        }
+
+        const reg = await navigator.serviceWorker.ready;
+        // Re-usa existente ou cria nova
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _urlBase64ToUint8Array(publicKey),
+            });
+        }
+
+        // Salva no servidor
+        const saveRes = await apiCall('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
+        toast('Notificacoes ativadas 🔔', 'sucesso');
+        refreshNotifStatus();
+    } catch (err) {
+        console.error('[push.ativar]', err);
+        toast('Erro ao ativar: ' + (err.message || 'desconhecido'), 'erro');
+    }
+}
+
+async function desativarNotificacoesPush() {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+            await sub.unsubscribe();
+            await apiCall('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
+        }
+        toast('Notificacoes desativadas', 'info');
+        refreshNotifStatus();
+    } catch (err) {
+        console.error('[push.desativar]', err);
+        toast('Erro: ' + err.message, 'erro');
+    }
+}
+
+async function testarNotificacaoPush() {
+    try {
+        await apiCall('POST', '/api/push/test', {});
+        toast('Teste enviado — confira a notificacao!', 'sucesso');
+    } catch (err) {
+        toast('Falhou: ' + err.message, 'erro');
+    }
 }
 
 function voltarConfig() {
