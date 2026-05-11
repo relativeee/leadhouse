@@ -1217,6 +1217,8 @@
                         Enviar teste
                     </button>
                 </div>
+                <!-- Resultado do ultimo teste — permanente pra debug -->
+                <div id="notifTesteResult" style="display:none;margin-top:1rem;padding:0.85rem 1rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;font-family:monospace;font-size:0.78rem;color:var(--text-secondary);line-height:1.5;word-break:break-all"></div>
             </div>
 
             <!-- Cards de "o que voce vai receber" (so aparece quando suportado) -->
@@ -4151,19 +4153,36 @@ async function desativarNotificacoesPush() {
 }
 
 async function testarNotificacaoPush() {
+    const resultBox = document.getElementById('notifTesteResult');
+    resultBox.style.display = '';
+    resultBox.innerHTML = '<span style="color:var(--gold)">Enviando teste...</span>';
     try {
         const r = await apiCall('POST', '/api/push/test', {});
-        // Mostra resultado bruto pra debug: sent/removed/errors
-        const detalhe = `enviadas: ${r.sent || 0} · removidas: ${r.removed || 0} · erros: ${r.errors || 0}`;
-        if ((r.sent || 0) > 0) {
-            toast(`Push enviado (${detalhe}). Se nao apareceu, ve configs iOS.`, 'sucesso');
-        } else if ((r.errors || 0) > 0) {
-            toast(`Falha no envio (${detalhe}) — checa /api/push/debug`, 'erro');
+        // Resultado permanente na tela (alem do toast)
+        const enviadas = r.sent || 0;
+        const removidas = r.removed || 0;
+        const erros = r.errors || 0;
+        let cor = enviadas > 0 ? '#7EC868' : '#D48A8A';
+        let diagnostico = '';
+        if (enviadas > 0) {
+            diagnostico = 'Push saiu do servidor com sucesso. Se nao apareceu na tela, e bloqueio do iOS (Focus Mode, configs do app, ou iOS < 16.4).';
+        } else if (erros > 0) {
+            diagnostico = 'Push service rejeitou o envio. Provavel: VAPID config errada ou subscription invalida.';
+        } else if (removidas > 0) {
+            diagnostico = 'Subscription estava expirada e foi removida. Reative as notificacoes.';
         } else {
-            toast(`Nenhuma subscription ativa (${detalhe}). Reative as notificacoes.`, 'erro');
+            diagnostico = 'Nenhuma subscription salva pra esse usuario. Toque em "Ativar notificacoes" antes.';
         }
+        resultBox.innerHTML = `
+            <div style="color:${cor};font-weight:600;margin-bottom:0.4rem">Resultado:</div>
+            <div>enviadas: ${enviadas}</div>
+            <div>removidas: ${removidas}</div>
+            <div>erros: ${erros}</div>
+            <div style="margin-top:0.6rem;color:var(--text-muted);font-family:var(--font-body);font-size:0.85rem">${diagnostico}</div>
+        `;
         console.log('[push.test] resultado:', r);
     } catch (err) {
+        resultBox.innerHTML = `<span style="color:#D48A8A">Erro na chamada: ${err.message}</span>`;
         toast('Falhou: ' + err.message, 'erro');
     }
 }
