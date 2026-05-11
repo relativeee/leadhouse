@@ -2687,6 +2687,56 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ─────────────────────────────────────────────
+   Pull-to-refresh — indicador visual top-of-page
+   ───────────────────────────────────────────── */
+.ptr {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translate(-50%, -120%);
+    z-index: 90;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-gold);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    will-change: transform, opacity;
+}
+.ptr__spinner svg {
+    transform: rotate(0deg);
+    transition: transform 0.05s linear;
+}
+.ptr--pulling {
+    opacity: 1;
+    transition: opacity 0.15s ease;
+}
+.ptr--ready {
+    background: var(--gold);
+    color: #0c0c0c;
+    border-color: var(--gold);
+}
+.ptr--refreshing .ptr__spinner svg {
+    animation: ptrSpin 0.8s linear infinite;
+}
+@keyframes ptrSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* So habilita o gesto em pointers coarse (touch) */
+@media (hover: hover) and (pointer: fine) {
+    .ptr { display: none; }
+}
+
+/* ─────────────────────────────────────────────
    Notificacoes push — status indicator na aba Conta
    ───────────────────────────────────────────── */
 .notif-status {

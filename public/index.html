@@ -22,6 +22,16 @@
 </head>
 <body>
 
+<!-- ── Pull-to-refresh indicator (so visivel em mobile durante o gesto) ── -->
+<div class="ptr" id="ptrIndicator" aria-hidden="true">
+    <div class="ptr__spinner">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <path d="M21 12a9 9 0 11-3-6.7"/>
+            <polyline points="21 4 21 10 15 10"/>
+        </svg>
+    </div>
+</div>
+
 <!-- ── Banner de impersonação (admin atuando como outro usuario) ── -->
 <div id="impBanner" class="imp-banner" style="display:none">
     <span class="imp-banner__text">
@@ -4520,6 +4530,123 @@ window.addEventListener('appinstalled', () => {
     if (banner) banner.style.display = 'none';
     _deferredInstallPrompt = null;
 });
+
+// ═══════════════════════════════════════════════
+// Pull-to-refresh (touch only, so quando topo da pagina)
+// ═══════════════════════════════════════════════
+(function() {
+    // So ativa em devices touch — desktop usa F5
+    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!isTouch) return;
+
+    const indicator = document.getElementById('ptrIndicator');
+    if (!indicator) return;
+
+    const THRESHOLD = 80;            // px de pull pra disparar refresh
+    const MAX_PULL = 140;            // px maximo do pull (fricao alem disso)
+    const TOP_TOLERANCE = 4;         // pixels do topo pra considerar "no topo"
+
+    let startY = 0;
+    let pulling = false;
+    let refreshing = false;
+
+    // Mapeia aba ativa pra funcao de recarregar
+    function refreshAbaAtual() {
+        const ativa = document.querySelector('.dashboard[id^="aba-"]:not([style*="display: none"]):not([style*="display:none"])');
+        if (!ativa) return Promise.resolve();
+        const id = (ativa.id || '').replace('aba-', '');
+        const map = {
+            dashboard: () => (typeof carregarDashboard === 'function') && carregarDashboard(),
+            imoveis: () => (typeof carregarImoveis === 'function') && carregarImoveis(),
+            leads: () => (typeof carregarLeadsManuais === 'function') && carregarLeadsManuais(),
+            visitas: () => (typeof carregarVisitas === 'function') && carregarVisitas(),
+            comunicacoes: () => (typeof carregarComunicacoes === 'function') && carregarComunicacoes(),
+            agenda: () => (typeof carregarAgenda === 'function') && carregarAgenda(),
+            funil: () => (typeof carregarFunil === 'function') && carregarFunil(),
+            agente: () => (typeof carregarAIStats === 'function') && carregarAIStats(),
+        };
+        try {
+            const r = map[id]?.();
+            return Promise.resolve(r);
+        } catch (e) {
+            console.warn('[ptr] erro recarregando', id, e.message);
+            return Promise.resolve();
+        }
+    }
+
+    function noTopo() {
+        return (window.scrollY || document.documentElement.scrollTop || 0) <= TOP_TOLERANCE;
+    }
+
+    // Modal aberto? Drawer aberto? Chat aberto em mobile? Nao interfere.
+    function bloqueado() {
+        if (document.body.classList.contains('body--drawer-open')) return true;
+        if (document.querySelector('.modal-overlay--open')) return true;
+        if (document.querySelector('.msg-layout--show-chat')) return true;
+        return refreshing;
+    }
+
+    document.addEventListener('touchstart', (e) => {
+        if (bloqueado() || !noTopo()) return;
+        startY = e.touches[0].clientY;
+        pulling = false;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (bloqueado() || !startY) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy <= 0) {
+            if (pulling) {
+                pulling = false;
+                indicator.classList.remove('ptr--pulling', 'ptr--ready');
+                indicator.style.transform = '';
+            }
+            return;
+        }
+        if (!noTopo()) {
+            startY = 0;
+            return;
+        }
+        // Pull com resistencia (raiz quadrada pra dar sensacao elastica)
+        const eased = Math.min(MAX_PULL, Math.pow(dy, 0.85));
+        pulling = true;
+        indicator.classList.add('ptr--pulling');
+        indicator.style.transform = `translate(-50%, ${eased - 60}px) scale(${Math.min(1, eased / THRESHOLD)})`;
+        indicator.classList.toggle('ptr--ready', eased >= THRESHOLD);
+        // Em iOS Safari, previne bounce nativo enquanto puxa
+        if (e.cancelable && eased > 10) e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', async () => {
+        if (!pulling) return;
+        const ready = indicator.classList.contains('ptr--ready');
+        pulling = false;
+        startY = 0;
+
+        if (!ready) {
+            // Cancela — volta indicador
+            indicator.classList.remove('ptr--pulling', 'ptr--ready');
+            indicator.style.transform = '';
+            return;
+        }
+
+        // Trigger refresh
+        refreshing = true;
+        indicator.classList.remove('ptr--ready');
+        indicator.classList.add('ptr--refreshing');
+        indicator.style.transform = `translate(-50%, 20px)`;
+
+        try {
+            await refreshAbaAtual();
+            // Pequena pausa pra usuario perceber que recarregou
+            await new Promise(r => setTimeout(r, 350));
+        } finally {
+            refreshing = false;
+            indicator.classList.remove('ptr--refreshing', 'ptr--pulling');
+            indicator.style.transform = '';
+        }
+    });
+})();
 </script>
 
 </body>
