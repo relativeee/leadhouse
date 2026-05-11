@@ -4152,8 +4152,17 @@ async function desativarNotificacoesPush() {
 
 async function testarNotificacaoPush() {
     try {
-        await apiCall('POST', '/api/push/test', {});
-        toast('Teste enviado — confira a notificacao!', 'sucesso');
+        const r = await apiCall('POST', '/api/push/test', {});
+        // Mostra resultado bruto pra debug: sent/removed/errors
+        const detalhe = `enviadas: ${r.sent || 0} · removidas: ${r.removed || 0} · erros: ${r.errors || 0}`;
+        if ((r.sent || 0) > 0) {
+            toast(`Push enviado (${detalhe}). Se nao apareceu, ve configs iOS.`, 'sucesso');
+        } else if ((r.errors || 0) > 0) {
+            toast(`Falha no envio (${detalhe}) — checa /api/push/debug`, 'erro');
+        } else {
+            toast(`Nenhuma subscription ativa (${detalhe}). Reative as notificacoes.`, 'erro');
+        }
+        console.log('[push.test] resultado:', r);
     } catch (err) {
         toast('Falhou: ' + err.message, 'erro');
     }
