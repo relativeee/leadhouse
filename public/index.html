@@ -4097,41 +4097,80 @@ async function refreshNotifStatus() {
 }
 
 async function ativarNotificacoesPush() {
+    const resultBox = document.getElementById('notifTesteResult');
+    resultBox.style.display = '';
+    resultBox.innerHTML = '<span style="color:var(--gold)">Ativando...</span>';
+    const log = (msg, cor) => {
+        resultBox.innerHTML += `<div style="color:${cor || 'var(--text-secondary)'}">${msg}</div>`;
+    };
     try {
+        log('1. Checando suporte do navegador...');
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            toast('Navegador nao suporta notificacoes', 'erro');
+            log('FALHA: navegador sem suporte', '#D48A8A');
             return;
         }
-        // Pega a VAPID public key do servidor
+        log('OK', '#7EC868');
+
+        log('2. Pegando VAPID key do servidor...');
         const keyRes = await fetch('/api/push/key');
-        if (!keyRes.ok) throw new Error('Servico de push indisponivel');
+        if (!keyRes.ok) { log('FALHA: ' + keyRes.status, '#D48A8A'); return; }
         const { publicKey } = await keyRes.json();
-        if (!publicKey) throw new Error('Chave do servidor ausente');
+        if (!publicKey) { log('FALHA: publicKey ausente', '#D48A8A'); return; }
+        log('OK (len=' + publicKey.length + ')', '#7EC868');
 
-        // Pede permissao (browser mostra prompt nativo)
+        log('3. Pedindo permissao iOS...');
         const perm = await Notification.requestPermission();
-        if (perm !== 'granted') {
-            toast('Permissao negada', 'info');
-            refreshNotifStatus();
-            return;
-        }
+        if (perm !== 'granted') { log('FALHA: ' + perm, '#D48A8A'); refreshNotifStatus(); return; }
+        log('OK (granted)', '#7EC868');
 
+        log('4. Subscribing no PushManager...');
         const reg = await navigator.serviceWorker.ready;
-        // Re-usa existente ou cria nova
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
-            sub = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: _urlBase64ToUint8Array(publicKey),
-            });
+            try {
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: _urlBase64ToUint8Array(publicKey),
+                });
+            } catch (subErr) {
+                log('FALHA no pushManager.subscribe: ' + subErr.message + ' (name=' + subErr.name + ')', '#D48A8A');
+                console.error('[push.subscribe.err]', subErr);
+                return;
+            }
+        }
+        const subJson = sub.toJSON();
+        const endpoint = subJson.endpoint || '';
+        let host = '?';
+        try { host = new URL(endpoint).hostname; } catch {}
+        log('OK · host=' + host + ' · tail=' + endpoint.slice(-16), '#7EC868');
+
+        log('5. Salvando no servidor...');
+        try {
+            const r = await apiCall('POST', '/api/push/subscribe', { subscription: subJson });
+            log('OK · resposta=' + JSON.stringify(r), '#7EC868');
+        } catch (e) {
+            log('FALHA na chamada /api/push/subscribe: ' + e.message, '#D48A8A');
+            console.error('[push.save.err]', e);
+            return;
         }
 
-        // Salva no servidor
-        const saveRes = await apiCall('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
+        log('6. Verificando se chegou no banco...');
+        try {
+            const minhas = await apiCall('GET', '/api/push/my-subs');
+            log('OK · ' + minhas.total + ' subscription(s) salva(s) pra userId=' + minhas.userId, minhas.total > 0 ? '#7EC868' : '#D48A8A');
+            if (minhas.total > 0) {
+                log('Subs: ' + JSON.stringify(minhas.subs.map(s => s.endpointHost + ':' + s.endpointTail)), 'var(--text-muted)');
+            }
+        } catch (e) {
+            log('FALHA verificando: ' + e.message, '#D48A8A');
+        }
+
+        log('FIM. Tente "Enviar teste" agora.', 'var(--gold)');
         toast('Notificacoes ativadas 🔔', 'sucesso');
         refreshNotifStatus();
     } catch (err) {
         console.error('[push.ativar]', err);
+        log('ERRO: ' + (err.message || 'desconhecido'), '#D48A8A');
         toast('Erro ao ativar: ' + (err.message || 'desconhecido'), 'erro');
     }
 }

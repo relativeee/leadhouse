@@ -763,6 +763,31 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/push/my-subs — quantas subscriptions o usuario tem salvas (autenticado)
+app.get('/api/push/my-subs', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await db.supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, user_agent, created_at, last_used_at')
+      .eq('usuario_id', req.userId);
+    if (error) return res.status(500).json({ erro: error.message, code: error.code, hint: error.hint });
+    res.json({
+      userId: req.userId,
+      total: data?.length || 0,
+      subs: (data || []).map(s => ({
+        id: s.id,
+        endpointHost: (() => { try { return new URL(s.endpoint).hostname; } catch { return '?'; } })(),
+        endpointTail: (s.endpoint || '').slice(-16),
+        userAgent: (s.user_agent || '').slice(0, 60),
+        created_at: s.created_at,
+        last_used_at: s.last_used_at,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // POST /api/push/test — envia push de teste pro proprio corretor (debug/UX)
 app.post('/api/push/test', authMiddleware, async (req, res) => {
   if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
