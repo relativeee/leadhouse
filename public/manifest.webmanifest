@@ -1,0 +1,53 @@
+{
+  "name": "LeadHouse — Gestão Imobiliária",
+  "short_name": "LeadHouse",
+  "description": "CRM e qualificação automatizada de leads imobiliários com IA via WhatsApp",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Leads",
+      "short_name": "Leads",
+      "url": "/?tab=leads",
+      "icons": [{ "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name": "Comunicações",
+      "short_name": "Chat",
+      "url": "/?tab=comunicacoes",
+      "icons": [{ "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    },
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "/?tab=agenda",
+      "icons": [{ "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" }]
+    }
+  ]
+}

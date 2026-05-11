@@ -2612,6 +2612,81 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ─────────────────────────────────────────────
+   PWA: Banner "Instalar como app"
+   So aparece em Android Chrome (beforeinstallprompt).
+   Fica fixo no rodape, discreto, dispensavel.
+   ───────────────────────────────────────────── */
+.pwa-install-banner {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 250;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-elevated);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--border-gold);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    color: var(--text-primary);
+    animation: pwaBannerSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pwa-install-banner svg { color: var(--gold); flex-shrink: 0; }
+.pwa-install-banner__text {
+    flex: 1;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    color: var(--text-primary);
+}
+.pwa-install-banner__cta {
+    background: var(--gold);
+    color: #0c0c0c;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 1rem;
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.pwa-install-banner__cta:active { transform: scale(0.96); }
+.pwa-install-banner__close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+@keyframes pwaBannerSlide {
+    from { opacity: 0; transform: translateY(120%); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Em desktop largo, limita largura e centraliza */
+@media (min-width: 720px) {
+    .pwa-install-banner {
+        left: auto;
+        right: 1.5rem;
+        max-width: 420px;
+    }
+}
+
+/* Quando rodando como PWA instalado, escondemos o banner sempre */
+@media (display-mode: standalone) {
+    .pwa-install-banner { display: none !important; }
+}
+
+/* ─────────────────────────────────────────────
    MOBILE: Modal vira sheet (slide do bottom)
    Em <= 540px, o modal centralizado vira um bottom sheet
    ocupando 100% da largura, com border-radius so em cima
