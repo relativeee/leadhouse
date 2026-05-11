@@ -2462,6 +2462,112 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .lead-modal__grid { grid-template-columns: 1fr; }
 }
 
+/* ─────────────────────────────────────────────
+   MOBILE: Tabela de leads do dashboard vira CARD
+   Em telas < 640px, cada <tr> e exibido empilhado com
+   labels via [data-label]. Toque maior nos botoes de acao.
+   ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .leads-table-wrapper { overflow-x: visible; }
+    .leads-table { border: 0; }
+    .leads-table thead { display: none; }
+    .leads-table tbody { display: flex; flex-direction: column; gap: 0.65rem; }
+    .leads-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.4rem 0.75rem;
+        padding: 0.9rem 1rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+    }
+    .leads-table tbody tr:hover { transform: none; }
+
+    .leads-table td {
+        border: 0 !important;
+        padding: 0 !important;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        line-height: 1.35;
+    }
+    /* Mostra o label da coluna como prefixo da celula */
+    .leads-table td::before {
+        content: attr(data-label) " ";
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-right: 0.4rem;
+    }
+    /* Nome: ocupa primeira linha inteira, sem label, destaque maior */
+    .leads-table td[data-label="Nome"] {
+        grid-column: 1 / -1;
+        font-size: 1rem;
+        margin-bottom: 0.15rem;
+    }
+    .leads-table td[data-label="Nome"]::before { display: none; }
+    /* Temperatura: segunda celula da primeira linha (badge alinhado a direita) */
+    /* mas como Nome ocupou linha toda, badge cai na proxima linha — vamos
+       coloca-lo flutuando no canto superior direito pra economizar espaco */
+    .leads-table td[data-label="Temperatura"] {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+        align-self: start;
+    }
+    .leads-table td[data-label="Temperatura"]::before { display: none; }
+    /* Acoes: linha inteira no final, botoes maiores e bem espacados */
+    .leads-table td[data-label="Ações"] {
+        grid-column: 1 / -1;
+        margin-top: 0.4rem;
+        padding-top: 0.6rem !important;
+        border-top: 1px solid var(--border) !important;
+        display: flex;
+        gap: 0.5rem;
+    }
+    .leads-table td[data-label="Ações"]::before { display: none; }
+    /* Engajamento: ocupa linha inteira pra barra ficar legivel */
+    .leads-table td[data-label="Engajamento"] { grid-column: 1 / -1; }
+    .leads-table td[data-label="Atualizado"] {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-align: right;
+    }
+
+    /* Botoes de acao no card maiores pra dedao (HIG: 44px) */
+    .td-acoes .btn-icon {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elevated, rgba(255,255,255,0.02));
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .td-acoes .btn-icon svg { width: 18px; height: 18px; }
+    .td-acoes .btn-icon:active { transform: scale(0.94); }
+}
+
+/* Boost geral de touch target em todos os btn-icon em telas mobile,
+   inclusive fora da tabela (cards de imoveis, visitas) */
+@media (hover: none) and (pointer: coarse) {
+    .btn-icon {
+        min-width: 40px;
+        min-height: 40px;
+        padding: 0.5rem;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
 @media (max-width: 480px) {
     .stats { grid-template-columns: 1fr; }
     .stat-strip { grid-template-columns: 1fr; }
