@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION quando o app shell mudar significativamente
  * (forcar o SW a re-cachear). Auto-update via skipWaiting + clients.claim.
  */
-const CACHE_VERSION = 'lh-v1-2026-05-11';
+const CACHE_VERSION = 'lh-v2-2026-05-11-notif-redesign';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -66,14 +66,34 @@ self.addEventListener('fetch', (event) => {
 
 async function handleSameOrigin(req) {
   const cache = await caches.open(SHELL_CACHE);
-  const cached = await cache.match(req);
+  const url = new URL(req.url);
 
-  // Stale-while-revalidate: serve do cache, atualiza em background
+  // HTML (documento) e manifest: network-FIRST. O usuario sempre ve a versao
+  // mais nova; cache so e fallback offline. Evita "vi o app antigo na primeira
+  // carga apos um deploy" — bug classico de PWA com stale-while-revalidate.
+  const isDocument = req.mode === 'navigate'
+    || req.destination === 'document'
+    || url.pathname === '/'
+    || url.pathname.endsWith('.html')
+    || url.pathname.endsWith('.webmanifest');
+
+  if (isDocument) {
+    try {
+      const res = await fetch(req);
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    } catch {
+      const cached = await cache.match(req);
+      return cached || new Response('Offline', { status: 503 });
+    }
+  }
+
+  // Outros assets (CSS, JS, SVG): stale-while-revalidate — rapido + atualiza bg
+  const cached = await cache.match(req);
   const networkPromise = fetch(req).then((res) => {
     if (res && res.ok) cache.put(req, res.clone());
     return res;
   }).catch(() => null);
-
   return cached || networkPromise || new Response('Offline', { status: 503 });
 }
 
