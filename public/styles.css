@@ -2569,6 +2569,49 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 
 /* ─────────────────────────────────────────────
+   MOBILE: Anti-zoom iOS no foco de inputs
+   iOS Safari da zoom automatico quando input tem
+   font-size < 16px. Override em mobile pra evitar.
+   ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .form-input,
+    .search-input,
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    input[type="url"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* ─────────────────────────────────────────────
+   MOBILE: Toast com safe-area + bigger touch zone
+   ───────────────────────────────────────────── */
+@media (max-width: 540px) {
+    .toast {
+        bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+        left: 1rem;
+        right: 1rem;
+        transform: translateY(80px);
+        font-size: 0.9rem;
+        padding: 0.95rem 1.25rem;
+        text-align: center;
+        max-width: none;
+    }
+    .toast--show {
+        transform: translateY(0);
+    }
+}
+
+/* ─────────────────────────────────────────────
    MOBILE: Modal vira sheet (slide do bottom)
    Em <= 540px, o modal centralizado vira um bottom sheet
    ocupando 100% da largura, com border-radius so em cima

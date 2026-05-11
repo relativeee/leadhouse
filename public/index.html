@@ -1284,6 +1284,10 @@
         <div class="modal__header">
             <div class="modal__title" id="modalTitle">Detalhes</div>
             <div class="modal__header-actions">
+                <button class="btn btn--ghost-sm" id="modalShareBtn" style="display:none" onclick="compartilharImovelAtual()" title="Compartilhar imóvel">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    Compartilhar
+                </button>
                 <button class="btn btn--ghost-sm" id="modalEditBtn" style="display:none" onclick="modalToggleEdit()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Editar
@@ -2683,7 +2687,51 @@ function _openModal(title, viewHtml, editHtml, type, id) {
     document.getElementById('modalContent').innerHTML = viewHtml;
     document.getElementById('modalEditBtn').style.display = '';
     document.getElementById('modalFooter').style.display = 'none';
+    // Botao "Compartilhar" so faz sentido pra imovel (corretor manda pro cliente)
+    const shareBtn = document.getElementById('modalShareBtn');
+    if (shareBtn) shareBtn.style.display = (type === 'imovel') ? '' : 'none';
     document.getElementById('modalOverlay').classList.add('modal-overlay--open');
+}
+
+/**
+ * Compartilha o imovel atualmente aberto no modal.
+ * Usa navigator.share (nativo iOS/Android) ou cai pra wa.me em desktop/browsers
+ * sem suporte. Texto inclui foto pra preview no WhatsApp.
+ */
+async function compartilharImovelAtual() {
+    if (_modalCtx.type !== 'imovel' || !_modalCtx.id) return;
+    const im = imoveisData.find(i => i.id === _modalCtx.id);
+    if (!im) return;
+
+    const linhas = [];
+    linhas.push(`🏠 *${im.titulo}*`);
+    const meta = [];
+    if (im.tipo) meta.push(im.tipo);
+    if (im.quartos) meta.push(`${im.quartos} quartos`);
+    if (im.area) meta.push(`${im.area}m²`);
+    if (meta.length) linhas.push(meta.join(' · '));
+    if (im.bairro || im.cidade) linhas.push([im.bairro, im.cidade].filter(Boolean).join(' / '));
+    if (im.valor) linhas.push(`💰 R$ ${im.valor}`);
+    if (im.foto_url) linhas.push('', im.foto_url);
+    const texto = linhas.join('\n');
+
+    // navigator.share funciona em iOS Safari 12.2+, Chrome Android 75+, alguns desktop
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: im.titulo, text: texto });
+            return;
+        } catch (err) {
+            // Usuario cancelou ou erro — fallback so se erro real, nao cancelamento
+            if (err && err.name !== 'AbortError') {
+                console.warn('[share] navigator.share falhou:', err);
+            } else {
+                return;
+            }
+        }
+    }
+    // Fallback: abre WhatsApp Web com texto pre-preenchido (universal)
+    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank', 'noopener');
 }
 
 function modalToggleEdit() {
