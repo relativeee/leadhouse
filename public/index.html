@@ -1175,23 +1175,68 @@
 
         <!-- SUB: Notificações -->
         <div class="config-sub" id="configNotif" style="display:none">
-            <div class="conta-section__title">Notificações no celular</div>
-            <p style="color:var(--text-2);font-size:14px;margin-bottom:1.25rem;line-height:1.5">
-                Quando ativadas, você recebe um aviso na tela do celular sempre que um lead novo entrar em contato ou a Lia agendar uma visita — mesmo com o app fechado.
-            </p>
-            <div id="notifStatus" class="notif-status" style="margin-bottom:1.5rem">
-                <div class="notif-status__dot" id="notifStatusDot"></div>
-                <div class="notif-status__text" id="notifStatusText">Verificando...</div>
+            <!-- Hero com icone grande -->
+            <div class="notif-hero">
+                <div class="notif-hero__icon" id="notifHeroIcon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                    </svg>
+                </div>
+                <h2 class="notif-hero__title">Notificações no celular</h2>
+                <p class="notif-hero__sub">Receba um aviso na tela do celular sempre que um lead novo entrar em contato ou a Lia agendar uma visita — mesmo com o LeadHouse fechado.</p>
             </div>
-            <div class="notif-actions">
-                <button id="notifAtivarBtn" class="btn btn--primary" onclick="ativarNotificacoesPush()" style="display:none">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-                    Ativar notificações
-                </button>
-                <button id="notifDesativarBtn" class="btn btn--ghost" onclick="desativarNotificacoesPush()" style="display:none">Desativar</button>
-                <button id="notifTestarBtn" class="btn btn--ghost" onclick="testarNotificacaoPush()" style="display:none">Enviar teste</button>
+
+            <!-- Card de status / acoes (dinamico por estado) -->
+            <div class="notif-card" id="notifCard">
+                <div class="notif-card__head">
+                    <div class="notif-card__indicator" id="notifStatusDot"></div>
+                    <div class="notif-card__heading">
+                        <div class="notif-card__title" id="notifStatusText">Verificando...</div>
+                        <div class="notif-card__sub" id="notifStatusSub"></div>
+                    </div>
+                </div>
+
+                <!-- Lista de passos pra iOS instalar como PWA -->
+                <ol class="notif-steps" id="notifIosSteps" style="display:none">
+                    <li><span class="notif-steps__num">1</span><span>Toque no botão <strong>Compartilhar</strong> do Safari (ícone <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>) — fica na barra inferior</span></li>
+                    <li><span class="notif-steps__num">2</span><span>Role até <strong>"Adicionar à Tela de Início"</strong> e toque</span></li>
+                    <li><span class="notif-steps__num">3</span><span>Confirme em <strong>"Adicionar"</strong> no canto superior</span></li>
+                    <li><span class="notif-steps__num">4</span><span>Abra o LeadHouse pelo ícone na sua tela inicial — e volte aqui pra ativar 🔔</span></li>
+                </ol>
+
+                <!-- Botoes (so aparecem quando push e suportado) -->
+                <div class="notif-actions" id="notifActions">
+                    <button id="notifAtivarBtn" class="btn btn--primary" onclick="ativarNotificacoesPush()" style="display:none">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                        Ativar notificações
+                    </button>
+                    <button id="notifDesativarBtn" class="btn btn--ghost" onclick="desativarNotificacoesPush()" style="display:none">Desativar</button>
+                    <button id="notifTestarBtn" class="btn btn--ghost" onclick="testarNotificacaoPush()" style="display:none">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Enviar teste
+                    </button>
+                </div>
             </div>
-            <p id="notifAjuda" style="color:var(--text-muted);font-size:12px;margin-top:1rem;line-height:1.5"></p>
+
+            <!-- Cards de "o que voce vai receber" (so aparece quando suportado) -->
+            <div class="notif-examples" id="notifExamples" style="display:none">
+                <div class="notif-examples__title">O que você vai receber</div>
+                <div class="notif-example">
+                    <div class="notif-example__emoji">🔥</div>
+                    <div class="notif-example__body">
+                        <div class="notif-example__title">Carolina entrou em contato</div>
+                        <div class="notif-example__text">Oi, vi o anúncio do apê em Manaíra…</div>
+                    </div>
+                </div>
+                <div class="notif-example">
+                    <div class="notif-example__emoji">📅</div>
+                    <div class="notif-example__body">
+                        <div class="notif-example__title">Lia agendou uma visita</div>
+                        <div class="notif-example__text">Carlos — 16/05 às 14h · Edifício Ondas</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- SUB: Aparência -->
@@ -3971,40 +4016,70 @@ function _urlBase64ToUint8Array(base64String) {
 async function refreshNotifStatus() {
     const dot = document.getElementById('notifStatusDot');
     const text = document.getElementById('notifStatusText');
+    const sub = document.getElementById('notifStatusSub');
+    const heroIcon = document.getElementById('notifHeroIcon');
+    const card = document.getElementById('notifCard');
+    const examples = document.getElementById('notifExamples');
+    const iosSteps = document.getElementById('notifIosSteps');
     const ativarBtn = document.getElementById('notifAtivarBtn');
     const desativarBtn = document.getElementById('notifDesativarBtn');
     const testarBtn = document.getElementById('notifTestarBtn');
-    const ajuda = document.getElementById('notifAjuda');
 
+    // Reset
     ativarBtn.style.display = 'none';
     desativarBtn.style.display = 'none';
     testarBtn.style.display = 'none';
-    ajuda.textContent = '';
+    iosSteps.style.display = 'none';
+    examples.style.display = 'none';
+    sub.textContent = '';
+    heroIcon.className = 'notif-hero__icon';
+    card.className = 'notif-card';
 
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        dot.className = 'notif-status__dot notif-status__dot--off';
-        text.textContent = 'Navegador nao suporta notificacoes';
-        ajuda.textContent = 'Tente abrir o LeadHouse no Chrome/Safari atualizado, ou instale como app na tela inicial.';
+    // Detecta iOS Safari rodando fora do PWA (caso classico de "nao suportado")
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const naoSuportaPush = !('serviceWorker' in navigator) || !('PushManager' in window);
+
+    if (naoSuportaPush) {
+        // iOS Safari (fora do PWA) cai aqui — mostra passo-a-passo de instalacao
+        if (isIOS && !isStandalone) {
+            card.className = 'notif-card notif-card--info';
+            heroIcon.className = 'notif-hero__icon notif-hero__icon--info';
+            text.textContent = 'Instale o app pra ativar';
+            sub.textContent = 'No iPhone, as notificacoes funcionam quando o LeadHouse esta instalado como app na tela inicial.';
+            iosSteps.style.display = '';
+        } else {
+            card.className = 'notif-card notif-card--off';
+            text.textContent = 'Navegador nao suportado';
+            sub.textContent = 'Abra o LeadHouse no Chrome ou Safari atualizado.';
+        }
         return;
     }
+
     if (Notification.permission === 'denied') {
-        dot.className = 'notif-status__dot notif-status__dot--off';
-        text.textContent = 'Bloqueadas nas configuracoes do navegador';
-        ajuda.textContent = 'Voce bloqueou as notificacoes anteriormente. Para reativar, abra as configuracoes do site no navegador e libere notificacoes.';
+        card.className = 'notif-card notif-card--off';
+        heroIcon.className = 'notif-hero__icon notif-hero__icon--off';
+        text.textContent = 'Bloqueadas no navegador';
+        sub.textContent = 'Voce bloqueou anteriormente. Pra reativar, abra as configuracoes do site (cadeado ao lado da URL) e libere "Notificacoes".';
         return;
     }
 
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub && Notification.permission === 'granted') {
-        dot.className = 'notif-status__dot notif-status__dot--on';
-        text.textContent = 'Ativadas — voce vai receber alertas';
+    const subscription = await reg.pushManager.getSubscription();
+    if (subscription && Notification.permission === 'granted') {
+        card.className = 'notif-card notif-card--on';
+        heroIcon.className = 'notif-hero__icon notif-hero__icon--on';
+        text.textContent = 'Ativadas';
+        sub.textContent = 'Voce vai receber um alerta no celular quando um lead chegar ou a Lia agendar visita.';
         desativarBtn.style.display = '';
         testarBtn.style.display = '';
+        examples.style.display = '';
     } else {
-        dot.className = 'notif-status__dot notif-status__dot--off';
+        card.className = 'notif-card';
         text.textContent = 'Desativadas';
+        sub.textContent = 'Toque em "Ativar notificacoes" pra comecar a receber alertas.';
         ativarBtn.style.display = '';
+        examples.style.display = '';
     }
 }
 
