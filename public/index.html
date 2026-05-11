@@ -3522,8 +3522,15 @@ async function carregarComunicacoes() {
 
         document.getElementById('msgDesconectado').style.display = 'none';
         document.getElementById('msgLayout').style.display = '';
+        // Mobile: sempre comeca na lista de conversas, nao no chat anterior
+        document.querySelector('.msg-layout')?.classList.remove('msg-layout--show-chat');
         renderConversasList();
     } catch(e) { console.error('[msg]', e); }
+}
+
+// Mobile: volta da view de chat pra lista de conversas (botao voltar do header)
+function voltarParaListaConversas() {
+    document.querySelector('.msg-layout')?.classList.remove('msg-layout--show-chat');
 }
 
 function renderConversasList() {
@@ -3549,6 +3556,8 @@ function filtrarConversas() { renderConversasList(); }
 async function abrirConversa(telefone) {
     msgAtivo = telefone;
     renderConversasList();
+    // Em mobile, faz a transicao pro chat (slide). Em desktop nao afeta.
+    document.querySelector('.msg-layout')?.classList.add('msg-layout--show-chat');
     const chat = document.getElementById('msgChat');
     chat.innerHTML = '<div class="chat-box__loading">Carregando conversa...</div>';
     try {
@@ -3557,6 +3566,9 @@ async function abrirConversa(telefone) {
         const msgs = data.historico || [];
 
         let header = `<div class="msg-chat__header">
+            <button class="msg-chat__back" onclick="voltarParaListaConversas()" aria-label="Voltar para lista">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
             <div class="msg-chat__header-info">
                 <div class="msg-chat__header-name">${esc(lead?.nome || data.nome || 'Lead')}</div>
                 <div class="msg-chat__header-tel">${formatarTelefone(telefone)}</div>
