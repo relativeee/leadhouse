@@ -616,32 +616,51 @@ body::after {
 .sidebar-toggle {
     display: none;
     position: fixed;
-    top: 1.25rem;
-    left: 1.25rem;
+    /* Respeita safe-area-inset pro notch do iPhone X+ em portrait e landscape */
+    top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    left: calc(0.75rem + env(safe-area-inset-left, 0px));
     z-index: 150;
     background: var(--bg-card);
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    width: 42px;
-    height: 42px;
+    /* Touch target HIG iOS: minimo 44x44 */
+    width: 44px;
+    height: 44px;
     cursor: pointer;
     box-shadow: var(--shadow-md);
     transition: var(--transition);
+    /* Remove delay de 300ms do tap em mobile */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-toggle:hover {
     border-color: var(--border-hover);
 }
 
+.sidebar-toggle:active {
+    transform: scale(0.94);
+}
+
 .sidebar-overlay {
-    display: none; position: fixed; inset: 0;
+    /* Opacity transition pra fade in/out suave (display block alterna mas opacity anima) */
+    position: fixed; inset: 0;
     background: rgba(0,0,0,0.55);
     z-index: 99;
     backdrop-filter: blur(2px);
-    transition: opacity 0.3s;
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
-.sidebar-overlay--show { display: block; }
+.sidebar-overlay--show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Drawer aberto: trava scroll do body pra evitar dois scrolls competindo no mobile */
+body.body--drawer-open { overflow: hidden; touch-action: none; }
 
 /* ============================================
    Welcome bar
@@ -2358,6 +2377,15 @@ tr:hover .td-acoes--row .btn-icon:hover {
     .sidebar {
         transform: translateX(-100%);
         transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Largura adequada pra mobile (260px e ok em iPhone 14 mas espremido em SE 375).
+           Em telas muito pequenas, usa 86% da viewport. */
+        width: min(85vw, 320px);
+        min-width: min(85vw, 320px);
+        /* Garante full-height inclusive em iOS Safari (resolve URL bar bug) */
+        height: 100dvh;
+        max-height: 100dvh;
+        /* Pad pra notch + barra de status do iPhone */
+        padding-top: env(safe-area-inset-top, 0px);
     }
 
     .sidebar--open {
@@ -3898,7 +3926,7 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .imp-banner__btn:hover { background: rgba(0,0,0,0.3); color: #fff; }
 body.body--impersonating { padding-top: 38px; }
 body.body--impersonating .sidebar { top: 38px; }
-body.body--impersonating .sidebar-toggle { top: calc(38px + 14px); }
+body.body--impersonating .sidebar-toggle { top: calc(38px + 0.75rem + env(safe-area-inset-top, 0px)); }
 @media (max-width: 600px) {
     .imp-banner { font-size: 12px; padding: 7px 12px; gap: 10px; }
     .imp-banner__btn { padding: 4px 10px; font-size: 11px; }

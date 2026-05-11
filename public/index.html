@@ -1389,9 +1389,10 @@ function trocarAba(aba, btn) {
     document.getElementById('aba-' + aba).style.display = 'block';
     btn.classList.add('sidebar__item--active');
 
-    // Fecha sidebar no mobile
-    document.getElementById('sidebar').classList.remove('sidebar--open');
-    document.getElementById('sidebarOverlay').classList.remove('sidebar-overlay--show');
+    // Fecha sidebar no mobile (usa toggleSidebar pra limpar body class tambem)
+    if (document.getElementById('sidebar').classList.contains('sidebar--open')) {
+        toggleSidebar(false);
+    }
 
     if (aba === 'dashboard') carregarDashboard();
     if (aba === 'imoveis') carregarImoveis();
@@ -4165,10 +4166,25 @@ function toggleCollapse() {
     }
 })();
 
-function toggleSidebar() {
-    const open = document.getElementById('sidebar').classList.toggle('sidebar--open');
-    document.getElementById('sidebarOverlay').classList.toggle('sidebar-overlay--show', open);
+function toggleSidebar(forceState) {
+    // forceState: true = abre, false = fecha, undefined = toggle
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const open = typeof forceState === 'boolean'
+        ? forceState
+        : !sidebar.classList.contains('sidebar--open');
+    sidebar.classList.toggle('sidebar--open', open);
+    overlay.classList.toggle('sidebar-overlay--show', open);
+    // Trava scroll do body enquanto drawer aberto (so afeta mobile via @media)
+    document.body.classList.toggle('body--drawer-open', open);
 }
+
+// Escape fecha o drawer (acessibilidade) — so faz algo se estiver aberto
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('sidebar')?.classList.contains('sidebar--open')) {
+        toggleSidebar(false);
+    }
+});
 
 // ═══════════════════════════════════════════════
 // INIT
