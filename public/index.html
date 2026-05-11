@@ -1217,8 +1217,8 @@
                         Enviar teste
                     </button>
                 </div>
-                <!-- Resultado do ultimo teste — permanente pra debug -->
-                <div id="notifTesteResult" style="display:none;margin-top:1rem;padding:0.85rem 1rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;font-family:monospace;font-size:0.78rem;color:var(--text-secondary);line-height:1.5;word-break:break-all"></div>
+                <!-- Mensagem de feedback (sucesso/erro) — só aparece quando há mensagem -->
+                <div id="notifTesteResult" class="notif-feedback" style="display:none"></div>
             </div>
 
             <!-- Cards de "o que voce vai receber" (so aparece quando suportado) -->
@@ -4043,29 +4043,20 @@ async function refreshNotifStatus() {
     const naoSuportaPush = !('serviceWorker' in navigator) || !('PushManager' in window);
 
     if (naoSuportaPush) {
-        // iOS Safari (fora do PWA) cai aqui — mostra passo-a-passo de instalacao
-        // Tambem trata iPadOS 13+ que se identifica como "Macintosh" em UA
+        // iOS Safari (fora do PWA) cai aqui — mostra passo-a-passo de instalação.
+        // Também trata iPadOS 13+ que se identifica como "Macintosh" em UA.
         const isIPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
         if ((isIOS || isIPadOS) && !isStandalone) {
             card.className = 'notif-card notif-card--info';
             heroIcon.className = 'notif-hero__icon notif-hero__icon--info';
             text.textContent = 'Instale o app pra ativar';
-            sub.textContent = 'No iPhone, as notificacoes funcionam quando o LeadHouse esta instalado como app na tela inicial.';
+            sub.textContent = 'No iPhone, as notificações funcionam quando o LeadHouse está instalado como app na tela inicial.';
             iosSteps.style.display = '';
         } else {
             card.className = 'notif-card notif-card--off';
-            text.textContent = 'Navegador nao suportado';
+            text.textContent = 'Navegador não suportado';
             sub.textContent = 'Abra o LeadHouse no Chrome ou Safari atualizado.';
         }
-        // Diagnostico: aparece pequeninho abaixo pra debugar deteccao
-        const diag = document.createElement('div');
-        diag.style.cssText = 'margin-top:1rem;padding:0.75rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.4;font-family:monospace;word-break:break-all';
-        diag.innerHTML = `<div style="font-weight:600;margin-bottom:4px;color:var(--text-secondary);font-family:var(--font-body)">Diagnostico (pra suporte):</div>
-            iOS: ${isIOS} · iPadOS: ${isIPadOS} · standalone: ${isStandalone}<br>
-            SW: ${'serviceWorker' in navigator} · PushManager: ${'PushManager' in window} · Notif: ${typeof Notification !== 'undefined'}<br>
-            navigator.standalone: ${String(window.navigator.standalone)}<br>
-            UA: ${navigator.userAgent.slice(0, 120)}`;
-        card.appendChild(diag);
         return;
     }
 
@@ -4073,7 +4064,7 @@ async function refreshNotifStatus() {
         card.className = 'notif-card notif-card--off';
         heroIcon.className = 'notif-hero__icon notif-hero__icon--off';
         text.textContent = 'Bloqueadas no navegador';
-        sub.textContent = 'Voce bloqueou anteriormente. Pra reativar, abra as configuracoes do site (cadeado ao lado da URL) e libere "Notificacoes".';
+        sub.textContent = 'Você bloqueou anteriormente. Pra reativar, abra as configurações do site (cadeado ao lado da URL) e libere "Notificações".';
         return;
     }
 
@@ -4083,99 +4074,86 @@ async function refreshNotifStatus() {
         card.className = 'notif-card notif-card--on';
         heroIcon.className = 'notif-hero__icon notif-hero__icon--on';
         text.textContent = 'Ativadas';
-        sub.textContent = 'Voce vai receber um alerta no celular quando um lead chegar ou a Lia agendar visita.';
+        sub.textContent = 'Você vai receber um alerta no celular quando um lead chegar ou a Lia agendar uma visita.';
         desativarBtn.style.display = '';
         testarBtn.style.display = '';
         examples.style.display = '';
     } else {
         card.className = 'notif-card';
         text.textContent = 'Desativadas';
-        sub.textContent = 'Toque em "Ativar notificacoes" pra comecar a receber alertas.';
+        sub.textContent = 'Toque em "Ativar notificações" pra começar a receber alertas.';
         ativarBtn.style.display = '';
         examples.style.display = '';
     }
 }
 
+// Caixa pequena de erro/info (so aparece em problema, nao em fluxo normal)
+function notifMostrarErro(titulo, detalhe) {
+    const box = document.getElementById('notifTesteResult');
+    if (!box) return;
+    box.style.display = '';
+    box.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:0.6rem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D48A8A" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div style="flex:1;font-family:var(--font-body)">
+                <div style="color:#D48A8A;font-weight:600;font-size:0.92rem;margin-bottom:0.2rem">${titulo}</div>
+                <div style="color:var(--text-secondary);font-size:0.82rem;line-height:1.45">${detalhe}</div>
+            </div>
+        </div>
+    `;
+}
+
+function notifLimparMensagem() {
+    const box = document.getElementById('notifTesteResult');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
 async function ativarNotificacoesPush() {
-    const resultBox = document.getElementById('notifTesteResult');
-    resultBox.style.display = '';
-    resultBox.innerHTML = '<span style="color:var(--gold)">Ativando...</span>';
-    const log = (msg, cor) => {
-        resultBox.innerHTML += `<div style="color:${cor || 'var(--text-secondary)'}">${msg}</div>`;
-    };
+    const btn = document.getElementById('notifAtivarBtn');
+    notifLimparMensagem();
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
     try {
-        log('1. Checando suporte do navegador...');
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            log('FALHA: navegador sem suporte', '#D48A8A');
+            notifMostrarErro('Navegador não suportado', 'Tente usar Chrome no Android, ou instale o LeadHouse como app na tela inicial do iPhone.');
             return;
         }
-        log('OK', '#7EC868');
-
-        log('2. Pegando VAPID key do servidor...');
         const keyRes = await fetch('/api/push/key');
-        if (!keyRes.ok) { log('FALHA: ' + keyRes.status, '#D48A8A'); return; }
+        if (!keyRes.ok) {
+            notifMostrarErro('Servidor indisponível', 'O serviço de push do LeadHouse está temporariamente fora do ar. Tente de novo em alguns minutos.');
+            return;
+        }
         const { publicKey } = await keyRes.json();
-        if (!publicKey) { log('FALHA: publicKey ausente', '#D48A8A'); return; }
-        log('OK (len=' + publicKey.length + ')', '#7EC868');
-
-        log('3. Pedindo permissao iOS...');
+        if (!publicKey) {
+            notifMostrarErro('Configuração ausente', 'Falta a chave do servidor de push. Avise o suporte.');
+            return;
+        }
         const perm = await Notification.requestPermission();
-        if (perm !== 'granted') { log('FALHA: ' + perm, '#D48A8A'); refreshNotifStatus(); return; }
-        log('OK (granted)', '#7EC868');
-
-        log('4. Subscribing no PushManager...');
+        if (perm !== 'granted') {
+            notifMostrarErro('Permissão negada', 'Você escolheu não receber notificações. Pra ativar, vai em Ajustes → Notificações → LeadHouse e libere.');
+            refreshNotifStatus();
+            return;
+        }
         const reg = await navigator.serviceWorker.ready;
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
-            try {
-                sub = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: _urlBase64ToUint8Array(publicKey),
-                });
-            } catch (subErr) {
-                log('FALHA no pushManager.subscribe: ' + subErr.message + ' (name=' + subErr.name + ')', '#D48A8A');
-                console.error('[push.subscribe.err]', subErr);
-                return;
-            }
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _urlBase64ToUint8Array(publicKey),
+            });
         }
-        const subJson = sub.toJSON();
-        const endpoint = subJson.endpoint || '';
-        let host = '?';
-        try { host = new URL(endpoint).hostname; } catch {}
-        log('OK · host=' + host + ' · tail=' + endpoint.slice(-16), '#7EC868');
-
-        log('5. Salvando no servidor...');
-        try {
-            const r = await apiCall('POST', '/api/push/subscribe', { subscription: subJson });
-            log('OK · resposta=' + JSON.stringify(r), '#7EC868');
-        } catch (e) {
-            log('FALHA na chamada /api/push/subscribe: ' + e.message, '#D48A8A');
-            console.error('[push.save.err]', e);
-            return;
-        }
-
-        log('6. Verificando se chegou no banco...');
-        try {
-            const minhas = await apiCall('GET', '/api/push/my-subs');
-            log('OK · ' + minhas.total + ' subscription(s) salva(s) pra userId=' + minhas.userId, minhas.total > 0 ? '#7EC868' : '#D48A8A');
-            if (minhas.total > 0) {
-                log('Subs: ' + JSON.stringify(minhas.subs.map(s => s.endpointHost + ':' + s.endpointTail)), 'var(--text-muted)');
-            }
-        } catch (e) {
-            log('FALHA verificando: ' + e.message, '#D48A8A');
-        }
-
-        log('FIM. Tente "Enviar teste" agora.', 'var(--gold)');
-        toast('Notificacoes ativadas 🔔', 'sucesso');
+        await apiCall('POST', '/api/push/subscribe', { subscription: sub.toJSON() });
+        toast('Notificações ativadas 🔔', 'sucesso');
         refreshNotifStatus();
     } catch (err) {
         console.error('[push.ativar]', err);
-        log('ERRO: ' + (err.message || 'desconhecido'), '#D48A8A');
-        toast('Erro ao ativar: ' + (err.message || 'desconhecido'), 'erro');
+        notifMostrarErro('Não foi possível ativar', err.message || 'Erro desconhecido. Tente novamente em alguns minutos.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }
 }
 
 async function desativarNotificacoesPush() {
+    notifLimparMensagem();
     try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
@@ -4183,46 +4161,53 @@ async function desativarNotificacoesPush() {
             await sub.unsubscribe();
             await apiCall('POST', '/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
         }
-        toast('Notificacoes desativadas', 'info');
+        toast('Notificações desativadas', 'info');
         refreshNotifStatus();
     } catch (err) {
         console.error('[push.desativar]', err);
-        toast('Erro: ' + err.message, 'erro');
+        toast('Erro ao desativar: ' + err.message, 'erro');
     }
 }
 
+// Mostra confirmação verde clara abaixo do botão (success state)
+function notifMostrarSucesso(titulo, detalhe) {
+    const box = document.getElementById('notifTesteResult');
+    if (!box) return;
+    box.style.display = '';
+    box.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:0.6rem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7EC868" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"/></svg>
+            <div style="flex:1;font-family:var(--font-body)">
+                <div style="color:#7EC868;font-weight:600;font-size:0.92rem;margin-bottom:0.2rem">${titulo}</div>
+                <div style="color:var(--text-secondary);font-size:0.82rem;line-height:1.45">${detalhe}</div>
+            </div>
+        </div>
+    `;
+}
+
 async function testarNotificacaoPush() {
-    const resultBox = document.getElementById('notifTesteResult');
-    resultBox.style.display = '';
-    resultBox.innerHTML = '<span style="color:var(--gold)">Enviando teste...</span>';
+    const btn = document.getElementById('notifTestarBtn');
+    notifLimparMensagem();
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
     try {
         const r = await apiCall('POST', '/api/push/test', {});
-        // Resultado permanente na tela (alem do toast)
         const enviadas = r.sent || 0;
-        const removidas = r.removed || 0;
         const erros = r.errors || 0;
-        let cor = enviadas > 0 ? '#7EC868' : '#D48A8A';
-        let diagnostico = '';
+        const removidas = r.removed || 0;
         if (enviadas > 0) {
-            diagnostico = 'Push saiu do servidor com sucesso. Se nao apareceu na tela, e bloqueio do iOS (Focus Mode, configs do app, ou iOS < 16.4).';
+            notifMostrarSucesso('Teste enviado', 'A notificação deve aparecer na tela do seu celular em alguns segundos. Se não chegou, confira nos Ajustes do iPhone se as notificações do LeadHouse estão liberadas.');
         } else if (erros > 0) {
-            diagnostico = 'Push service rejeitou o envio. Provavel: VAPID config errada ou subscription invalida.';
+            notifMostrarErro('Falha no envio', 'O serviço de push rejeitou o envio. Tente desativar e ativar as notificações novamente.');
         } else if (removidas > 0) {
-            diagnostico = 'Subscription estava expirada e foi removida. Reative as notificacoes.';
+            notifMostrarErro('Inscrição expirada', 'Sua inscrição estava expirada e foi removida. Toque em "Ativar notificações" novamente.');
         } else {
-            diagnostico = 'Nenhuma subscription salva pra esse usuario. Toque em "Ativar notificacoes" antes.';
+            notifMostrarErro('Nenhuma inscrição ativa', 'Você ainda não ativou as notificações neste dispositivo. Toque em "Ativar notificações".');
         }
-        resultBox.innerHTML = `
-            <div style="color:${cor};font-weight:600;margin-bottom:0.4rem">Resultado:</div>
-            <div>enviadas: ${enviadas}</div>
-            <div>removidas: ${removidas}</div>
-            <div>erros: ${erros}</div>
-            <div style="margin-top:0.6rem;color:var(--text-muted);font-family:var(--font-body);font-size:0.85rem">${diagnostico}</div>
-        `;
         console.log('[push.test] resultado:', r);
     } catch (err) {
-        resultBox.innerHTML = `<span style="color:#D48A8A">Erro na chamada: ${err.message}</span>`;
-        toast('Falhou: ' + err.message, 'erro');
+        notifMostrarErro('Não foi possível enviar', err.message || 'Erro desconhecido. Tente novamente.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }
 }
 
