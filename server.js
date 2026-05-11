@@ -725,8 +725,17 @@ app.post('/api/whatsapp-personal/disconnect', authMiddleware, async (req, res) =
 // ─────────────────────────────────────────────
 // GET /api/push/key — frontend pega a public VAPID key pra subscribe()
 app.get('/api/push/key', (req, res) => {
-  if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
+  if (!pushService?.disponivel()) {
+    const diag = pushService?.diagnostico?.() || { erro: 'pushService nao carregou' };
+    return res.status(503).json({ erro: 'Push desabilitado', diagnostico: diag });
+  }
   res.json({ publicKey: pushService.publicKey() });
+});
+
+// GET /api/push/debug — diagnostico publico (so booleans, nao expõe keys)
+app.get('/api/push/debug', (req, res) => {
+  if (!pushService) return res.json({ moduleLoaded: false });
+  res.json({ moduleLoaded: true, ...pushService.diagnostico() });
 });
 
 // POST /api/push/subscribe — salva a subscription do device do corretor

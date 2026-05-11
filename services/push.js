@@ -10,20 +10,49 @@
 const webpush = require('web-push');
 const db = require('./supabase');
 
-const PUB = process.env.VAPID_PUBLIC_KEY;
-const PRIV = process.env.VAPID_PRIVATE_KEY;
-const SUBJECT = process.env.VAPID_SUBJECT || 'mailto:leadhouse.gestaoimobiliaria@gmail.com';
+const PUB_RAW = process.env.VAPID_PUBLIC_KEY;
+const PRIV_RAW = process.env.VAPID_PRIVATE_KEY;
+const SUBJECT_RAW = process.env.VAPID_SUBJECT || 'mailto:leadhouse.gestaoimobiliaria@gmail.com';
+
+// Aplica trim pra eliminar espaços/quebras que podem ter sido coladas no Vercel
+const PUB = (PUB_RAW || '').trim();
+const PRIV = (PRIV_RAW || '').trim();
+let SUBJECT = (SUBJECT_RAW || '').trim();
+// Se o user salvou o subject sem "mailto:", adiciona automaticamente
+if (SUBJECT && !/^(mailto:|https?:\/\/)/i.test(SUBJECT)) {
+  SUBJECT = 'mailto:' + SUBJECT;
+}
 
 let configurado = false;
-if (PUB && PRIV) {
-  webpush.setVapidDetails(SUBJECT, PUB, PRIV);
-  configurado = true;
-} else {
-  console.warn('[push] VAPID_PUBLIC_KEY/PRIVATE_KEY ausentes — push desabilitado');
+let erroConfig = null;
+if (!PUB) erroConfig = 'VAPID_PUBLIC_KEY ausente';
+else if (!PRIV) erroConfig = 'VAPID_PRIVATE_KEY ausente';
+else {
+  try {
+    webpush.setVapidDetails(SUBJECT, PUB, PRIV);
+    configurado = true;
+    console.log('[push] VAPID configurado · subject=' + SUBJECT.slice(0, 30) + '... · pubKey len=' + PUB.length);
+  } catch (err) {
+    erroConfig = 'setVapidDetails falhou: ' + err.message;
+    console.error('[push]', erroConfig);
+  }
 }
+if (!configurado) console.warn('[push] desabilitado:', erroConfig);
 
 function disponivel() {
   return configurado;
+}
+
+function diagnostico() {
+  return {
+    configurado,
+    erro: erroConfig,
+    hasPublicKey: !!PUB,
+    hasPrivateKey: !!PRIV,
+    publicKeyLength: PUB.length,
+    privateKeyLength: PRIV.length,
+    subject: SUBJECT ? SUBJECT.slice(0, 40) + (SUBJECT.length > 40 ? '...' : '') : null,
+  };
 }
 
 function publicKey() {
@@ -141,6 +170,7 @@ async function sendPushParaCorretor(userId, payload) {
 module.exports = {
   disponivel,
   publicKey,
+  diagnostico,
   salvarSubscription,
   removerSubscription,
   sendPushParaCorretor,
