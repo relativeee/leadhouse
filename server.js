@@ -910,7 +910,7 @@ app.post('/webhook/evolution', async (req, res) => {
     // Identifica o usuario dono dessa instancia
     const { data: user } = await db.supabase
       .from('usuarios')
-      .select('id, nome, email, evolution_phone_number')
+      .select('id, nome, email, evolution_phone_number, lia_pausada')
       .eq('evolution_instance_name', instanceName)
       .maybeSingle();
     if (!user) {
@@ -931,12 +931,13 @@ app.post('/webhook/evolution', async (req, res) => {
 
     if (event === 'messages.upsert' || event === 'MESSAGES_UPSERT') {
       const msg = req.body?.data;
-      if (!msg || msg.key?.fromMe) return res.json({ received: true });
+      if (!msg) return res.json({ received: true });
       const remoteJid = msg.key?.remoteJid || '';
       if (remoteJid.endsWith('@g.us')) return res.json({ received: true });
       const telefone = remoteJid.split('@')[0];
       const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
       if (!texto.trim()) return res.json({ received: true });
+      const isFromMe = !!msg.key?.fromMe;
 
       // Dedup por messageId
       const messageId = msg.key?.id;
@@ -944,21 +945,62 @@ app.post('/webhook/evolution', async (req, res) => {
       if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
       if (messageId) conversa.mensagensProcessadas.add(messageId);
 
+      // MENSAGEM DO CORRETOR (key.fromMe=true): corretor respondeu manualmente do
+      // celular dele. Salva no historico como 'assistant' pra aparecer na thread.
+      // NAO chama Claude, NAO dispara push. Util quando Lia esta pausada.
+      if (isFromMe) {
+        try {
+          // Recarrega historico do DB pra nao perder mensagens
+          const { data: rows } = await db.supabase
+            .from('leads')
+            .select('historico_json')
+            .eq('telefone', telefone)
+            .eq('usuario_id', user.id)
+            .eq('origem', 'whatsapp')
+            .order('updated_at', { ascending: false })
+            .limit(1);
+          const leadAnterior = rows && rows[0];
+          if (leadAnterior?.historico_json) {
+            try {
+              const parsed = JSON.parse(leadAnterior.historico_json);
+              if (Array.isArray(parsed)) conversa.historico = parsed;
+              else if (parsed && Array.isArray(parsed.messages)) conversa.historico = parsed.messages;
+            } catch {}
+          }
+          conversa.historico.push({ role: 'assistant', content: texto });
+          if (conversa.historico.length > 40) conversa.historico = conversa.historico.slice(-40);
+          await db.upsertLeadWhatsApp(telefone, {
+            total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
+            historico_json: JSON.stringify({
+              v: 2,
+              messages: conversa.historico.slice(-40),
+              imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+            }),
+          }, user.id);
+          console.log(`[evolution] msg DO CORRETOR (fromMe) salva: user=${user.id} tel=${telefone} "${texto.slice(0,40)}..."`);
+        } catch (err) {
+          console.error(`[evolution] erro salvar fromMe ${telefone}:`, err.message);
+        }
+        return res.json({ received: true });
+      }
+
       // SERVERLESS: SEMPRE recarrega do DB antes de processar.
       // Usa order+limit em vez de maybeSingle pra ser resiliente a duplicatas
       // (se houver mais de uma row maybeSingle lanca erro silencioso).
       // CRITICO: NUNCA resetar conversa.historico = [] se DB nao retornou —
       // mantem memoria como fallback (so reseta se for lead realmente novo).
+      let leadLiaPausada = false;
       try {
         const { data: rows } = await db.supabase
           .from('leads')
-          .select('historico_json')
+          .select('historico_json, lia_pausada')
           .eq('telefone', telefone)
           .eq('usuario_id', user.id)
           .eq('origem', 'whatsapp')
           .order('updated_at', { ascending: false })
           .limit(1);
         const leadAnterior = rows && rows[0];
+        if (leadAnterior?.lia_pausada) leadLiaPausada = true;
         if (leadAnterior?.historico_json) {
           try {
             const parsed = JSON.parse(leadAnterior.historico_json);
@@ -985,11 +1027,42 @@ app.post('/webhook/evolution', async (req, res) => {
         console.warn(`[evolution] query historico falhou ${telefone}:`, e.message);
       }
 
-      console.log(`[evolution] msg user=${user.id} tel=${telefone}: "${texto}" (hist_pre_push=${conversa.historico.length})`);
+      console.log(`[evolution] msg user=${user.id} tel=${telefone}: "${texto}" (hist_pre_push=${conversa.historico.length} pausa_user=${!!user.lia_pausada} pausa_lead=${leadLiaPausada})`);
       conversa.historico.push({ role: 'user', content: texto });
       // 40 mensagens = ~20 trocas. Conversa de qualificacao chega facil em 10-15 trocas
       // antes de oferecer visita; manter contexto evita Lia repetir perguntas.
       if (conversa.historico.length > 40) conversa.historico = conversa.historico.slice(-40);
+
+      // KILL SWITCH — Lia pausada (global do corretor OU especifica desse lead).
+      // Salva a msg, dispara push pro corretor responder manualmente, retorna.
+      if (user.lia_pausada || leadLiaPausada) {
+        try {
+          await db.upsertLeadWhatsApp(telefone, {
+            nome: msg.pushName || '',
+            total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
+            historico_json: JSON.stringify({
+              v: 2,
+              messages: conversa.historico.slice(-40),
+              imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+            }),
+          }, user.id);
+        } catch (err) {
+          console.error(`[evolution] erro salvar msg com Lia pausada ${telefone}:`, err.message);
+        }
+        if (pushService?.disponivel()) {
+          const nomeLead = msg.pushName || 'Lead';
+          const previa = texto.length > 80 ? texto.slice(0, 77) + '...' : texto;
+          const motivo = user.lia_pausada ? '🚫 Lia pausada (geral)' : '🚫 Lia pausada nessa conversa';
+          pushService.sendPushParaCorretor(user.id, {
+            title: `⚠️ ${nomeLead} aguardando você`,
+            body: `${previa}\n${motivo}`,
+            url: '/?tab=comunicacoes',
+            tag: `lead-${telefone}`,
+          }).catch(e => console.error('[push lia pausada]', e.message));
+        }
+        console.log(`[evolution] Lia pausada — msg salva, corretor notificado: ${telefone}`);
+        return res.json({ received: true });
+      }
 
       // Cache de imoveis ja oferecidos nesse contato (vem do DB se carregou)
       if (!conversa.imoveisEnviados) conversa.imoveisEnviados = new Set();
@@ -1263,6 +1336,74 @@ app.post('/webhook/evolution', async (req, res) => {
     console.error('[evolution webhook] erro:', err.message);
     if (Sentry) Sentry.captureException(err);
     if (!res.headersSent) res.status(500).json({ erro: 'erro interno' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// LIA — Kill switch (pausar global ou por lead)
+// ─────────────────────────────────────────────
+app.get('/api/lia/status', authMiddleware, async (req, res) => {
+  try {
+    const [{ data: user }, { count: leadsPausados }] = await Promise.all([
+      db.supabase.from('usuarios').select('lia_pausada').eq('id', req.userId).maybeSingle(),
+      db.supabase.from('leads').select('id', { count: 'exact', head: true }).eq('usuario_id', req.userId).eq('lia_pausada', true),
+    ]);
+    res.json({
+      global_pausada: !!user?.lia_pausada,
+      leads_pausados: leadsPausados || 0,
+    });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/lia/pausar', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await db.supabase.from('usuarios').update({ lia_pausada: true }).eq('id', req.userId);
+    if (error) throw error;
+    res.json({ ok: true, global_pausada: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/lia/retomar', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await db.supabase.from('usuarios').update({ lia_pausada: false }).eq('id', req.userId);
+    if (error) throw error;
+    res.json({ ok: true, global_pausada: false });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/leads/:telefone/pausar-lia', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await db.supabase
+      .from('leads')
+      .update({ lia_pausada: true })
+      .eq('telefone', req.params.telefone)
+      .eq('usuario_id', req.userId)
+      .eq('origem', 'whatsapp');
+    if (error) throw error;
+    res.json({ ok: true, lia_pausada: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/leads/:telefone/retomar-lia', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await db.supabase
+      .from('leads')
+      .update({ lia_pausada: false })
+      .eq('telefone', req.params.telefone)
+      .eq('usuario_id', req.userId)
+      .eq('origem', 'whatsapp');
+    if (error) throw error;
+    res.json({ ok: true, lia_pausada: false });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
   }
 });
 
@@ -2374,6 +2515,7 @@ app.get('/api/leads', async (req, res) => {
       estagio: l.estagio || 'novo',
       totalMensagens: l.total_mensagens || 0,
       ultimaAtualizacao: l.updated_at ? new Date(l.updated_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : '--',
+      lia_pausada: !!l.lia_pausada,
     })));
   } catch (err) {
     console.error('[API] Erro ao listar leads:', err.message);
