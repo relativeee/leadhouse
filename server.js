@@ -832,6 +832,81 @@ app.get('/api/push/debug', (req, res) => {
   res.json({ moduleLoaded: true, ...pushService.diagnostico() });
 });
 
+// GET /api/health — health check publico pra uptime monitoring externo
+// (Uptime Robot, Better Stack, etc). Sem auth. Retorna 200 ok ou 503 down.
+// Checa: Supabase responde + Evolution API responde + envs criticas configuradas.
+app.get('/api/health', async (req, res) => {
+  const checks = {};
+  let allOk = true;
+
+  // 1) Supabase — select count rapido na tabela usuarios (timeout 3s)
+  try {
+    const start = Date.now();
+    const supabasePromise = db.supabase.from('usuarios').select('id', { count: 'exact', head: true });
+    const { error } = await Promise.race([
+      supabasePromise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 3s')), 3000)),
+    ]);
+    checks.supabase = error ? { ok: false, error: error.message } : { ok: true, ms: Date.now() - start };
+    if (error) allOk = false;
+  } catch (e) {
+    checks.supabase = { ok: false, error: e.message };
+    allOk = false;
+  }
+
+  // 2) Evolution API — ping no health endpoint do Evolution (timeout 3s)
+  try {
+    const evoUrl = process.env.EVOLUTION_API_URL;
+    if (!evoUrl) {
+      checks.evolution = { ok: false, error: 'EVOLUTION_API_URL nao configurado' };
+      allOk = false;
+    } else {
+      const start = Date.now();
+      const r = await Promise.race([
+        fetch(`${evoUrl.replace(/\/+$/, '')}/`, { method: 'GET' }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 3s')), 3000)),
+      ]);
+      checks.evolution = { ok: r.ok || r.status === 200, status: r.status, ms: Date.now() - start };
+      if (!r.ok && r.status !== 200) allOk = false;
+    }
+  } catch (e) {
+    checks.evolution = { ok: false, error: e.message };
+    allOk = false;
+  }
+
+  // 3) Env vars criticas — so booleans (nunca expor valores)
+  checks.env = {
+    anthropic_api_key: !!process.env.ANTHROPIC_API_KEY,
+    supabase_url: !!process.env.SUPABASE_URL,
+    supabase_service_role: !!process.env.SUPABASE_SERVICE_ROLE,
+    evolution_api_key: !!process.env.EVOLUTION_API_KEY,
+    sentry_dsn: !!process.env.SENTRY_DSN,
+    stripe_secret_key: !!process.env.STRIPE_SECRET_KEY,
+    stripe_webhook_secret: !!process.env.STRIPE_WEBHOOK_SECRET,
+    vapid_public_key: !!process.env.VAPID_PUBLIC_KEY,
+    vapid_private_key: !!process.env.VAPID_PRIVATE_KEY,
+  };
+  // Anthropic + Supabase sao bloqueantes — sem eles o app nao funciona
+  if (!checks.env.anthropic_api_key || !checks.env.supabase_url || !checks.env.supabase_service_role) {
+    allOk = false;
+  }
+
+  // 4) Servicos opcionais — boolean de "modulo carregado"
+  checks.services = {
+    sentry_initialized: !!Sentry,
+    stripe_initialized: !!stripe,
+    push_available: !!(pushService?.disponivel?.()),
+  };
+
+  const payload = {
+    status: allOk ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'unknown',
+    checks,
+  };
+  res.status(allOk ? 200 : 503).json(payload);
+});
+
 // POST /api/push/subscribe — salva a subscription do device do corretor
 app.post('/api/push/subscribe', authMiddleware, async (req, res) => {
   if (!pushService?.disponivel()) return res.status(503).json({ erro: 'Push desabilitado' });
