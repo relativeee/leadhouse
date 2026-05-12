@@ -278,16 +278,17 @@ function validarDataVisita(dataStr, horarioStr) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return { ok: false, motivo: 'formato YYYY-MM-DD invalido' };
   if (!/^\d{2}:\d{2}$/.test(horarioStr)) return { ok: false, motivo: 'formato HH:MM invalido' };
 
-  const [y, m, d] = dataStr.split('-').map(Number);
-  const [h, min] = horarioStr.split(':').map(Number);
-  const visitaDate = new Date(y, m - 1, d, h, min);
+  // Vercel roda em UTC, mas as visitas sao no fuso de Recife (UTC-3, sem DST).
+  // Constroi a data com offset explicito pra evitar confusao timezone.
+  const visitaDate = new Date(`${dataStr}T${horarioStr}:00-03:00`);
   if (isNaN(visitaDate.getTime())) return { ok: false, motivo: 'data invalida' };
 
   const agora = new Date();
-  // Tolerancia de 1h pro passado (se Lia agendou pra "agora" e webhook demorou)
-  const minimo = new Date(agora.getTime() - 60 * 60 * 1000);
+  // Tolerancia de 15min pro passado (se Lia agendou pra "agora" e webhook demorou).
+  // Reduzido de 1h pra 15min — agendar visita pra 1h atras nao faz sentido.
+  const minimo = new Date(agora.getTime() - 15 * 60 * 1000);
   const maximo = new Date(agora.getTime() + 365 * 24 * 60 * 60 * 1000);
-  if (visitaDate < minimo) return { ok: false, motivo: `data no passado (${dataStr})` };
+  if (visitaDate < minimo) return { ok: false, motivo: `data/horario no passado (${dataStr} ${horarioStr})` };
   if (visitaDate > maximo) return { ok: false, motivo: `data > 1 ano no futuro (${dataStr})` };
   return { ok: true };
 }
@@ -1937,7 +1938,16 @@ async function calcularHorariosLivres(userId) {
 
     // Busca visitas dos próximos 7 dias
     const visitas = await db.listarVisitas(userId);
-    const hoje = new Date();
+
+    // Calcula "agora" no fuso de Recife (UTC-3, sem DST). Vercel roda em UTC,
+    // entao Date.getHours() voltaria hora UTC errada — precisa converter explicito.
+    const agoraRecife = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Recife' }));
+    const hojeStr = agoraRecife.toISOString().slice(0, 10); // YYYY-MM-DD na local de Recife
+    const agoraMin = agoraRecife.getHours() * 60 + agoraRecife.getMinutes();
+    // Buffer de 60min: nao oferece horario que vai expirar em <1h (cliente precisa
+    // tempo pra confirmar + deslocar). Ex: 15:30 agora, nao oferece 16:00.
+    const BUFFER_MIN = 60;
+    const hoje = new Date(agoraRecife);
     hoje.setHours(0,0,0,0);
 
     const slots = [];
@@ -1954,6 +1964,12 @@ async function calcularHorariosLivres(userId) {
       const inicioMin = hI * 60 + mI;
       const fimMin = hF * 60 + mF;
 
+      // Pra HOJE, comeca a partir do proximo slot apos agora+buffer.
+      // Pros outros dias, comeca no inicio normal.
+      const efetivoInicio = (dataStr === hojeStr)
+        ? Math.max(inicioMin, Math.ceil((agoraMin + BUFFER_MIN) / duracao) * duracao)
+        : inicioMin;
+
       // Visitas já agendadas nesse dia
       const ocupados = visitas
         .filter(v => {
@@ -1968,7 +1984,7 @@ async function calcularHorariosLivres(userId) {
 
       const diasSem = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
       const livres = [];
-      for (let t = inicioMin; t + duracao <= fimMin; t += duracao) {
+      for (let t = efetivoInicio; t + duracao <= fimMin; t += duracao) {
         const hh = String(Math.floor(t/60)).padStart(2,'0');
         const mm = String(t%60).padStart(2,'0');
         const bloqueado = bloqueios.some(b => b.data === dataStr && b.hora === `${hh}:${mm}`);
