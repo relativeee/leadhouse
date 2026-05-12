@@ -3835,79 +3835,221 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 [data-theme="light"] .msg-chat__banner-pausada { color: #8a6614; background: rgba(245,195,95,0.15); border-color: rgba(245,195,95,0.45); }
 
-/* Configuracoes — sub-view Lia */
-.lia-section {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-}
-[data-theme="light"] .lia-section { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+/* ─────────────────────────────────────────────
+   LIA — Configuracoes (cara da LeadHouse)
+   Playfair Display + gold accent + subtle gradients
+   ───────────────────────────────────────────── */
 
-.lia-section__row {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem;
+/* Hero centralizado com icone do robo */
+.lia-hero { text-align: center; margin-bottom: 2rem; }
+.lia-hero__icon {
+    width: 84px; height: 84px;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.4s ease;
+    position: relative;
 }
-.lia-section__title { font-size: 0.95rem; font-weight: 600; color: var(--text-1); margin-bottom: 0.25rem; }
-.lia-section__desc { font-size: 0.8rem; color: var(--text-2); line-height: 1.45; }
+.lia-hero__icon::before {
+    content: ''; position: absolute; inset: -1px;
+    border-radius: 50%; padding: 1px;
+    background: linear-gradient(135deg, var(--gold) 0%, rgba(201,168,76,0.25) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+}
+.lia-hero__icon--active {
+    background: radial-gradient(circle at center, rgba(201,168,76,0.18) 0%, rgba(201,168,76,0.04) 70%);
+    color: var(--gold);
+    box-shadow: 0 0 0 0 var(--gold-glow);
+    animation: liaGlow 3s ease-in-out infinite;
+}
+.lia-hero__icon--paused {
+    background: radial-gradient(circle at center, rgba(184,118,58,0.18) 0%, rgba(184,118,58,0.04) 70%);
+    color: #d49658;
+}
+.lia-hero__icon--paused::before {
+    background: linear-gradient(135deg, #d49658 0%, rgba(212,150,88,0.25) 100%);
+}
+@keyframes liaGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.3); }
+    50% { box-shadow: 0 0 0 10px rgba(201,168,76,0); }
+}
+.lia-hero__title {
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+.lia-hero__sub {
+    font-size: 0.92rem;
+    color: var(--text-2);
+    line-height: 1.55;
+    max-width: 460px;
+    margin: 0 auto;
+}
 
-/* Toggle estilo iOS */
+/* Card principal com toggle */
+.lia-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(201,168,76,0.12);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+.lia-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+    opacity: 0.35;
+}
+[data-theme="light"] .lia-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(0,0,0,0.01) 100%);
+    border-color: rgba(201,168,76,0.18);
+}
+.lia-card__row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; }
+.lia-card__info { flex: 1; min-width: 0; }
+.lia-card__title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 0.35rem;
+    letter-spacing: -0.005em;
+}
+.lia-card__desc {
+    font-size: 0.82rem;
+    color: var(--text-2);
+    line-height: 1.5;
+}
+
+/* Toggle iOS-like com gold */
 .lia-toggle {
     flex-shrink: 0;
-    width: 52px; height: 30px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.12);
+    width: 54px; height: 32px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 999px;
     position: relative; cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
 }
 .lia-toggle__dot {
     position: absolute; top: 2px; left: 2px;
-    width: 24px; height: 24px;
-    background: #e0e0e0;
+    width: 26px; height: 26px;
+    background: #e8e8e8;
     border-radius: 50%;
-    transition: transform 0.2s, background 0.2s;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-.lia-toggle--on { background: rgba(245, 195, 95, 0.4); border-color: rgba(245, 195, 95, 0.5); }
-.lia-toggle--on .lia-toggle__dot { transform: translateX(22px); background: var(--gold, #c9a961); }
+.lia-toggle--on {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px var(--gold-muted);
+}
+.lia-toggle--on .lia-toggle__dot {
+    transform: translateX(22px);
+    background: #fff;
+}
 [data-theme="light"] .lia-toggle { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.1); }
-[data-theme="light"] .lia-toggle__dot { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+[data-theme="light"] .lia-toggle__dot { background: #fff; }
 
-/* Mensagem de status na config */
-.lia-status-msg {
-    margin-top: 0.9rem;
-    padding: 0.7rem 0.9rem;
-    border-radius: 8px;
+/* Status pill compacto */
+.lia-status-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+.lia-status-pill__dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 0 currentColor;
+    animation: pillPulse 2s ease-in-out infinite;
+}
+@keyframes pillPulse {
+    0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50% { box-shadow: 0 0 0 5px transparent; opacity: 0.7; }
+}
+.lia-status-pill--active {
+    background: rgba(74,222,128,0.1);
+    border: 1px solid rgba(74,222,128,0.3);
+    color: #4ADE80;
+}
+.lia-status-pill--paused {
+    background: rgba(212,150,88,0.12);
+    border: 1px solid rgba(212,150,88,0.35);
+    color: #d49658;
+}
+[data-theme="light"] .lia-status-pill--active { color: #2d9050; background: rgba(74,222,128,0.12); }
+[data-theme="light"] .lia-status-pill--paused { color: #8a6614; background: rgba(212,150,88,0.15); }
+
+/* Seção de leads pausados individualmente */
+.lia-leads-section { }
+.lia-leads-section__head { margin-bottom: 1rem; }
+.lia-leads-section__title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-1);
+    margin: 0 0 0.4rem;
+    letter-spacing: -0.005em;
+}
+.lia-leads-section__desc {
     font-size: 0.82rem;
-    line-height: 1.5;
+    color: var(--text-2);
+    line-height: 1.55;
+    margin: 0;
 }
-.lia-status-msg--paused {
-    background: rgba(245, 195, 95, 0.1);
-    border: 1px solid rgba(245, 195, 95, 0.3);
-    color: #f5c35f;
-}
-.lia-status-msg--active {
-    background: rgba(80, 200, 120, 0.08);
-    border: 1px solid rgba(80, 200, 120, 0.25);
-    color: #50c878;
-}
-[data-theme="light"] .lia-status-msg--paused { color: #8a6614; }
-[data-theme="light"] .lia-status-msg--active { color: #2e7d4f; }
+.lia-leads-section__desc strong { color: var(--text-1); font-weight: 600; }
 
-/* Lista de leads pausados individualmente */
-.lia-leads-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.lia-leads-list { display: flex; flex-direction: column; gap: 0.6rem; }
 .lia-lead-item {
     display: flex; align-items: center; justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
     background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    transition: border-color 0.2s, background 0.2s;
 }
+.lia-lead-item:hover { border-color: rgba(201,168,76,0.25); background: rgba(255,255,255,0.04); }
 [data-theme="light"] .lia-lead-item { background: rgba(0,0,0,0.015); border-color: rgba(0,0,0,0.06); }
-.lia-lead-item__name { font-size: 0.9rem; font-weight: 600; color: var(--text-1); }
-.lia-lead-item__tel { font-size: 0.75rem; color: var(--text-2); }
+[data-theme="light"] .lia-lead-item:hover { border-color: rgba(201,168,76,0.35); background: rgba(0,0,0,0.025); }
+.lia-lead-item__info { display: flex; align-items: center; gap: 0.75rem; min-width: 0; flex: 1; }
+.lia-lead-item__avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold-muted) 0%, rgba(201,168,76,0.05) 100%);
+    border: 1px solid var(--gold-muted);
+    color: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 0.85rem;
+    flex-shrink: 0;
+}
+.lia-lead-item__name { font-size: 0.92rem; font-weight: 600; color: var(--text-1); }
+.lia-lead-item__tel { font-size: 0.78rem; color: var(--text-2); margin-top: 2px; }
+
+/* Empty state com icone */
+.lia-leads-empty {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0.6rem;
+    padding: 2rem 1rem;
+    color: var(--text-2);
+    background: rgba(255,255,255,0.015);
+    border: 1px dashed rgba(255,255,255,0.08);
+    border-radius: 12px;
+}
+.lia-leads-empty svg { opacity: 0.5; }
+.lia-leads-empty span { font-size: 0.85rem; }
+[data-theme="light"] .lia-leads-empty { background: rgba(0,0,0,0.01); border-color: rgba(0,0,0,0.08); }
 
 @media (max-width: 900px) {
     .msg-layout { grid-template-columns: 1fr; height: auto; }
