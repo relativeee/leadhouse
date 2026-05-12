@@ -1982,60 +1982,82 @@ app.post('/webhook', async (req, res) => {
   if (conversa.mensagensProcessadas.has(messageId)) return res.sendStatus(200);
   conversa.mensagensProcessadas.add(messageId);
 
-  // SERVERLESS: SEMPRE recarrega do DB. Vercel reusa instances entre cold
-  // starts — confiar no conversa.historico em memoria gera "stale state"
-  // (instance A com cache antigo nao ve mensagens salvas pela instance B).
-  // Custo: +1 SELECT por mensagem (~50ms), inevitavel em serverless.
+  // PASSO 1: Determinar userIdDestino ANTES de qualquer query de historico.
+  // Tres tentativas em ordem: (1) lead existente, (2) admin, (3) bail out.
+  // Usa order+limit em vez de maybeSingle pra evitar erro em duplicatas.
+  let userIdDestino = null;
+  let isLeadNovo = true;
   try {
-    const { data: leadAnterior } = await db.supabase
+    const { data: leadRows } = await db.supabase
       .from('leads')
-      .select('historico_json')
+      .select('id, usuario_id')
       .eq('telefone', telefone)
       .eq('origem', 'whatsapp')
-      .maybeSingle();
-    if (leadAnterior?.historico_json) {
-      const parsed = JSON.parse(leadAnterior.historico_json);
-      // Compat: array (formato antigo) OU objeto { messages, imoveisEnviados } (novo)
-      if (Array.isArray(parsed) && parsed.length) {
-        conversa.historico = parsed;
-      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) {
-        conversa.historico = parsed.messages;
-      }
-    } else {
-      // Sem registro no DB — lead novo. Reseta in-memory que pode estar stale.
-      conversa.historico = [];
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    if (leadRows && leadRows.length > 0 && leadRows[0].usuario_id) {
+      userIdDestino = leadRows[0].usuario_id;
+      isLeadNovo = false;
     }
   } catch (e) {
-    console.warn(`[Webhook] Falha ao carregar historico do Supabase para ${telefone}:`, e.message);
+    console.warn(`[Webhook] busca lead existente falhou:`, e.message);
+  }
+  if (!userIdDestino) {
+    try {
+      const { data: admin } = await db.supabase
+        .from('usuarios')
+        .select('id')
+        .eq('is_admin', true)
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      userIdDestino = admin?.id || null;
+    } catch (e) {
+      console.warn(`[Webhook] busca admin falhou:`, e.message);
+    }
   }
 
-  console.log(`[Webhook] Nova mensagem de ${telefone}: "${mensagem}" (historico: ${conversa.historico.length})`);
+  // PASSO 2: Recarrega historico do DB FILTRANDO por usuario_id (evita maybeSingle
+  // erro se houver duplicatas) e usa order+limit em vez de maybeSingle.
+  // CRITICO: NUNCA resetar conversa.historico pra [] aqui — se DB vazio mas memoria
+  // tem dado, manter memoria. Se ambos vazios, fica [] mesmo (lead novo de verdade).
+  if (userIdDestino) {
+    try {
+      const { data: rows } = await db.supabase
+        .from('leads')
+        .select('historico_json')
+        .eq('telefone', telefone)
+        .eq('usuario_id', userIdDestino)
+        .eq('origem', 'whatsapp')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      const leadAnterior = rows && rows[0];
+      if (leadAnterior?.historico_json) {
+        try {
+          const parsed = JSON.parse(leadAnterior.historico_json);
+          let loaded = null;
+          if (Array.isArray(parsed) && parsed.length) loaded = parsed;
+          else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) loaded = parsed.messages;
+          if (loaded && loaded.length) {
+            conversa.historico = loaded;
+            console.log(`[Webhook] historico carregado do DB: ${loaded.length} msgs (user=${userIdDestino}, tel=${telefone})`);
+          }
+        } catch (parseErr) {
+          console.warn(`[Webhook] JSON.parse historico falhou ${telefone}:`, parseErr.message);
+        }
+      } else {
+        console.log(`[Webhook] sem historico no DB pra ${telefone} (memoria=${conversa.historico.length} msgs)`);
+      }
+    } catch (e) {
+      console.warn(`[Webhook] query historico falhou ${telefone}:`, e.message);
+    }
+  }
+
+  console.log(`[Webhook] msg user=${userIdDestino} tel=${telefone} novo=${isLeadNovo}: "${mensagem}" (hist_pre_push=${conversa.historico.length})`);
   conversa.historico.push({ role: 'user', content: mensagem });
 
-  if (conversa.historico.length > 20) {
-    conversa.historico = conversa.historico.slice(-20);
-  }
-
-  // Descobre a qual usuario atribuir (lead existente OU admin como fallback)
-  let userIdDestino = null;
-  const { data: leadExistente } = await db.supabase
-    .from('leads')
-    .select('id, usuario_id')
-    .eq('telefone', telefone)
-    .eq('origem', 'whatsapp')
-    .maybeSingle();
-  const isLeadNovo = !leadExistente;
-  if (leadExistente?.usuario_id) {
-    userIdDestino = leadExistente.usuario_id;
-  } else {
-    // Fallback: atribui ao primeiro admin do sistema
-    const { data: admin } = await db.supabase
-      .from('usuarios')
-      .select('id')
-      .eq('is_admin', true)
-      .limit(1)
-      .maybeSingle();
-    userIdDestino = admin?.id || null;
+  if (conversa.historico.length > 40) {
+    conversa.historico = conversa.historico.slice(-40);
   }
 
   // Busca o nome do corretor pra injetar no prompt da Lia
