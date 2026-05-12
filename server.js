@@ -1035,9 +1035,9 @@ app.post('/webhook/evolution', async (req, res) => {
               if (imovelParaEnviar.valor) detalhes.push(`R$ ${imovelParaEnviar.valor}`);
               if (imovelParaEnviar.quartos) detalhes.push(`${imovelParaEnviar.quartos} quartos`);
               if (imovelEhAlternativo) {
-                contextoImoveis = `\n[IMÓVEL ALTERNATIVO PRA OFERECER]\nNão temos imóvel disponível no bairro "${bairroLead}" no momento. Logo após sua próxima mensagem, o sistema vai enviar automaticamente a foto de um imóvel parecido: ${detalhes.join(' · ')}. Na sua resposta, seja honesta: diga que nesse bairro específico não tem no momento, mas tem esse outro com características parecidas em ${imovelParaEnviar.bairro}, e que vai mandar a foto pra ele ver. Pergunte se o bairro ${imovelParaEnviar.bairro} também pode interessar. Não descreva a foto — ela vai junto.`;
+                contextoImoveis = `\n[IMÓVEL ALTERNATIVO DISPONÍVEL]\nNão tem imóvel no bairro "${bairroLead}" no momento, mas tem este parecido (id=${imovelParaEnviar.id}): ${detalhes.join(' · ')}.\n\nMENCIONE esse imóvel ao cliente. PERGUNTE se ${imovelParaEnviar.bairro} também pode interessar e se ele quer ver a foto. NÃO envie a foto agora — só envie via tool 'enviando_arquivos' QUANDO o cliente pedir (ex: "manda foto", "quero ver", "mostra").`;
               } else {
-                contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
+                contextoImoveis = `\n[IMÓVEL COMPATÍVEL DISPONÍVEL]\nTem este imóvel disponível em ${bairroLead} (id=${imovelParaEnviar.id}): ${detalhes.join(' · ')}.\n\nMENCIONE esse imóvel ao cliente e PERGUNTE se quer ver a foto. NÃO envie a foto agora — só envie via tool 'enviando_arquivos' QUANDO o cliente pedir explicitamente (ex: "manda foto", "quero ver").`;
               }
             }
           }
@@ -1152,24 +1152,9 @@ app.post('/webhook/evolution', async (req, res) => {
         console.error(`[evolution] erro ao enviar via Evolution pra ${telefone}:`, err.message);
       }
 
-      // Bloco 3b: Fallback de foto — se Lia NAO acionou enviando_arquivos via tool,
-      // mas o pre-resposta achou um imovel compativel, manda foto + caption.
-      // (Tool ja adiciona o id em conversa.imoveisEnviados — o check abaixo evita duplicata.)
-      if (imovelParaEnviar && evolution.sendImage && !conversa.imoveisEnviados.has(imovelParaEnviar.id)) {
-        try {
-          const capParts = [imovelParaEnviar.titulo];
-          if (imovelParaEnviar.bairro) capParts.push(imovelParaEnviar.bairro);
-          if (imovelParaEnviar.valor) capParts.push(`R$ ${imovelParaEnviar.valor}`);
-          if (imovelParaEnviar.quartos) capParts.push(`${imovelParaEnviar.quartos} quartos`);
-          if (imovelParaEnviar.vagas) capParts.push(`${imovelParaEnviar.vagas} vagas`);
-          if (imovelParaEnviar.area) capParts.push(`${imovelParaEnviar.area}m²`);
-          const caption = capParts.join(' · ');
-          await evolution.sendImage(user.id, telefone, imovelParaEnviar.foto_url, caption);
-          conversa.imoveisEnviados.add(imovelParaEnviar.id);
-        } catch (err) {
-          console.error(`[evolution] erro ao enviar foto do imovel ${imovelParaEnviar.id}:`, err.message);
-        }
-      }
+      // Bloco 3b REMOVIDO — antes mandava foto AUTOMATICAMENTE sempre que pre-resposta
+      // achava imovel compativel. User reclamou que Lia mandava foto sem ser pedido.
+      // Agora foto SO vai via tool 'enviando_arquivos' que a Lia chama quando user pede.
 
       // Bloco 4: Enriquece lead com leadData ja extraida no pre-resposta (sem novo Claude call).
       // Se a extracao falhou la, pula esse bloco — historico ja foi salvo no Bloco 2.
@@ -2140,9 +2125,9 @@ app.post('/webhook', async (req, res) => {
         if (imovelParaEnviar.valor) detalhes.push(`R$ ${imovelParaEnviar.valor}`);
         if (imovelParaEnviar.quartos) detalhes.push(`${imovelParaEnviar.quartos} quartos`);
         if (imovelEhAlternativo) {
-          contextoImoveis = `\n[IMÓVEL ALTERNATIVO PRA OFERECER]\nNão temos imóvel disponível no bairro "${bairroLead}" no momento. Logo após sua próxima mensagem, o sistema vai enviar automaticamente a foto de um imóvel parecido: ${detalhes.join(' · ')}. Na sua resposta, seja honesta: diga que nesse bairro específico não tem no momento, mas tem esse outro com características parecidas em ${imovelParaEnviar.bairro}, e que vai mandar a foto pra ele ver. Pergunte se o bairro ${imovelParaEnviar.bairro} também pode interessar. Não descreva a foto — ela vai junto.`;
+          contextoImoveis = `\n[IMÓVEL ALTERNATIVO DISPONÍVEL]\nNão tem imóvel no bairro "${bairroLead}" no momento, mas tem este parecido (id=${imovelParaEnviar.id}): ${detalhes.join(' · ')}.\n\nMENCIONE esse imóvel ao cliente. PERGUNTE se ${imovelParaEnviar.bairro} também pode interessar e se ele quer ver a foto. NÃO envie a foto agora — só envie via tool 'enviando_arquivos' QUANDO o cliente pedir (ex: "manda foto", "quero ver", "mostra").`;
         } else {
-          contextoImoveis = `\n[IMÓVEL PRA OFERECER]\nLogo após sua próxima mensagem, o sistema vai enviar automaticamente uma foto do imóvel: ${detalhes.join(' · ')}. Na sua resposta, mencione que tem esse imóvel em ${bairroLead} e está mandando a foto pra ele ver. Pergunte se gostou ou se quer mais detalhes. Não descreva a foto em texto — ela vai junto.`;
+          contextoImoveis = `\n[IMÓVEL COMPATÍVEL DISPONÍVEL]\nTem este imóvel disponível em ${bairroLead} (id=${imovelParaEnviar.id}): ${detalhes.join(' · ')}.\n\nMENCIONE esse imóvel ao cliente e PERGUNTE se quer ver a foto. NÃO envie a foto agora — só envie via tool 'enviando_arquivos' QUANDO o cliente pedir explicitamente (ex: "manda foto", "quero ver").`;
         }
       }
     }
@@ -2202,19 +2187,8 @@ app.post('/webhook', async (req, res) => {
     await enviarMensagem(telefone, resposta);
     respostaEnviada = true;
 
-    // Envia foto do imovel logo apos o texto (nao critico) — SKIP se Lia ja enviou via tool.
-    if (imovelParaEnviar && enviarImagem && !conversa.imoveisEnviados.has(imovelParaEnviar.id)) {
-      try {
-        const capParts = [imovelParaEnviar.titulo];
-        if (imovelParaEnviar.valor) capParts.push(`R$ ${imovelParaEnviar.valor}`);
-        if (imovelParaEnviar.quartos) capParts.push(`${imovelParaEnviar.quartos} quartos`);
-        if (imovelParaEnviar.area) capParts.push(`${imovelParaEnviar.area}m²`);
-        await enviarImagem(telefone, imovelParaEnviar.foto_url, capParts.join(' · '));
-        conversa.imoveisEnviados.add(imovelParaEnviar.id);
-      } catch (e) {
-        console.error(`[Webhook] Erro ao enviar imagem do imovel ${imovelParaEnviar.id}:`, e.message);
-      }
-    }
+    // Auto-send de foto REMOVIDO — antes mandava foto sem o user pedir. Foto agora
+    // so vai via tool 'enviando_arquivos' que a Lia chama quando o cliente pede.
   } catch (err) {
     console.error(`[Webhook] Erro ao gerar/enviar resposta para ${telefone}:`, err.message);
     if (!respostaEnviada) {
