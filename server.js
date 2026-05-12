@@ -1055,16 +1055,23 @@ app.post('/webhook/evolution', async (req, res) => {
         console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
       }
 
-      // Push notification pro corretor: lead novo iniciou conversa
-      if (isNovoLead && pushService?.disponivel()) {
-        const nomeLead = msg.pushName || 'Novo lead';
+      // Push notification pro corretor — dispara em TODA mensagem do cliente.
+      // 1a mensagem: "🔥 entrou em contato" (lead novo, urgencia).
+      // Demais: "💬 [Nome]" — apenas atualizacao.
+      // Tag por telefone faz a notif do mesmo lead SUBSTITUIR a anterior,
+      // evitando empilhar 10 push numa conversa rapida.
+      if (pushService?.disponivel()) {
+        const nomeLead = msg.pushName || 'Lead';
         const previa = texto.length > 80 ? texto.slice(0, 77) + '...' : texto;
+        const title = isNovoLead
+          ? `🔥 ${nomeLead} entrou em contato`
+          : `💬 ${nomeLead}`;
         pushService.sendPushParaCorretor(user.id, {
-          title: `🔥 ${nomeLead} entrou em contato`,
+          title,
           body: previa,
           url: '/?tab=comunicacoes',
           tag: `lead-${telefone}`,
-        }).catch(e => console.error('[push novo lead evolution]', e.message));
+        }).catch(e => console.error('[push msg evolution]', e.message));
       }
 
       // Bloco 3: Envia resposta via Evolution
@@ -2187,16 +2194,21 @@ app.post('/webhook', async (req, res) => {
     if (notificarCorretor && leadData.temperatura === 'quente') {
       await notificarCorretor(leadData, telefone);
     }
-    // Push notification pro corretor: lead novo via WhatsApp Business (Meta)
-    if (isLeadNovo && userIdDestino && pushService?.disponivel()) {
-      const nomeLead = leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Novo lead';
+    // Push notification pro corretor — toda mensagem do cliente via Meta WABA.
+    // 1a mensagem: "🔥 entrou em contato". Demais: "💬 [Nome]" + previa.
+    // Tag por telefone substitui notificacao anterior do mesmo lead.
+    if (userIdDestino && pushService?.disponivel()) {
+      const nomeLead = leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Lead';
       const previa = mensagem.length > 80 ? mensagem.slice(0, 77) + '...' : mensagem;
+      const title = isLeadNovo
+        ? `🔥 ${nomeLead} entrou em contato`
+        : `💬 ${nomeLead}`;
       pushService.sendPushParaCorretor(userIdDestino, {
-        title: `🔥 ${nomeLead} entrou em contato`,
+        title,
         body: previa,
         url: '/?tab=comunicacoes',
         tag: `lead-${telefone}`,
-      }).catch(e => console.error('[push novo lead meta]', e.message));
+      }).catch(e => console.error('[push msg meta]', e.message));
     }
   } catch (err) {
     console.error(`[Webhook] Erro ao extrair/salvar lead ${telefone}:`, err.message);
