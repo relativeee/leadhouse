@@ -4627,6 +4627,46 @@ body.body--impersonating .sidebar-toggle { top: calc(38px + 0.75rem + env(safe-a
     body.body--impersonating .sidebar { top: 56px; }
 }
 
+/* Banner global: Lia pausada (kill switch) — mesma estrutura do imp-banner */
+.lia-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 9998;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding: 9px 16px;
+    background: linear-gradient(90deg, #b8763a 0%, #d49658 100%);
+    color: #fff;
+    font-size: 13px; font-weight: 500;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+    flex-wrap: wrap;
+}
+.lia-banner__text { display: inline-flex; align-items: center; }
+.lia-banner__text b { font-weight: 700; margin-left: 4px; }
+.lia-banner__btn {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    font-weight: 600; font-size: 12px;
+    padding: 5px 14px; border-radius: 4px; cursor: pointer;
+    transition: background 0.15s;
+}
+.lia-banner__btn:hover { background: rgba(255,255,255,0.32); }
+body.body--lia-pausada { padding-top: 38px; }
+body.body--lia-pausada .sidebar { top: 38px; }
+body.body--lia-pausada .sidebar-toggle { top: calc(38px + 0.75rem + env(safe-area-inset-top, 0px)); }
+/* Se admin tambem estiver impersonando, empilha os 2 banners */
+body.body--impersonating.body--lia-pausada { padding-top: 76px; }
+body.body--impersonating.body--lia-pausada .lia-banner { top: 38px; }
+body.body--impersonating.body--lia-pausada .sidebar { top: 76px; }
+@media (max-width: 600px) {
+    .lia-banner { font-size: 12px; padding: 7px 12px; gap: 10px; }
+    .lia-banner__btn { padding: 4px 10px; font-size: 11px; }
+    body.body--lia-pausada { padding-top: 56px; }
+    body.body--lia-pausada .sidebar { top: 56px; }
+    body.body--impersonating.body--lia-pausada { padding-top: 112px; }
+    body.body--impersonating.body--lia-pausada .lia-banner { top: 56px; }
+    body.body--impersonating.body--lia-pausada .sidebar { top: 112px; }
+}
+
 /* Botao "Atuar como" na lista admin */
 .admin-user-row { position: relative; }
 .admin-user-row__act {

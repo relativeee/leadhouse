@@ -41,6 +41,14 @@
     <button class="imp-banner__btn" onclick="stopImpersonation()">Voltar à minha conta</button>
 </div>
 
+<!-- ── Banner global: Lia pausada (kill switch global ativado) ── -->
+<div id="liaBanner" class="lia-banner" style="display:none">
+    <span class="lia-banner__text">
+        🚫 <b>Lia pausada — você está atendendo manualmente todos os leads</b>
+    </span>
+    <button class="lia-banner__btn" onclick="retomarLiaDoBanner()">▶ Retomar Lia</button>
+</div>
+
 <!-- ── Sidebar + Layout ── -->
 <div class="layout">
 
@@ -3687,6 +3695,10 @@ async function refreshLiaStatus() {
     try {
         const r = await apiCall('GET', '/api/lia/status');
         liaStatusGlobal = !!r.global_pausada;
+        // Banner global persistente — sempre visivel em qualquer aba quando pausada
+        const banner = document.getElementById('liaBanner');
+        if (banner) banner.style.display = liaStatusGlobal ? '' : 'none';
+        document.body.classList.toggle('body--lia-pausada', liaStatusGlobal);
         const toggle = document.getElementById('liaToggleGlobal');
         if (toggle) toggle.classList.toggle('lia-toggle--on', liaStatusGlobal);
         const msg = document.getElementById('liaStatusMsg');
@@ -3737,6 +3749,22 @@ async function toggleLiaGlobal() {
     } catch (e) {
         toast('Erro ao atualizar', 'erro');
     }
+}
+
+// Retomar Lia pelo banner global (uma das salvaguardas pra nao esquecer de voltar)
+async function retomarLiaDoBanner() {
+    try {
+        const r = await apiCall('POST', '/api/lia/retomar');
+        if (r.ok) {
+            liaStatusGlobal = false;
+            document.getElementById('liaBanner').style.display = 'none';
+            document.body.classList.remove('body--lia-pausada');
+            // Atualiza o toggle se a aba Config estiver aberta
+            const toggle = document.getElementById('liaToggleGlobal');
+            if (toggle) toggle.classList.remove('lia-toggle--on');
+            toast('Lia retomada — atendimento automático voltou', 'sucesso');
+        }
+    } catch (e) { toast('Erro ao retomar', 'erro'); }
 }
 
 async function pausarLiaConversa(telefone) {
@@ -4705,9 +4733,12 @@ document.addEventListener('keydown', (e) => {
     // Check admin
     fetch('/api/auth/me', { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : null).then(u => { if (u) checkAdmin(u); }).catch(() => {});
     atualizarNotificacoes();
+    // Banner global da Lia pausada — verifica no startup e a cada 30s pra manter sincronizado
+    refreshLiaStatus().catch(() => {});
     setInterval(carregarDashboard, 30000);
     setInterval(refreshPlano, 30000);
     setInterval(atualizarNotificacoes, 30000);
+    setInterval(() => refreshLiaStatus().catch(() => {}), 30000);
 })();
 
 // ═══════════════════════════════════════════════
