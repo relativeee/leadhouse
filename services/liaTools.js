@@ -71,10 +71,13 @@ function criarToolHandlers({ userId, telefone, conversa, db, sendImage }) {
       return { erro: 'id_imovel ausente ou invalido. Use um id retornado por `imoveis`.' };
     }
 
-    // Dedup: nao envia mesma foto 2x na mesma conversa
+    // Dedup REMOVIDO temporariamente — havia bug em que o antigo Bloco 3b auto-send
+    // marcava o imovel como enviado mesmo quando a entrega na WhatsApp falhava
+    // silenciosamente, bloqueando retentativas futuras. Agora cada chamada da tool
+    // tenta enviar. Se Lia chamar 2x na mesma conversa, sao 2 envios mesmo —
+    // melhor 2 fotos que zero. Anti-spam fica como responsabilidade do prompt.
     if (conversa?.imoveisEnviados?.has?.(id)) {
-      console.log(`[liaTools.enviando_arquivos] DEDUP: foto id=${id} ja enviada nessa conversa`);
-      return { ok: true, ja_enviado: true, id_imovel: id, mensagem: 'Foto desse imovel ja foi enviada nessa conversa.' };
+      console.log(`[liaTools.enviando_arquivos] id=${id} ja consta como enviado mas vamos tentar de novo (dedup desligado)`);
     }
 
     // Busca dados completos (cache local primeiro, depois DB)
