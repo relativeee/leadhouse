@@ -270,6 +270,56 @@ function distanciaValor(valorImovelStr, alvo) {
   return Math.abs(parsed.target - alvo.target);
 }
 
+// Helper anti-repeticao + anti-saudacao. Monta bloco de contexto pra Lia.
+// Robusto: combina o extractor (leadData) com regex fallback no historico
+// bruto, pra cobrir caso o extractor falhe em msgs curtas tipo "pra comprar".
+// Tambem detecta se Lia ja se apresentou e proibe repetir saudacao —
+// os exemplos few-shot do system prompt confundem o modelo nesse ponto.
+function buildAntiRepetContext(historico, leadData) {
+  let ctx = '';
+  const jaApresentou = (historico || []).some(m => m.role === 'assistant');
+  if (jaApresentou) {
+    ctx += `\n[REGRA ABSOLUTA — VOCÊ JÁ SE APRESENTOU]\nVocê JÁ disse "Oi! Aqui é a Lia, assistente do(a)..." nesta conversa. É PROIBIDO repetir saudação, se apresentar de novo ou começar com "Oi"/"Olá"/"Aqui é a Lia". Entre DIRETO no assunto.`;
+  }
+
+  const naoInformado = v => !v || v === 'não informado' || v === 'nao informado';
+  const ld = leadData || {};
+  const txtUser = (historico || [])
+    .filter(m => m.role === 'user')
+    .map(m => String(m.content || '').toLowerCase())
+    .join(' ');
+
+  let objetivo = ld.objetivo;
+  if (naoInformado(objetivo)) {
+    if (/\b(comprar|comprando|compra|adquirir)\b/.test(txtUser)) objetivo = 'comprar';
+    else if (/\b(alugar|alugando|aluguel|locar|loca[cç][aã]o)\b/.test(txtUser)) objetivo = 'alugar';
+    else if (/\b(investir|investimento)\b/.test(txtUser)) objetivo = 'investir';
+  }
+  let tipo = ld.tipo_imovel;
+  if (naoInformado(tipo)) {
+    if (/\b(apartamento|ap[eê]|apto)\b/.test(txtUser)) tipo = 'apartamento';
+    else if (/\bcasa\b/.test(txtUser)) tipo = 'casa';
+    else if (/\b(comercial|loja|sala)\b/.test(txtUser)) tipo = 'comercial';
+    else if (/\bterreno\b/.test(txtUser)) tipo = 'terreno';
+    else if (/\bcobertura\b/.test(txtUser)) tipo = 'cobertura';
+  }
+
+  const coletados = [];
+  if (!naoInformado(ld.nome)) coletados.push(`nome: ${ld.nome}`);
+  if (!naoInformado(objetivo)) coletados.push(`intenção: ${objetivo}`);
+  if (!naoInformado(tipo)) coletados.push(`tipo de imóvel: ${tipo}`);
+  if (!naoInformado(ld.bairro)) coletados.push(`bairro/região: ${ld.bairro}`);
+  if (!naoInformado(ld.faixa_valor)) coletados.push(`faixa de valor: ${ld.faixa_valor}`);
+  if (!naoInformado(ld.pagamento)) coletados.push(`forma de pagamento: ${ld.pagamento}`);
+  if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
+
+  if (coletados.length) {
+    ctx += `\n[DADOS JÁ COLETADOS — PROIBIDO PERGUNTAR DE NOVO]\n${coletados.join('\n')}\n\nVocê NÃO PODE perguntar nada acima. Se fizer, o cliente desiste. Use os dados pra avançar — pergunte SÓ sobre o que falta das 7 informações-chave.`;
+  }
+
+  return ctx;
+}
+
 // Limpa conversas inativas a cada hora
 setInterval(() => {
   const agora = Date.now();
@@ -984,22 +1034,10 @@ app.post('/webhook/evolution', async (req, res) => {
         // 3. Imoveis pra oferecer
         let contextoExtra = '';
 
-        // Bloco anti-repeticao: lista o que ja foi coletado e impede Lia de perguntar de novo
-        if (leadDataExtraida) {
-          const ld = leadDataExtraida;
-          const coletados = [];
-          const naoInformado = (v) => !v || v === 'não informado' || v === 'nao informado';
-          if (!naoInformado(ld.nome)) coletados.push(`nome: ${ld.nome}`);
-          if (!naoInformado(ld.objetivo)) coletados.push(`intenção: ${ld.objetivo}`);
-          if (!naoInformado(ld.tipo_imovel)) coletados.push(`tipo de imóvel: ${ld.tipo_imovel}`);
-          if (!naoInformado(ld.bairro)) coletados.push(`bairro/região: ${ld.bairro}`);
-          if (!naoInformado(ld.faixa_valor)) coletados.push(`faixa de valor: ${ld.faixa_valor}`);
-          if (!naoInformado(ld.pagamento)) coletados.push(`forma de pagamento: ${ld.pagamento}`);
-          if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
-          if (coletados.length) {
-            contextoExtra += `\n[DADOS JÁ COLETADOS — NÃO PERGUNTE NOVAMENTE]\n${coletados.join('\n')}\n\nNao pergunte sobre nada acima. Use os dados ja coletados pra avancar a conversa. Pergunte SOMENTE sobre o que falta da lista das 7 informacoes-chave (ver secao 4 do prompt).`;
-          }
-        }
+        // Bloco anti-repeticao + anti-saudacao (combina extractor + regex fallback).
+        // Excluindo a mensagem do usuario que acabou de chegar — o helper detecta
+        // "ja apresentou" pela presenca de assistant msgs, que conta corretamente.
+        contextoExtra += buildAntiRepetContext(conversa.historico, leadDataExtraida);
 
         try {
           const slotsLivres = await calcularHorariosLivres(user.id);
@@ -2068,6 +2106,8 @@ app.post('/webhook', async (req, res) => {
   let respostaEnviada = false;
   try {
     let contextoExtra = '';
+    // Anti-repeticao + anti-saudacao (idem evolution webhook).
+    contextoExtra += buildAntiRepetContext(conversa.historico, leadData);
     if (userIdDestino) {
       const slotsLivres = await calcularHorariosLivres(userIdDestino);
       if (slotsLivres) {
