@@ -850,33 +850,40 @@ app.post('/webhook/evolution', async (req, res) => {
       if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
       if (messageId) conversa.mensagensProcessadas.add(messageId);
 
-      // Cold start: serverless perde memoria. Recupera historico + imoveis ja
-      // enviados do DB (persistencia via historico_json estruturado).
-      if (conversa.historico.length === 0) {
-        try {
-          const { data: leadAnterior } = await db.supabase
-            .from('leads')
-            .select('historico_json')
-            .eq('telefone', telefone)
-            .eq('usuario_id', user.id)
-            .eq('origem', 'whatsapp')
-            .maybeSingle();
-          if (leadAnterior?.historico_json) {
-            const parsed = JSON.parse(leadAnterior.historico_json);
-            // Formato novo: { v: 2, messages: [...], imoveisEnviados: [...] }
-            // Formato antigo (compat): [...] direto
-            if (Array.isArray(parsed)) {
-              conversa.historico = parsed;
-            } else if (parsed && typeof parsed === 'object') {
-              if (Array.isArray(parsed.messages)) conversa.historico = parsed.messages;
-              if (Array.isArray(parsed.imoveisEnviados)) {
-                conversa.imoveisEnviados = new Set(parsed.imoveisEnviados);
-              }
+      // SERVERLESS: SEMPRE recarrega do DB antes de processar.
+      // O Vercel cria multiplas instances da funcao — o conversa.historico em
+      // memoria de uma instance pode estar STALE (mais antigo que o DB). Se nao
+      // recarregar, instance A processa msg 1, instance B salva msg 1-2-3,
+      // instance A reusa cache antigo (so msg 1) e a Lia "esquece" 2 e 3.
+      // Custo: +1 SELECT por mensagem (~50ms), inevitavel em serverless.
+      try {
+        const { data: leadAnterior } = await db.supabase
+          .from('leads')
+          .select('historico_json')
+          .eq('telefone', telefone)
+          .eq('usuario_id', user.id)
+          .eq('origem', 'whatsapp')
+          .maybeSingle();
+        if (leadAnterior?.historico_json) {
+          const parsed = JSON.parse(leadAnterior.historico_json);
+          // Formato novo: { v: 2, messages: [...], imoveisEnviados: [...] }
+          // Formato antigo (compat): [...] direto
+          if (Array.isArray(parsed)) {
+            conversa.historico = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            if (Array.isArray(parsed.messages)) conversa.historico = parsed.messages;
+            if (Array.isArray(parsed.imoveisEnviados)) {
+              conversa.imoveisEnviados = new Set(parsed.imoveisEnviados);
             }
           }
-        } catch (e) {
-          console.warn(`[evolution] falha ao carregar historico de ${telefone}:`, e.message);
+        } else {
+          // Sem registro no DB — eh lead novo (1a mensagem mesmo). Reseta o
+          // historico in-memory que pode estar stale de outra conversa.
+          conversa.historico = [];
+          conversa.imoveisEnviados = new Set();
         }
+      } catch (e) {
+        console.warn(`[evolution] falha ao carregar historico de ${telefone}:`, e.message);
       }
 
       console.log(`[evolution] msg user=${user.id} de=${telefone}: "${texto}" (hist=${conversa.historico.length})`);
@@ -1916,27 +1923,31 @@ app.post('/webhook', async (req, res) => {
   if (conversa.mensagensProcessadas.has(messageId)) return res.sendStatus(200);
   conversa.mensagensProcessadas.add(messageId);
 
-  // Serverless: memoria some em cold start. Se vazio, recupera do Supabase.
-  if (conversa.historico.length === 0) {
-    try {
-      const { data: leadAnterior } = await db.supabase
-        .from('leads')
-        .select('historico_json')
-        .eq('telefone', telefone)
-        .eq('origem', 'whatsapp')
-        .maybeSingle();
-      if (leadAnterior?.historico_json) {
-        const parsed = JSON.parse(leadAnterior.historico_json);
-        // Compat: array (formato antigo) OU objeto { messages, imoveisEnviados } (novo)
-        if (Array.isArray(parsed) && parsed.length) {
-          conversa.historico = parsed;
-        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) {
-          conversa.historico = parsed.messages;
-        }
+  // SERVERLESS: SEMPRE recarrega do DB. Vercel reusa instances entre cold
+  // starts — confiar no conversa.historico em memoria gera "stale state"
+  // (instance A com cache antigo nao ve mensagens salvas pela instance B).
+  // Custo: +1 SELECT por mensagem (~50ms), inevitavel em serverless.
+  try {
+    const { data: leadAnterior } = await db.supabase
+      .from('leads')
+      .select('historico_json')
+      .eq('telefone', telefone)
+      .eq('origem', 'whatsapp')
+      .maybeSingle();
+    if (leadAnterior?.historico_json) {
+      const parsed = JSON.parse(leadAnterior.historico_json);
+      // Compat: array (formato antigo) OU objeto { messages, imoveisEnviados } (novo)
+      if (Array.isArray(parsed) && parsed.length) {
+        conversa.historico = parsed;
+      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) {
+        conversa.historico = parsed.messages;
       }
-    } catch (e) {
-      console.warn(`[Webhook] Falha ao carregar historico do Supabase para ${telefone}:`, e.message);
+    } else {
+      // Sem registro no DB — lead novo. Reseta in-memory que pode estar stale.
+      conversa.historico = [];
     }
+  } catch (e) {
+    console.warn(`[Webhook] Falha ao carregar historico do Supabase para ${telefone}:`, e.message);
   }
 
   console.log(`[Webhook] Nova mensagem de ${telefone}: "${mensagem}" (historico: ${conversa.historico.length})`);
