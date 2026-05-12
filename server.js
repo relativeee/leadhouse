@@ -1205,11 +1205,12 @@ app.post('/webhook/evolution', async (req, res) => {
       // Bloco 5: Cria visita automaticamente se Lia agendou (visita_agendada.confirmada)
       try {
         const va = leadDataExtraida?.visita_agendada;
+        console.log(`[evolution] visita_agendada extraida pra ${telefone}: confirmada=${va?.confirmada} data="${va?.data}" horario="${va?.horario}" imovel="${va?.imovel_titulo}"`);
         const validVisita = va && va.confirmada === true && va.data && va.data !== 'não' && va.horario && va.horario !== 'não'
           ? validarDataVisita(va.data, va.horario)
-          : { ok: false, motivo: 'visita_agendada incompleta' };
-        if (!validVisita.ok && va?.confirmada) {
-          console.warn(`[evolution] visita rejeitada pra ${telefone}: ${validVisita.motivo} (data=${va.data} horario=${va.horario})`);
+          : { ok: false, motivo: `pre-check falhou: confirmada=${va?.confirmada} data="${va?.data}" horario="${va?.horario}"` };
+        if (!validVisita.ok) {
+          console.warn(`[evolution] visita NAO criada pra ${telefone}: ${validVisita.motivo}`);
         }
         if (validVisita.ok) {
           // Evita duplicar
@@ -2259,11 +2260,12 @@ app.post('/webhook', async (req, res) => {
 
     // Cria visita se a Lia agendou com o lead
     const va = leadData.visita_agendada;
+    console.log(`[Webhook] visita_agendada extraida pra ${telefone}: confirmada=${va?.confirmada} data="${va?.data}" horario="${va?.horario}" imovel="${va?.imovel_titulo}"`);
     const validVisita = userIdDestino && va && va.confirmada === true && va.data && va.data !== 'não' && va.horario && va.horario !== 'não'
       ? validarDataVisita(va.data, va.horario)
-      : { ok: false, motivo: 'visita_agendada incompleta ou sem userIdDestino' };
-    if (!validVisita.ok && va?.confirmada) {
-      console.warn(`[Webhook] visita rejeitada pra ${telefone}: ${validVisita.motivo} (data=${va.data} horario=${va.horario})`);
+      : { ok: false, motivo: `pre-check falhou: userIdDestino=${userIdDestino} confirmada=${va?.confirmada} data="${va?.data}" horario="${va?.horario}"` };
+    if (!validVisita.ok) {
+      console.warn(`[Webhook] visita NAO criada pra ${telefone}: ${validVisita.motivo}`);
     }
     if (validVisita.ok) {
       try {
