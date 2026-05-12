@@ -277,9 +277,27 @@ function distanciaValor(valorImovelStr, alvo) {
 // os exemplos few-shot do system prompt confundem o modelo nesse ponto.
 function buildAntiRepetContext(historico, leadData) {
   let ctx = '';
-  const jaApresentou = (historico || []).some(m => m.role === 'assistant');
+  const totalMsgs = (historico || []).length;
+  const msgsAssistant = (historico || []).filter(m => m.role === 'assistant').length;
+  const msgsUser = (historico || []).filter(m => m.role === 'user').length;
+  const jaApresentou = msgsAssistant > 0;
+
+  // Bloco de estado SEMPRE no topo — contextualiza o modelo antes dos few-shot.
+  ctx += `# ⚠️ ESTADO DESTA CONVERSA AGORA\n\n`;
+  ctx += `- Total de mensagens trocadas: ${totalMsgs} (${msgsAssistant} suas, ${msgsUser} do cliente)\n`;
+  ctx += `- É a sua primeira resposta nesta conversa? ${jaApresentou ? 'NÃO. Você JÁ respondeu antes.' : 'SIM. É a primeira.'}\n`;
+
   if (jaApresentou) {
-    ctx += `\n[REGRA ABSOLUTA — VOCÊ JÁ SE APRESENTOU]\nVocê JÁ disse "Oi! Aqui é a Lia, assistente do(a)..." nesta conversa. É PROIBIDO repetir saudação, se apresentar de novo ou começar com "Oi"/"Olá"/"Aqui é a Lia". Entre DIRETO no assunto.`;
+    ctx += `\n## 🚫 REGRA #1 — VOCÊ JÁ SE APRESENTOU\n\n`;
+    ctx += `Você JÁ disse "Oi! Aqui é a Lia, assistente do(a)..." anteriormente. Esta NÃO é sua primeira mensagem.\n\n`;
+    ctx += `**É TERMINANTEMENTE PROIBIDO**:\n`;
+    ctx += `- Começar com "Oi"\n`;
+    ctx += `- Começar com "Olá"\n`;
+    ctx += `- Dizer "Aqui é a Lia"\n`;
+    ctx += `- Dizer "assistente do(a) [nome]"\n`;
+    ctx += `- Se apresentar de qualquer forma\n\n`;
+    ctx += `IGNORE os exemplos da Seção 12 do prompt — eles mostram só a PRIMEIRA mensagem de cada cenário. Você NÃO está na primeira mensagem. Entre DIRETO no assunto, sem saudação, sem apresentação.\n`;
+    ctx += `\nExemplos de início CORRETO pra esta resposta: "Show!", "Legal,", "Perfeito,", "Entendi.", "Beleza,", ou direto na pergunta/info.\n`;
   }
 
   const naoInformado = v => !v || v === 'não informado' || v === 'nao informado';
@@ -314,7 +332,10 @@ function buildAntiRepetContext(historico, leadData) {
   if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
 
   if (coletados.length) {
-    ctx += `\n[DADOS JÁ COLETADOS — PROIBIDO PERGUNTAR DE NOVO]\n${coletados.join('\n')}\n\nVocê NÃO PODE perguntar nada acima. Se fizer, o cliente desiste. Use os dados pra avançar — pergunte SÓ sobre o que falta das 7 informações-chave.`;
+    ctx += `\n## 🚫 REGRA #2 — DADOS QUE O CLIENTE JÁ FORNECEU\n\n`;
+    ctx += `O cliente JÁ disse os seguintes dados nesta conversa:\n\n`;
+    coletados.forEach(d => { ctx += `- ${d}\n`; });
+    ctx += `\n**É TERMINANTEMENTE PROIBIDO perguntar de novo sobre qualquer item acima.** Se você perguntar "tá procurando pra comprar ou alugar?" depois que ele já disse que quer COMPRAR, ele desiste. Use os dados pra AVANÇAR. Pergunte SÓ sobre o que ainda falta das 7 informações-chave (nome, intenção, tipo, bairro, faixa, pagamento, prazo).\n`;
   }
 
   return ctx;

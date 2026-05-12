@@ -56,8 +56,11 @@ const TOOL_SCHEMAS = [
  */
 async function gerarResposta(historico, contextoExtra, opcoes = {}) {
   try {
-    let system = buildSystemPrompt(opcoes);
-    if (contextoExtra) system += '\n\n' + contextoExtra;
+    // contextoExtra vai como estadoConversa (INJETADO NO TOPO do system).
+    // Anti-saudacao + dados-coletados precisam ter primazia sobre os few-shot
+    // exemplos da secao 12 do prompt — modelo copia o "Oi! Aqui e a Lia..." de
+    // todos os exemplos se a regra ficar enterrada no final do system.
+    const system = buildSystemPrompt({ ...opcoes, estadoConversa: contextoExtra });
 
     const { toolHandlers } = opcoes;
     const useTools = !!toolHandlers;

@@ -478,14 +478,20 @@ E siga avançando o que ainda dá pra avançar (agendar visita, qualificar, etc)
 
 **FIM DO PROMPT**`;
 
-function buildSystemPrompt({ nomeCorretor, tempoResposta } = {}) {
-  // Usa o nome do corretor que recebeu (idealmente primeiro nome, mais natural no WA).
-  // Fallback "seu corretor" pra casos raros onde o nome do corretor nao foi carregado.
+function buildSystemPrompt({ nomeCorretor, tempoResposta, estadoConversa } = {}) {
   const nome = (nomeCorretor && String(nomeCorretor).trim()) || 'seu corretor';
   const tempo = (tempoResposta && String(tempoResposta).trim()) || '30 minutos';
-  return TEMPLATE
+  const base = TEMPLATE
     .replace(/\{\{NOME_CORRETOR\}\}/g, nome)
     .replace(/\{\{TEMPO_RESPOSTA\}\}/g, tempo);
+
+  // Estado dinamico da conversa (anti-saudacao + dados coletados) injetado NO TOPO.
+  // Crucial estar no comeco — os exemplos few-shot da secao 12 todos comecam com
+  // "Oi! Aqui e a Lia..." e o modelo copia o padrao se a regra ficar enterrada no fim.
+  if (estadoConversa && String(estadoConversa).trim()) {
+    return `${estadoConversa}\n\n---\n\n${base}`;
+  }
+  return base;
 }
 
 module.exports = { buildSystemPrompt };
