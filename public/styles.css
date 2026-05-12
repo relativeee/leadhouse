@@ -3807,6 +3807,108 @@ tr:hover .td-acoes--row .btn-icon:hover {
 [data-theme="light"] .msg-chat__header-name { color: #1A1A1A; }
 [data-theme="light"] .msg-empty h3 { color: #1A1A1A; }
 
+/* ═══════════════════════════════════════════════
+   LIA — Kill switch UI (config + comunicacoes)
+   ═══════════════════════════════════════════════ */
+
+/* Comunicacoes — badge na lista de conversas */
+.msg-item--paused { opacity: 0.85; }
+.msg-item__paused-icon { font-size: 0.85em; opacity: 0.9; }
+
+/* Comunicacoes — botao pausar/retomar no header */
+.msg-chat__lia-toggle {
+    font-size: 0.75rem !important;
+    padding: 0.45rem 0.85rem !important;
+    margin-right: 0.5rem;
+}
+
+/* Comunicacoes — banner amarelo quando Lia pausada */
+.msg-chat__banner-pausada {
+    background: rgba(245, 195, 95, 0.12);
+    border: 1px solid rgba(245, 195, 95, 0.35);
+    border-radius: 8px;
+    margin: 0.75rem 1.25rem 0;
+    padding: 0.7rem 0.9rem;
+    color: #f5c35f;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+[data-theme="light"] .msg-chat__banner-pausada { color: #8a6614; background: rgba(245,195,95,0.15); border-color: rgba(245,195,95,0.45); }
+
+/* Configuracoes — sub-view Lia */
+.lia-section {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+[data-theme="light"] .lia-section { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+
+.lia-section__row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+}
+.lia-section__title { font-size: 0.95rem; font-weight: 600; color: var(--text-1); margin-bottom: 0.25rem; }
+.lia-section__desc { font-size: 0.8rem; color: var(--text-2); line-height: 1.45; }
+
+/* Toggle estilo iOS */
+.lia-toggle {
+    flex-shrink: 0;
+    width: 52px; height: 30px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    position: relative; cursor: pointer;
+    transition: background 0.2s;
+}
+.lia-toggle__dot {
+    position: absolute; top: 2px; left: 2px;
+    width: 24px; height: 24px;
+    background: #e0e0e0;
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+.lia-toggle--on { background: rgba(245, 195, 95, 0.4); border-color: rgba(245, 195, 95, 0.5); }
+.lia-toggle--on .lia-toggle__dot { transform: translateX(22px); background: var(--gold, #c9a961); }
+[data-theme="light"] .lia-toggle { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.1); }
+[data-theme="light"] .lia-toggle__dot { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+
+/* Mensagem de status na config */
+.lia-status-msg {
+    margin-top: 0.9rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+.lia-status-msg--paused {
+    background: rgba(245, 195, 95, 0.1);
+    border: 1px solid rgba(245, 195, 95, 0.3);
+    color: #f5c35f;
+}
+.lia-status-msg--active {
+    background: rgba(80, 200, 120, 0.08);
+    border: 1px solid rgba(80, 200, 120, 0.25);
+    color: #50c878;
+}
+[data-theme="light"] .lia-status-msg--paused { color: #8a6614; }
+[data-theme="light"] .lia-status-msg--active { color: #2e7d4f; }
+
+/* Lista de leads pausados individualmente */
+.lia-leads-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.lia-lead-item {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+}
+[data-theme="light"] .lia-lead-item { background: rgba(0,0,0,0.015); border-color: rgba(0,0,0,0.06); }
+.lia-lead-item__name { font-size: 0.9rem; font-weight: 600; color: var(--text-1); }
+.lia-lead-item__tel { font-size: 0.75rem; color: var(--text-2); }
+
 @media (max-width: 900px) {
     .msg-layout { grid-template-columns: 1fr; height: auto; }
     .msg-sidebar { max-height: 300px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); }

@@ -1069,6 +1069,11 @@
             <h3>Notificações</h3>
             <p>Receba alerta no celular quando lead chegar</p>
         </div>
+        <div class="config-card" onclick="abrirConfig('lia')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="10" r="1.2" fill="currentColor"/><circle cx="15.5" cy="10" r="1.2" fill="currentColor"/><path d="M8 15c1 1.2 2.4 2 4 2s3-.8 4-2"/></svg>
+            <h3>Lia (Assistente)</h3>
+            <p>Pausar/retomar atendimento automático</p>
+        </div>
         <div class="config-card" onclick="abrirConfig('plano')">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             <h3>Meu Plano</h3>
@@ -1266,6 +1271,31 @@
                         <button class="pref-btn" data-val="large" onclick="setFontSize('large', this)">A<sup>+</sup></button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- SUB: Lia (Kill switch) -->
+        <div class="config-sub" id="configLia" style="display:none">
+            <div class="conta-section__title">Lia — Assistente Virtual</div>
+            <p style="color:var(--text-2);font-size:14px;margin-bottom:1.5rem">Controle quando a Lia responde os leads automaticamente pelo WhatsApp.</p>
+
+            <div class="lia-section" id="liaStatusBlock">
+                <div class="lia-section__row">
+                    <div>
+                        <div class="lia-section__title">Pausar Lia em TODOS os leads</div>
+                        <div class="lia-section__desc">Você responde tudo manualmente pelo celular. Recebe push em toda mensagem nova.</div>
+                    </div>
+                    <button class="lia-toggle" id="liaToggleGlobal" onclick="toggleLiaGlobal()">
+                        <span class="lia-toggle__dot"></span>
+                    </button>
+                </div>
+                <div class="lia-status-msg" id="liaStatusMsg" style="display:none"></div>
+            </div>
+
+            <div class="conta-section__title" style="font-size:14px;margin-top:1.5rem">Leads pausados individualmente</div>
+            <p style="color:var(--text-2);font-size:13px;margin-bottom:0.75rem">Conversas onde você pausou a Lia especificamente. Pra pausar uma conversa, abre ela em Comunicações e clica em "Pausar Lia".</p>
+            <div id="liaLeadsPausados" class="lia-leads-list">
+                <p style="color:var(--text-2);font-size:13px;text-align:center;padding:1rem">Nenhum lead pausado individualmente.</p>
             </div>
         </div>
 
@@ -3648,6 +3678,98 @@ function onbDismiss() {
 let msgLeads = [];
 let msgAtivo = null;
 
+// ═══════════════════════════════════════════════
+// LIA — Kill switch (pausar/retomar)
+// ═══════════════════════════════════════════════
+let liaStatusGlobal = false;
+
+async function refreshLiaStatus() {
+    try {
+        const r = await apiCall('GET', '/api/lia/status');
+        liaStatusGlobal = !!r.global_pausada;
+        const toggle = document.getElementById('liaToggleGlobal');
+        if (toggle) toggle.classList.toggle('lia-toggle--on', liaStatusGlobal);
+        const msg = document.getElementById('liaStatusMsg');
+        if (msg) {
+            if (liaStatusGlobal) {
+                msg.style.display = '';
+                msg.innerHTML = '🚫 <strong>Lia pausada em todos os leads.</strong> Você está atendendo manualmente. Toda mensagem nova vai gerar push notification.';
+                msg.className = 'lia-status-msg lia-status-msg--paused';
+            } else {
+                msg.style.display = '';
+                msg.innerHTML = `✅ <strong>Lia ativa.</strong> Respondendo automaticamente os leads novos. ${r.leads_pausados ? `(${r.leads_pausados} lead${r.leads_pausados>1?'s':''} pausado${r.leads_pausados>1?'s':''} individualmente)` : ''}`;
+                msg.className = 'lia-status-msg lia-status-msg--active';
+            }
+        }
+        // Lista de leads pausados individualmente
+        const container = document.getElementById('liaLeadsPausados');
+        if (container && r.leads_pausados > 0) {
+            try {
+                const leads = await apiCall('GET', '/api/leads');
+                const pausados = (leads || []).filter(l => l.lia_pausada);
+                if (pausados.length) {
+                    container.innerHTML = pausados.map(l => `
+                        <div class="lia-lead-item">
+                            <div>
+                                <div class="lia-lead-item__name">${esc(l.nome || 'Sem nome')}</div>
+                                <div class="lia-lead-item__tel">${formatarTelefone(l.telefone)}</div>
+                            </div>
+                            <button class="btn btn--outline btn--sm" onclick="retomarLiaConversa('${l.telefone}', true)">Retomar Lia</button>
+                        </div>
+                    `).join('');
+                }
+            } catch {}
+        } else if (container) {
+            container.innerHTML = '<p style="color:var(--text-2);font-size:13px;text-align:center;padding:1rem">Nenhum lead pausado individualmente.</p>';
+        }
+    } catch (e) { console.error('[lia status]', e); }
+}
+
+async function toggleLiaGlobal() {
+    try {
+        const novoEstado = !liaStatusGlobal;
+        const r = await apiCall('POST', novoEstado ? '/api/lia/pausar' : '/api/lia/retomar');
+        if (r.ok) {
+            liaStatusGlobal = novoEstado;
+            await refreshLiaStatus();
+            toast(novoEstado ? 'Lia pausada' : 'Lia retomada', 'sucesso');
+        }
+    } catch (e) {
+        toast('Erro ao atualizar', 'erro');
+    }
+}
+
+async function pausarLiaConversa(telefone) {
+    try {
+        const r = await apiCall('POST', `/api/leads/${encodeURIComponent(telefone)}/pausar-lia`);
+        if (r.ok) {
+            // Atualiza estado local
+            const lead = msgLeads.find(l => l.telefone === telefone);
+            if (lead) lead.lia_pausada = true;
+            renderConversasList();
+            if (msgAtivo === telefone) abrirConversa(telefone);
+            toast('Lia pausada nessa conversa', 'sucesso');
+        }
+    } catch (e) { toast('Erro ao pausar', 'erro'); }
+}
+
+async function retomarLiaConversa(telefone, fromConfig = false) {
+    try {
+        const r = await apiCall('POST', `/api/leads/${encodeURIComponent(telefone)}/retomar-lia`);
+        if (r.ok) {
+            const lead = msgLeads.find(l => l.telefone === telefone);
+            if (lead) lead.lia_pausada = false;
+            if (fromConfig) {
+                refreshLiaStatus();
+            } else {
+                renderConversasList();
+                if (msgAtivo === telefone) abrirConversa(telefone);
+            }
+            toast('Lia retomada', 'sucesso');
+        }
+    } catch (e) { toast('Erro ao retomar', 'erro'); }
+}
+
 async function carregarComunicacoes() {
     try {
         const h = { headers: getAuthHeaders() };
@@ -3682,10 +3804,10 @@ function renderConversasList() {
 
     const list = document.getElementById('msgList');
     list.innerHTML = filtrados.map(l => `
-        <div class="msg-item ${msgAtivo === l.telefone ? 'msg-item--active' : ''}" onclick="abrirConversa('${l.telefone}')">
+        <div class="msg-item ${msgAtivo === l.telefone ? 'msg-item--active' : ''} ${l.lia_pausada ? 'msg-item--paused' : ''}" onclick="abrirConversa('${l.telefone}')">
             <div class="msg-item__avatar">${_initials(l.nome)}</div>
             <div class="msg-item__info">
-                <div class="msg-item__name">${esc(l.nome || 'Sem nome')}</div>
+                <div class="msg-item__name">${l.lia_pausada ? '<span class="msg-item__paused-icon" title="Lia pausada">🚫</span> ' : ''}${esc(l.nome || 'Sem nome')}</div>
                 <div class="msg-item__preview">${l.totalMensagens} mensagens · ${esc(l.ultimaAtualizacao || '')}</div>
             </div>
             <span class="badge badge--${l.temperatura} msg-item__temp"><span class="badge__dot"></span></span>
@@ -3707,6 +3829,7 @@ async function abrirConversa(telefone) {
         const lead = msgLeads.find(l => l.telefone === telefone);
         const msgs = data.historico || [];
 
+        const pausada = !!lead?.lia_pausada;
         let header = `<div class="msg-chat__header">
             <button class="msg-chat__back" onclick="voltarParaListaConversas()" aria-label="Voltar para lista">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -3715,8 +3838,14 @@ async function abrirConversa(telefone) {
                 <div class="msg-chat__header-name">${esc(lead?.nome || data.nome || 'Lead')}</div>
                 <div class="msg-chat__header-tel">${formatarTelefone(telefone)}</div>
             </div>
+            <button class="btn ${pausada ? 'btn--gold' : 'btn--outline'} msg-chat__lia-toggle" onclick="${pausada ? `retomarLiaConversa('${telefone}')` : `pausarLiaConversa('${telefone}')`}" title="${pausada ? 'Retomar Lia nessa conversa' : 'Pausar Lia nessa conversa'}">
+                ${pausada ? '▶ Retomar Lia' : '🚫 Pausar Lia'}
+            </button>
             ${lead ? `<a class="btn btn--outline msg-chat__wapp" href="https://wa.me/55${telefone.replace(/\\D/g,'')}" target="_blank">Abrir WhatsApp</a>` : ''}
         </div>`;
+        if (pausada) {
+            header += `<div class="msg-chat__banner-pausada">⚠️ <strong>Você atendendo manualmente.</strong> A Lia não vai responder essa conversa até você retomar.</div>`;
+        }
 
         if (!msgs.length) {
             chat.innerHTML = header + '<div class="chat-box"><div class="chat-box__empty">Nenhuma mensagem registrada</div></div>';
@@ -3996,11 +4125,12 @@ function abrirConfig(secao) {
     document.getElementById('configGrid').style.display = 'none';
     document.getElementById('configSubview').style.display = '';
     document.querySelectorAll('.config-sub').forEach(el => el.style.display = 'none');
-    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif' };
+    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif', lia: 'configLia' };
     const el = document.getElementById(map[secao]);
     if (el) el.style.display = '';
     if (secao === 'aparencia') syncPrefButtons();
     if (secao === 'notif') refreshNotifStatus();
+    if (secao === 'lia') refreshLiaStatus();
 }
 
 // ═══════════════════════════════════════════════
