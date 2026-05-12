@@ -2135,6 +2135,22 @@ app.post('/webhook', async (req, res) => {
       console.log(`[meta] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
     }
     conversa.historico.push({ role: 'assistant', content: resposta });
+
+    // RACE CONDITION FIX: SALVA historico ANTES de enviar a msg pro user.
+    // Senao: user recebe resposta da Lia, responde em <2s, novo webhook fira
+    // ANTES do save terminar — turn N+1 le historico stale do DB e a Lia
+    // "esquece" a conversa. Save eh idempotente (upsert).
+    if (userIdDestino) {
+      try {
+        await db.upsertLeadWhatsApp(telefone, {
+          total_mensagens: conversa.historico.filter(m => m.role === 'user').length,
+          historico_json: JSON.stringify(conversa.historico.slice(-40)),
+        }, userIdDestino);
+      } catch (e) {
+        console.error(`[Webhook] Falha save EARLY historico ${telefone}:`, e.message);
+      }
+    }
+
     await enviarMensagem(telefone, resposta);
     respostaEnviada = true;
 
