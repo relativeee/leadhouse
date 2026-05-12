@@ -922,42 +922,47 @@ app.post('/webhook/evolution', async (req, res) => {
       if (messageId) conversa.mensagensProcessadas.add(messageId);
 
       // SERVERLESS: SEMPRE recarrega do DB antes de processar.
-      // O Vercel cria multiplas instances da funcao — o conversa.historico em
-      // memoria de uma instance pode estar STALE (mais antigo que o DB). Se nao
-      // recarregar, instance A processa msg 1, instance B salva msg 1-2-3,
-      // instance A reusa cache antigo (so msg 1) e a Lia "esquece" 2 e 3.
-      // Custo: +1 SELECT por mensagem (~50ms), inevitavel em serverless.
+      // Usa order+limit em vez de maybeSingle pra ser resiliente a duplicatas
+      // (se houver mais de uma row maybeSingle lanca erro silencioso).
+      // CRITICO: NUNCA resetar conversa.historico = [] se DB nao retornou —
+      // mantem memoria como fallback (so reseta se for lead realmente novo).
       try {
-        const { data: leadAnterior } = await db.supabase
+        const { data: rows } = await db.supabase
           .from('leads')
           .select('historico_json')
           .eq('telefone', telefone)
           .eq('usuario_id', user.id)
           .eq('origem', 'whatsapp')
-          .maybeSingle();
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        const leadAnterior = rows && rows[0];
         if (leadAnterior?.historico_json) {
-          const parsed = JSON.parse(leadAnterior.historico_json);
-          // Formato novo: { v: 2, messages: [...], imoveisEnviados: [...] }
-          // Formato antigo (compat): [...] direto
-          if (Array.isArray(parsed)) {
-            conversa.historico = parsed;
-          } else if (parsed && typeof parsed === 'object') {
-            if (Array.isArray(parsed.messages)) conversa.historico = parsed.messages;
-            if (Array.isArray(parsed.imoveisEnviados)) {
-              conversa.imoveisEnviados = new Set(parsed.imoveisEnviados);
+          try {
+            const parsed = JSON.parse(leadAnterior.historico_json);
+            let loaded = null;
+            let imoveisLoaded = null;
+            if (Array.isArray(parsed)) {
+              loaded = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              if (Array.isArray(parsed.messages)) loaded = parsed.messages;
+              if (Array.isArray(parsed.imoveisEnviados)) imoveisLoaded = parsed.imoveisEnviados;
             }
+            if (loaded && loaded.length) {
+              conversa.historico = loaded;
+              console.log(`[evolution] historico carregado do DB: ${loaded.length} msgs (user=${user.id}, tel=${telefone})`);
+            }
+            if (imoveisLoaded) conversa.imoveisEnviados = new Set(imoveisLoaded);
+          } catch (parseErr) {
+            console.warn(`[evolution] JSON.parse historico falhou ${telefone}:`, parseErr.message);
           }
         } else {
-          // Sem registro no DB — eh lead novo (1a mensagem mesmo). Reseta o
-          // historico in-memory que pode estar stale de outra conversa.
-          conversa.historico = [];
-          conversa.imoveisEnviados = new Set();
+          console.log(`[evolution] sem historico no DB pra ${telefone} (memoria=${conversa.historico.length} msgs)`);
         }
       } catch (e) {
-        console.warn(`[evolution] falha ao carregar historico de ${telefone}:`, e.message);
+        console.warn(`[evolution] query historico falhou ${telefone}:`, e.message);
       }
 
-      console.log(`[evolution] msg user=${user.id} de=${telefone}: "${texto}" (hist=${conversa.historico.length})`);
+      console.log(`[evolution] msg user=${user.id} tel=${telefone}: "${texto}" (hist_pre_push=${conversa.historico.length})`);
       conversa.historico.push({ role: 'user', content: texto });
       // 40 mensagens = ~20 trocas. Conversa de qualificacao chega facil em 10-15 trocas
       // antes de oferecer visita; manter contexto evita Lia repetir perguntas.
