@@ -65,12 +65,15 @@ function criarToolHandlers({ userId, telefone, conversa, db, sendImage }) {
 
   async function enviandoArquivosHandler(input = {}) {
     const id = input.id_imovel;
+    console.log(`[liaTools.enviando_arquivos] CHAMADA tel=${telefone} id_imovel=${id}`);
     if (!id || typeof id !== 'number') {
+      console.warn(`[liaTools.enviando_arquivos] id_imovel invalido:`, input);
       return { erro: 'id_imovel ausente ou invalido. Use um id retornado por `imoveis`.' };
     }
 
     // Dedup: nao envia mesma foto 2x na mesma conversa
     if (conversa?.imoveisEnviados?.has?.(id)) {
+      console.log(`[liaTools.enviando_arquivos] DEDUP: foto id=${id} ja enviada nessa conversa`);
       return { ok: true, ja_enviado: true, id_imovel: id, mensagem: 'Foto desse imovel ja foi enviada nessa conversa.' };
     }
 
@@ -84,14 +87,18 @@ function criarToolHandlers({ userId, telefone, conversa, db, sendImage }) {
         .eq('usuario_id', userId)
         .maybeSingle();
       if (error || !data) {
+        console.warn(`[liaTools.enviando_arquivos] imovel id=${id} nao encontrado (user=${userId})`);
         return { erro: `Imovel id=${id} nao encontrado pra esse corretor.` };
       }
       imovel = data;
     }
 
     if (!imovel.foto_url) {
+      console.warn(`[liaTools.enviando_arquivos] imovel "${imovel.titulo}" (id=${id}) SEM foto_url`);
       return { erro: `Imovel "${imovel.titulo}" nao tem foto cadastrada.`, id_imovel: id };
     }
+
+    console.log(`[liaTools.enviando_arquivos] enviando id=${id} titulo="${imovel.titulo}" foto_url=${imovel.foto_url?.slice(0, 60)}...`);
 
     // Caption: titulo + bairro + valor + quartos + area
     const cap = [imovel.titulo];
