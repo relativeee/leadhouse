@@ -270,6 +270,28 @@ function distanciaValor(valorImovelStr, alvo) {
   return Math.abs(parsed.target - alvo.target);
 }
 
+// Valida data de visita extraida pela Lia. Rejeita passado e > 1 ano futuro
+// (alucinacao de ano comum em LLMs — bug observado: visita criada em 2024
+// quando o ano real era 2026, sumia da agenda da semana atual).
+// Retorna { ok: true } ou { ok: false, motivo: string }.
+function validarDataVisita(dataStr, horarioStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return { ok: false, motivo: 'formato YYYY-MM-DD invalido' };
+  if (!/^\d{2}:\d{2}$/.test(horarioStr)) return { ok: false, motivo: 'formato HH:MM invalido' };
+
+  const [y, m, d] = dataStr.split('-').map(Number);
+  const [h, min] = horarioStr.split(':').map(Number);
+  const visitaDate = new Date(y, m - 1, d, h, min);
+  if (isNaN(visitaDate.getTime())) return { ok: false, motivo: 'data invalida' };
+
+  const agora = new Date();
+  // Tolerancia de 1h pro passado (se Lia agendou pra "agora" e webhook demorou)
+  const minimo = new Date(agora.getTime() - 60 * 60 * 1000);
+  const maximo = new Date(agora.getTime() + 365 * 24 * 60 * 60 * 1000);
+  if (visitaDate < minimo) return { ok: false, motivo: `data no passado (${dataStr})` };
+  if (visitaDate > maximo) return { ok: false, motivo: `data > 1 ano no futuro (${dataStr})` };
+  return { ok: true };
+}
+
 // Helper anti-repeticao + anti-saudacao. Monta bloco de contexto pra Lia.
 // Robusto: combina o extractor (leadData) com regex fallback no historico
 // bruto, pra cobrir caso o extractor falhe em msgs curtas tipo "pra comprar".
@@ -1183,11 +1205,13 @@ app.post('/webhook/evolution', async (req, res) => {
       // Bloco 5: Cria visita automaticamente se Lia agendou (visita_agendada.confirmada)
       try {
         const va = leadDataExtraida?.visita_agendada;
-        if (
-          va && va.confirmada === true &&
-          va.data && va.data !== 'não' && /^\d{4}-\d{2}-\d{2}$/.test(va.data) &&
-          va.horario && va.horario !== 'não' && /^\d{2}:\d{2}$/.test(va.horario)
-        ) {
+        const validVisita = va && va.confirmada === true && va.data && va.data !== 'não' && va.horario && va.horario !== 'não'
+          ? validarDataVisita(va.data, va.horario)
+          : { ok: false, motivo: 'visita_agendada incompleta' };
+        if (!validVisita.ok && va?.confirmada) {
+          console.warn(`[evolution] visita rejeitada pra ${telefone}: ${validVisita.motivo} (data=${va.data} horario=${va.horario})`);
+        }
+        if (validVisita.ok) {
           // Evita duplicar
           const { data: jaExiste } = await db.supabase
             .from('visitas')
@@ -2235,11 +2259,13 @@ app.post('/webhook', async (req, res) => {
 
     // Cria visita se a Lia agendou com o lead
     const va = leadData.visita_agendada;
-    if (
-      userIdDestino && va && va.confirmada === true &&
-      va.data && va.data !== 'não' && /^\d{4}-\d{2}-\d{2}$/.test(va.data) &&
-      va.horario && va.horario !== 'não' && /^\d{2}:\d{2}$/.test(va.horario)
-    ) {
+    const validVisita = userIdDestino && va && va.confirmada === true && va.data && va.data !== 'não' && va.horario && va.horario !== 'não'
+      ? validarDataVisita(va.data, va.horario)
+      : { ok: false, motivo: 'visita_agendada incompleta ou sem userIdDestino' };
+    if (!validVisita.ok && va?.confirmada) {
+      console.warn(`[Webhook] visita rejeitada pra ${telefone}: ${validVisita.motivo} (data=${va.data} horario=${va.horario})`);
+    }
+    if (validVisita.ok) {
       try {
         const { data: jaExiste } = await db.supabase
           .from('visitas')

@@ -130,7 +130,16 @@ async function gerarResposta(historico, contextoExtra, opcoes = {}) {
  * @returns {Object} Dados estruturados do lead
  */
 async function extrairDadosLead(historico) {
-  const promptExtracao = `Com base na conversa abaixo, extraia os dados do lead e retorne SOMENTE um JSON válido, sem nenhum texto adicional, sem markdown, sem explicações.
+  // Injeta a data atual pra evitar o modelo chutar ano (bug observado:
+  // visita criada em 2024 quando o ano real era 2026).
+  const agora = new Date();
+  const hojeBR = agora.toLocaleDateString('pt-BR', { timeZone: 'America/Recife', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const hojeISO = agora.toLocaleDateString('en-CA', { timeZone: 'America/Recife' }); // YYYY-MM-DD
+
+  const promptExtracao = `# CONTEXTO TEMPORAL OBRIGATÓRIO
+Hoje é ${hojeBR} (${hojeISO}). Use ESSE ano (${agora.getFullYear()}) ao gerar qualquer data. NUNCA escreva data de ano passado ou de mais de 1 ano no futuro.
+
+Com base na conversa abaixo, extraia os dados do lead e retorne SOMENTE um JSON válido, sem nenhum texto adicional, sem markdown, sem explicações.
 
 Conversa:
 ${historico.map(m => `${m.role === 'user' ? 'Lead' : 'Assistente'}: ${m.content}`).join('\n')}
@@ -149,7 +158,7 @@ Retorne exatamente neste formato JSON:
   "resumo": "resumo de 2-3 linhas da conversa",
   "visita_agendada": {
     "confirmada": true ou false (true APENAS se o lead aceitou um horário específico E a Lia confirmou),
-    "data": "YYYY-MM-DD ou 'não'",
+    "data": "YYYY-MM-DD a partir de ${hojeISO} (HOJE OU FUTURO, NUNCA passado), ou 'não'",
     "horario": "HH:MM ou 'não'",
     "imovel_titulo": "título do imóvel se mencionado, ou 'não especificado'"
   }
