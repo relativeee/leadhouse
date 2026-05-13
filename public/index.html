@@ -3911,8 +3911,8 @@ async function abrirConversa(telefone) {
                 <div class="msg-chat__header-name">${esc(lead?.nome || data.nome || 'Lead')}</div>
                 <div class="msg-chat__header-tel">${formatarTelefone(telefone)}</div>
             </div>
-            <button class="btn ${pausada ? 'btn--gold' : 'btn--outline'} msg-chat__lia-toggle" onclick="${pausada ? `retomarLiaConversa('${telefone}')` : `pausarLiaConversa('${telefone}')`}" title="${pausada ? 'Retomar Lia nessa conversa' : 'Pausar Lia nessa conversa'}">
-                ${pausada ? '▶ Retomar Lia' : '🚫 Pausar Lia'}
+            <button class="btn ${pausada ? 'btn--gold' : 'btn--outline'} msg-chat__lia-toggle" onclick="${pausada ? `retomarLiaConversa('${telefone}')` : `pausarLiaConversa('${telefone}')`}" title="${pausada ? 'Retomar Lia nessa conversa' : 'Pausar Lia nessa conversa'}" aria-label="${pausada ? 'Retomar Lia' : 'Pausar Lia'}">
+                ${pausada ? '▶' : '🚫'}<span class="lia-toggle__text"> ${pausada ? 'Retomar Lia' : 'Pausar Lia'}</span>
             </button>
             ${lead ? `<a class="btn btn--outline msg-chat__wapp" href="https://wa.me/55${telefone.replace(/\\D/g,'')}" target="_blank">Abrir WhatsApp</a>` : ''}
         </div>`;

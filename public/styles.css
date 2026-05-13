@@ -3820,6 +3820,16 @@ tr:hover .td-acoes--row .btn-icon:hover {
     font-size: 0.75rem !important;
     padding: 0.45rem 0.85rem !important;
     margin-right: 0.5rem;
+    white-space: nowrap;
+}
+/* Mobile: header ja tem voltar + nome + Lia + WhatsApp. Esconde texto pra
+   ficar so o emoji 🚫/▶, evitando overflow horizontal em 375px. */
+@media (max-width: 540px) {
+    .msg-chat__lia-toggle {
+        padding: 0.4rem 0.6rem !important;
+        margin-right: 0.35rem;
+    }
+    .msg-chat__lia-toggle .lia-toggle__text { display: none; }
 }
 
 /* Comunicacoes — banner amarelo quando Lia pausada */
