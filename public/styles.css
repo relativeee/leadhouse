@@ -3822,14 +3822,26 @@ tr:hover .td-acoes--row .btn-icon:hover {
     margin-right: 0.5rem;
     white-space: nowrap;
 }
-/* Mobile: header ja tem voltar + nome + Lia + WhatsApp. Esconde texto pra
-   ficar so o emoji 🚫/▶, evitando overflow horizontal em 375px. */
-@media (max-width: 540px) {
-    .msg-chat__lia-toggle {
-        padding: 0.4rem 0.6rem !important;
-        margin-right: 0.35rem;
+/* Mobile (mesmo breakpoint do chat layout — 900px): converte ambos os botoes
+   (Pausar Lia + Abrir WhatsApp) em circulares 36x36 igual o botao voltar.
+   Header em mobile tem 4 itens, com texto e overflow horizontal. */
+@media (max-width: 900px) {
+    .msg-chat__lia-toggle,
+    .msg-chat__wapp {
+        width: 36px !important;
+        height: 36px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        font-size: 0.95rem !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        margin-right: 0.3rem;
+        flex-shrink: 0;
     }
-    .msg-chat__lia-toggle .lia-toggle__text { display: none; }
+    .msg-chat__lia-toggle .lia-toggle__text,
+    .msg-chat__wapp .wapp__text { display: none; }
 }
 
 /* Comunicacoes — banner amarelo quando Lia pausada */

@@ -3914,7 +3914,7 @@ async function abrirConversa(telefone) {
             <button class="btn ${pausada ? 'btn--gold' : 'btn--outline'} msg-chat__lia-toggle" onclick="${pausada ? `retomarLiaConversa('${telefone}')` : `pausarLiaConversa('${telefone}')`}" title="${pausada ? 'Retomar Lia nessa conversa' : 'Pausar Lia nessa conversa'}" aria-label="${pausada ? 'Retomar Lia' : 'Pausar Lia'}">
                 ${pausada ? '▶' : '🚫'}<span class="lia-toggle__text"> ${pausada ? 'Retomar Lia' : 'Pausar Lia'}</span>
             </button>
-            ${lead ? `<a class="btn btn--outline msg-chat__wapp" href="https://wa.me/55${telefone.replace(/\\D/g,'')}" target="_blank">Abrir WhatsApp</a>` : ''}
+            ${lead ? `<a class="btn btn--outline msg-chat__wapp" href="https://wa.me/55${telefone.replace(/\\D/g,'')}" target="_blank" title="Abrir conversa no WhatsApp" aria-label="Abrir WhatsApp">💬<span class="wapp__text"> Abrir WhatsApp</span></a>` : ''}
         </div>`;
         if (pausada) {
             header += `<div class="msg-chat__banner-pausada">⚠️ <strong>Você atendendo manualmente.</strong> A Lia não vai responder essa conversa até você retomar.</div>`;
