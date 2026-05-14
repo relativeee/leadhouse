@@ -1130,17 +1130,8 @@ app.post('/webhook/evolution', async (req, res) => {
         } catch (err) {
           console.error(`[evolution] erro salvar msg com Lia pausada ${telefone}:`, err.message);
         }
-        if (pushService?.disponivel()) {
-          const nomeLead = msg.pushName || 'Lead';
-          const previa = texto.length > 100 ? texto.slice(0, 97) + '...' : texto;
-          pushService.sendPushParaCorretor(user.id, {
-            title: `⏸️ ${nomeLead}`,
-            body: previa,
-            url: '/?tab=comunicacoes',
-            tag: `lead-${telefone}`,
-          }).catch(e => console.error('[push lia pausada]', e.message));
-        }
-        console.log(`[evolution] Lia pausada — msg salva, corretor notificado: ${telefone}`);
+        // Sem push por mensagem — corretor ja sabe que assumiu (push so quando pausou/retomou).
+        console.log(`[evolution] Lia pausada — msg salva (sem push): ${telefone}`);
         return res.json({ received: true });
       }
 
@@ -1447,6 +1438,14 @@ app.post('/api/lia/pausar', authMiddleware, async (req, res) => {
   try {
     const { error } = await db.supabase.from('usuarios').update({ lia_pausada: true }).eq('id', req.userId);
     if (error) throw error;
+    if (pushService?.disponivel()) {
+      pushService.sendPushParaCorretor(req.userId, {
+        title: '⏸️ Lia pausada',
+        body: 'Você assumiu o atendimento. Responda direto pelo WhatsApp.',
+        url: '/?tab=comunicacoes',
+        tag: 'lia-estado',
+      }).catch(e => console.error('[push lia-pausar global]', e.message));
+    }
     res.json({ ok: true, global_pausada: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -1457,6 +1456,14 @@ app.post('/api/lia/retomar', authMiddleware, async (req, res) => {
   try {
     const { error } = await db.supabase.from('usuarios').update({ lia_pausada: false }).eq('id', req.userId);
     if (error) throw error;
+    if (pushService?.disponivel()) {
+      pushService.sendPushParaCorretor(req.userId, {
+        title: '▶️ Lia retomada',
+        body: 'Lia voltou a responder os leads automaticamente.',
+        url: '/?tab=comunicacoes',
+        tag: 'lia-estado',
+      }).catch(e => console.error('[push lia-retomar global]', e.message));
+    }
     res.json({ ok: true, global_pausada: false });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -1472,6 +1479,25 @@ app.post('/api/leads/:telefone/pausar-lia', authMiddleware, async (req, res) => 
       .eq('usuario_id', req.userId)
       .eq('origem', 'whatsapp');
     if (error) throw error;
+    if (pushService?.disponivel()) {
+      // Busca nome do lead pra notif amigavel
+      const { data: lead } = await db.supabase
+        .from('leads')
+        .select('nome')
+        .eq('telefone', req.params.telefone)
+        .eq('usuario_id', req.userId)
+        .eq('origem', 'whatsapp')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const nomeLead = lead?.nome || 'Lead';
+      pushService.sendPushParaCorretor(req.userId, {
+        title: `⏸️ Lia pausada · ${nomeLead}`,
+        body: 'Você assumiu essa conversa. Responda direto pelo WhatsApp.',
+        url: '/?tab=comunicacoes',
+        tag: `lia-conversa-${req.params.telefone}`,
+      }).catch(e => console.error('[push lia-pausar conversa]', e.message));
+    }
     res.json({ ok: true, lia_pausada: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -1487,6 +1513,24 @@ app.post('/api/leads/:telefone/retomar-lia', authMiddleware, async (req, res) =>
       .eq('usuario_id', req.userId)
       .eq('origem', 'whatsapp');
     if (error) throw error;
+    if (pushService?.disponivel()) {
+      const { data: lead } = await db.supabase
+        .from('leads')
+        .select('nome')
+        .eq('telefone', req.params.telefone)
+        .eq('usuario_id', req.userId)
+        .eq('origem', 'whatsapp')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const nomeLead = lead?.nome || 'Lead';
+      pushService.sendPushParaCorretor(req.userId, {
+        title: `▶️ Lia retomada · ${nomeLead}`,
+        body: 'Lia voltou a responder essa conversa.',
+        url: '/?tab=comunicacoes',
+        tag: `lia-conversa-${req.params.telefone}`,
+      }).catch(e => console.error('[push lia-retomar conversa]', e.message));
+    }
     res.json({ ok: true, lia_pausada: false });
   } catch (err) {
     res.status(500).json({ erro: err.message });
