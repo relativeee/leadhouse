@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION quando o app shell mudar significativamente
  * (forcar o SW a re-cachear). Auto-update via skipWaiting + clients.claim.
  */
-const CACHE_VERSION = 'lh-v15-2026-05-14-lia-robot';
+const CACHE_VERSION = 'lh-v17-2026-05-14-admin-mobile';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

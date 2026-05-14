@@ -3638,8 +3638,45 @@ tr:hover .td-acoes--row .btn-icon:hover {
 [data-theme="light"] .admin-user-row__email { color: #888; }
 
 @media (max-width: 640px) {
-    .admin-user-row { flex-wrap: wrap; }
-    .admin-user-row__plan, .admin-user-row__date { font-size: 0.7rem; }
+    /* Reorganiza em duas linhas: linha 1 = avatar + nome/email,
+       linha 2 = plano · data (esquerda) + Atuar como (direita).
+       Truque: info com flex-basis ~100% empurra os outros pra linha 2. */
+    .admin-user-row {
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 0.6rem;
+        row-gap: 0.5rem;
+        padding: 0.85rem 0.95rem;
+    }
+    .admin-user-row__avatar { width: 38px; height: 38px; font-size: 0.74rem; }
+    .admin-user-row__info {
+        flex: 1 1 calc(100% - 50px);
+        min-width: 0;
+    }
+    .admin-user-row__name {
+        font-size: 0.92rem;
+        line-height: 1.3;
+        white-space: normal;
+        word-break: break-word;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .admin-user-row__email {
+        font-size: 0.72rem;
+        margin-top: 0.2rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .admin-user-row__plan,
+    .admin-user-row__date { font-size: 0.72rem; }
+    .admin-user-row__act {
+        margin-left: auto;
+        padding: 5px 12px;
+        font-size: 12px;
+    }
     .admin-receita__valor { font-size: 2rem; }
 }
 
@@ -3818,9 +3855,16 @@ tr:hover .td-acoes--row .btn-icon:hover {
 /* Comunicacoes — botao pausar/retomar no header */
 /* Botoes do header da conversa — estilo proprio (nao depende de .btn--outline
    que so existia pro tema light, deixando o dark sem styling). Pill discreta
-   com borda sutil, robozinho gold pra Lia e icone gold pro WhatsApp. */
+   com borda sutil, robozinho gold pra Lia e icone gold pro WhatsApp.
+   appearance:none necessario pq <button> no Windows ganha bg "buttonface" nativo
+   que sobrepoe background:transparent em alguns browsers. */
 .msg-chat__lia-toggle,
-.msg-chat__wapp {
+.msg-chat__wapp,
+.msg-chat__wapp:link,
+.msg-chat__wapp:visited {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
