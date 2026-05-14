@@ -1132,11 +1132,10 @@ app.post('/webhook/evolution', async (req, res) => {
         }
         if (pushService?.disponivel()) {
           const nomeLead = msg.pushName || 'Lead';
-          const previa = texto.length > 80 ? texto.slice(0, 77) + '...' : texto;
-          const motivo = user.lia_pausada ? '🚫 Lia pausada (geral)' : '🚫 Lia pausada nessa conversa';
+          const previa = texto.length > 100 ? texto.slice(0, 97) + '...' : texto;
           pushService.sendPushParaCorretor(user.id, {
-            title: `⚠️ ${nomeLead} aguardando você`,
-            body: `${previa}\n${motivo}`,
+            title: `⏸️ ${nomeLead}`,
+            body: previa,
             url: '/?tab=comunicacoes',
             tag: `lead-${telefone}`,
           }).catch(e => console.error('[push lia pausada]', e.message));
@@ -1318,10 +1317,8 @@ app.post('/webhook/evolution', async (req, res) => {
       // evitando empilhar 10 push numa conversa rapida.
       if (pushService?.disponivel()) {
         const nomeLead = msg.pushName || 'Lead';
-        const previa = texto.length > 80 ? texto.slice(0, 77) + '...' : texto;
-        const title = isNovoLead
-          ? `🔥 ${nomeLead} entrou em contato`
-          : `💬 ${nomeLead}`;
+        const previa = texto.length > 100 ? texto.slice(0, 97) + '...' : texto;
+        const title = isNovoLead ? `🔥 ${nomeLead}` : `💬 ${nomeLead}`;
         pushService.sendPushParaCorretor(user.id, {
           title,
           body: previa,
@@ -1403,10 +1400,10 @@ app.post('/webhook/evolution', async (req, res) => {
             // Push notification pro corretor: visita agendada pela Lia
             if (pushService?.disponivel()) {
               const nomeLead = novaVisita.lead_nome || 'Lead';
-              const dataBr = va.data.split('-').reverse().join('/');
+              const dataBr = va.data.split('-').reverse().join('/').slice(0, 5); // DD/MM
               pushService.sendPushParaCorretor(user.id, {
-                title: '📅 Lia agendou uma visita',
-                body: `${nomeLead} — ${dataBr} às ${va.horario}${novaVisita.imovel_titulo ? ' · ' + novaVisita.imovel_titulo : ''}`,
+                title: `📅 ${nomeLead} · ${dataBr} ${va.horario}`,
+                body: novaVisita.imovel_titulo || 'Visita agendada pela Lia',
                 url: '/?tab=visitas',
                 tag: `visita-${novaVisita.id}`,
               }).catch(e => console.error('[push visita evolution]', e.message));
@@ -2545,10 +2542,10 @@ app.post('/webhook', async (req, res) => {
           criarEventoGCal(userIdDestino, novaVisita).catch(e => console.error('[gcal meta]', e.message));
           // Push notification pro corretor: visita agendada pela Lia
           if (pushService?.disponivel()) {
-            const dataBr = va.data.split('-').reverse().join('/');
+            const dataBr = va.data.split('-').reverse().join('/').slice(0, 5);
             pushService.sendPushParaCorretor(userIdDestino, {
-              title: '📅 Lia agendou uma visita',
-              body: `${novaVisita.lead_nome} — ${dataBr} às ${va.horario}${novaVisita.imovel_titulo ? ' · ' + novaVisita.imovel_titulo : ''}`,
+              title: `📅 ${novaVisita.lead_nome || 'Lead'} · ${dataBr} ${va.horario}`,
+              body: novaVisita.imovel_titulo || 'Visita agendada pela Lia',
               url: '/?tab=visitas',
               tag: `visita-${novaVisita.id}`,
             }).catch(e => console.error('[push visita meta]', e.message));
@@ -2567,10 +2564,8 @@ app.post('/webhook', async (req, res) => {
     // Tag por telefone substitui notificacao anterior do mesmo lead.
     if (userIdDestino && pushService?.disponivel()) {
       const nomeLead = leadData.nome && leadData.nome !== 'não informado' ? leadData.nome : 'Lead';
-      const previa = mensagem.length > 80 ? mensagem.slice(0, 77) + '...' : mensagem;
-      const title = isLeadNovo
-        ? `🔥 ${nomeLead} entrou em contato`
-        : `💬 ${nomeLead}`;
+      const previa = mensagem.length > 100 ? mensagem.slice(0, 97) + '...' : mensagem;
+      const title = isLeadNovo ? `🔥 ${nomeLead}` : `💬 ${nomeLead}`;
       pushService.sendPushParaCorretor(userIdDestino, {
         title,
         body: previa,

@@ -72,8 +72,8 @@ async function notificarCorretorFalha(userId, telefone, tipo) {
     const push = require('./push');
     if (!push?.sendPushParaCorretor) return;
     await push.sendPushParaCorretor(userId, {
-      title: '⚠️ Falha ao enviar mensagem',
-      body: `Não consegui ${tipo === 'image' ? 'enviar a foto' : 'responder'} pro lead ${telefone}. Abra o LeadHouse e responda manualmente.`,
+      title: `⚠️ Envio falhou`,
+      body: `${tipo === 'image' ? 'Foto' : 'Mensagem'} pro lead não saiu. Abra o app pra responder.`,
       url: '/?tab=comunicacoes',
       tag: `falha-${telefone}`,
     });
