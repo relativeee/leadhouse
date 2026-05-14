@@ -293,6 +293,47 @@ function validarDataVisita(dataStr, horarioStr) {
   return { ok: true };
 }
 
+// Guard-rail anti-alucinacao de envio de foto.
+// O Haiku as vezes escreve "Mandei a foto!" sem chamar a tool enviando_arquivos
+// — bug grave porque o lead espera uma imagem que nunca chega. Aqui detectamos
+// o padrao no texto e forcamos retry com guidance explicita. Se o retry tambem
+// nao chamar a tool, substituimos o texto por um fallback honesto que nao
+// afirma envio.
+async function guardFotoAlucinacao({ resposta, toolsExecutadas, historicoAnterior, contextoExtra, opcoes }) {
+  const reClaim = /\b(mandei|enviei|j[áa]\s+(?:mandei|enviei)|te\s+(?:mandei|enviei)|acabei de mandar|t[áa]\s+a[íi]|segue a foto|segue a imagem)\b[^.!?\n]{0,50}\b(foto|imagem|arquivo|materi[ao]l)\b/i;
+  const claims = reClaim.test(resposta || '');
+  const tooled = (toolsExecutadas || []).some(t => t.nome === 'enviando_arquivos');
+  if (!claims || tooled) return { texto: resposta, toolsExecutadas, alucinou: false };
+
+  console.warn(`[guard-foto] ALUCINACAO detectada — texto: "${(resposta || '').slice(0, 140)}". Forcando retry.`);
+
+  if (!gerarResposta) return { texto: resposta, toolsExecutadas, alucinou: true };
+
+  const historicoRetry = [
+    ...historicoAnterior,
+    { role: 'assistant', content: resposta },
+    { role: 'user', content: '[SISTEMA INTERNO]: Você afirmou que mandou a foto, mas NÃO chamou a tool `enviando_arquivos` — a foto NÃO foi entregue ao lead ainda. Chame a tool agora com o id_imovel correto (do bloco de contexto OU via `imoveis` primeiro). Sem chamar a tool, a foto não chega. Responda emitindo a chamada da tool antes de qualquer texto.' },
+  ];
+
+  try {
+    const respRetry = await gerarResposta(historicoRetry, contextoExtra, opcoes);
+    const tooledRetry = (respRetry.toolsExecutadas || []).some(t => t.nome === 'enviando_arquivos');
+    if (tooledRetry) {
+      console.log(`[guard-foto] retry OK — tool acionada. resposta: "${(respRetry.texto || '').slice(0, 140)}"`);
+      return { texto: respRetry.texto, toolsExecutadas: respRetry.toolsExecutadas, alucinou: true };
+    }
+    console.warn(`[guard-foto] retry NAO chamou tool. Substituindo texto pra nao mentir.`);
+    return {
+      texto: 'Deixa eu confirmar essa foto pra você, um segundo...',
+      toolsExecutadas: respRetry.toolsExecutadas,
+      alucinou: true,
+    };
+  } catch (err) {
+    console.error(`[guard-foto] retry falhou:`, err.message);
+    return { texto: resposta, toolsExecutadas, alucinou: true };
+  }
+}
+
 // Helper anti-repeticao + anti-saudacao. Monta bloco de contexto pra Lia.
 // Robusto: combina o extractor (leadData) com regex fallback no historico
 // bruto, pra cobrir caso o extractor falhe em msgs curtas tipo "pra comprar".
@@ -1184,14 +1225,21 @@ app.post('/webhook/evolution', async (req, res) => {
           sendImage: (tel, urlOuB64, caption) => evolution.sendImage(user.id, tel, urlOuB64, caption),
         }) : undefined;
 
-        const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, {
-          nomeCorretor: primeiroNome,
-          toolHandlers,
-        });
-        resposta = respLia.texto;
+        const opcoesLia = { nomeCorretor: primeiroNome, toolHandlers };
+        const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
         if (respLia.toolsExecutadas?.length) {
           console.log(`[evolution] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
         }
+        // Guard-rail: se Lia alucinou "mandei a foto" sem chamar enviando_arquivos,
+        // forca retry. Preserva conversa.historico intacta pro retry montar contexto.
+        const guard = await guardFotoAlucinacao({
+          resposta: respLia.texto,
+          toolsExecutadas: respLia.toolsExecutadas,
+          historicoAnterior: conversa.historico,
+          contextoExtra: contextoExtra || undefined,
+          opcoes: opcoesLia,
+        });
+        resposta = guard.texto;
         conversa.historico.push({ role: 'assistant', content: resposta });
       } catch (err) {
         console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
@@ -2342,14 +2390,19 @@ app.post('/webhook', async (req, res) => {
       sendImage: (tel, urlOuB64, caption) => enviarImagem(tel, urlOuB64, caption),
     }) : undefined;
 
-    const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, {
-      nomeCorretor,
-      toolHandlers,
-    });
-    const resposta = respLia.texto;
+    const opcoesLia = { nomeCorretor, toolHandlers };
+    const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
     if (respLia.toolsExecutadas?.length) {
       console.log(`[meta] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
     }
+    const guard = await guardFotoAlucinacao({
+      resposta: respLia.texto,
+      toolsExecutadas: respLia.toolsExecutadas,
+      historicoAnterior: conversa.historico,
+      contextoExtra: contextoExtra || undefined,
+      opcoes: opcoesLia,
+    });
+    const resposta = guard.texto;
     conversa.historico.push({ role: 'assistant', content: resposta });
 
     // RACE CONDITION FIX: SALVA historico ANTES de enviar a msg pro user.
