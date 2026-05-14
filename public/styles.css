@@ -3789,13 +3789,6 @@ tr:hover .td-acoes--row .btn-icon:hover {
 }
 .msg-chat__header-name { font-size: 1rem; font-weight: 600; color: #f3f3f3; }
 .msg-chat__header-tel { font-size: 0.75rem; color: #888; }
-.msg-chat__wapp {
-    font-size: 0.75rem !important;
-    padding: 0.45rem 0.85rem !important;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-}
 .msg-chat__icon { flex-shrink: 0; display: block; }
 
 .msg-chat .chat-box {
@@ -3823,50 +3816,69 @@ tr:hover .td-acoes--row .btn-icon:hover {
 .msg-item__paused-icon { font-size: 0.85em; opacity: 0.9; }
 
 /* Comunicacoes — botao pausar/retomar no header */
-.msg-chat__lia-toggle {
-    font-size: 0.75rem !important;
-    padding: 0.45rem 0.85rem !important;
-    margin-right: 0.5rem;
-    white-space: nowrap;
+/* Botoes do header da conversa — estilo proprio (nao depende de .btn--outline
+   que so existia pro tema light, deixando o dark sem styling). Pill discreta
+   com borda sutil, robozinho gold pra Lia e icone gold pro WhatsApp. */
+.msg-chat__lia-toggle,
+.msg-chat__wapp {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    text-transform: none;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    white-space: nowrap;
+    margin-right: 0.5rem;
 }
-/* Mobile (mesmo breakpoint do chat layout — 900px): converte ambos os botoes
-   (Pausar Lia + Abrir WhatsApp) em circulares 40x40 igual o .msg-chat__back,
-   com icone SVG no centro pra ficar coerente com a identidade da casa. */
+.msg-chat__lia-toggle:hover,
+.msg-chat__wapp:hover {
+    border-color: var(--gold);
+    background: var(--gold-muted);
+    color: var(--gold-light);
+}
+.msg-chat__lia-toggle:active,
+.msg-chat__wapp:active { transform: scale(0.97); }
+
+/* Icones em gold no estado normal */
+.msg-chat__lia-toggle .msg-chat__icon,
+.msg-chat__wapp .msg-chat__icon { color: var(--gold); }
+
+/* Estado pausado — borda + tint gold sutis, sem chapar */
+.msg-chat__lia-toggle--paused {
+    border-color: rgba(201, 168, 76, 0.55);
+    background: var(--gold-muted);
+    color: var(--gold-light);
+}
+.msg-chat__lia-toggle--paused .msg-chat__icon { color: var(--gold-light); }
+
+/* Mobile (mesmo breakpoint do chat layout — 900px): vira circular 40x40
+   igual o .msg-chat__back, escondendo o texto. */
 @media (max-width: 900px) {
     .msg-chat__lia-toggle,
     .msg-chat__wapp {
-        width: 40px !important;
-        height: 40px !important;
-        padding: 0 !important;
-        border-radius: 50% !important;
-        font-size: 0 !important;
-        gap: 0 !important;
-        background: transparent !important;
-        border: 1px solid var(--border) !important;
-        color: var(--text-primary) !important;
-        display: inline-flex !important;
-        align-items: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        gap: 0;
         justify-content: center;
         line-height: 1;
         margin-right: 0.4rem;
         flex-shrink: 0;
-        box-shadow: none !important;
     }
-    /* Estado pausado — borda gold sutil + tint, sem chapar de cor */
-    .msg-chat__lia-toggle.btn--gold {
-        background: var(--gold-muted) !important;
-        border-color: rgba(201, 168, 76, 0.55) !important;
-        color: var(--gold-light) !important;
-    }
-    .msg-chat__lia-toggle:active,
-    .msg-chat__wapp:active { transform: scale(0.94); }
     .msg-chat__lia-toggle .lia-toggle__text,
     .msg-chat__wapp .wapp__text { display: none; }
-    .msg-chat__lia-toggle .msg-chat__icon,
-    .msg-chat__wapp .msg-chat__icon { width: 18px; height: 18px; }
 }
 
 /* Comunicacoes — banner amarelo quando Lia pausada */
