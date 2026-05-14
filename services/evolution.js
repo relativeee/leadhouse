@@ -42,6 +42,64 @@ async function call(path, opts = {}) {
   return data;
 }
 
+// Retry com backoff exponencial pra erros transientes (5xx, 408, 429, network).
+// 4xx (auth, bad request) NAO retentamos — retry nao vai resolver.
+async function withRetry(fn, label, maxAttempts = 3) {
+  const delaysMs = [0, 1000, 3000];
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (delaysMs[attempt - 1] > 0) {
+      await new Promise(r => setTimeout(r, delaysMs[attempt - 1]));
+    }
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const status = e.status;
+      const transient = !status || status >= 500 || status === 408 || status === 429;
+      const isLast = attempt === maxAttempts;
+      console.warn(`[evolution.${label}] tentativa ${attempt}/${maxAttempts} falhou: ${e.message} (status=${status || 'no-status'}, transient=${transient})`);
+      if (!transient || isLast) throw e;
+    }
+  }
+  throw lastErr;
+}
+
+// Notifica corretor via push quando envio falhou definitivamente. Lazy-require
+// pra evitar dependencia circular evolution <-> push.
+async function notificarCorretorFalha(userId, telefone, tipo) {
+  try {
+    const push = require('./push');
+    if (!push?.sendPushParaCorretor) return;
+    await push.sendPushParaCorretor(userId, {
+      title: '⚠️ Falha ao enviar mensagem',
+      body: `Não consegui ${tipo === 'image' ? 'enviar a foto' : 'responder'} pro lead ${telefone}. Abra o LeadHouse e responda manualmente.`,
+      url: '/?tab=comunicacoes',
+      tag: `falha-${telefone}`,
+    });
+  } catch (e) {
+    console.error('[evolution.notificarCorretorFalha]', e.message);
+  }
+}
+
+// Healthcheck leve — confirma que a Evolution responde + apikey valida.
+// Usado pelo /health do LeadHouse pro Uptime Robot saber se a infra ta de pe.
+async function healthCheck(timeoutMs = 3000) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}/instance/fetchInstances`, {
+      method: 'GET',
+      headers: { apikey: KEY },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`Evolution health ${res.status}`);
+    return { ok: true };
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 /**
  * Cria instancia + retorna QR code base64. Se ja existe, deleta antes pra
  * gerar QR novo (caso o anterior tenha expirado).
@@ -121,7 +179,8 @@ async function deleteInstance(userId) {
 
 /**
  * Envia mensagem de texto. Inclui pausa randomica antes pra parecer humano
- * (reduz risco de ban por automacao detectada).
+ * (reduz risco de ban por automacao detectada). Retry automatico em erros
+ * transientes (5xx/timeout). Push notif pro corretor se falhar todas.
  */
 async function sendText(userId, telefone, texto) {
   const instanceName = instanceNameFor(userId);
@@ -130,14 +189,15 @@ async function sendText(userId, telefone, texto) {
   const pause = 500 + Math.random() * 1000;
   await new Promise(r => setTimeout(r, pause));
   const number = String(telefone).replace(/\D/g, '');
-  return call(`/message/sendText/${instanceName}`, {
-    method: 'POST',
-    body: {
-      number,
-      text: texto,
-      delay: 1200, // typing indicator delay
-    },
-  });
+  try {
+    return await withRetry(() => call(`/message/sendText/${instanceName}`, {
+      method: 'POST',
+      body: { number, text: texto, delay: 1200 },
+    }), 'sendText');
+  } catch (err) {
+    await notificarCorretorFalha(userId, telefone, 'text');
+    throw err;
+  }
 }
 
 /**
@@ -193,11 +253,15 @@ async function sendImage(userId, telefone, urlOrBase64, caption = '') {
   };
   console.log(`[evolution.sendImage] instance=${instanceName} to=${number} mode=${isUrl ? 'base64-from-url' : 'direct'}`);
   try {
-    const r = await call(`/message/sendMedia/${instanceName}`, { method: 'POST', body });
+    const r = await withRetry(
+      () => call(`/message/sendMedia/${instanceName}`, { method: 'POST', body }),
+      'sendImage'
+    );
     console.log(`[evolution.sendImage] OK`);
     return r;
   } catch (err) {
-    console.error(`[evolution.sendImage] FALHA status=${err.status} msg=${err.message} body=`, err.body);
+    console.error(`[evolution.sendImage] FALHA FINAL status=${err.status} msg=${err.message} body=`, err.body);
+    await notificarCorretorFalha(userId, telefone, 'image');
     throw err;
   }
 }
@@ -210,4 +274,5 @@ module.exports = {
   deleteInstance,
   sendText,
   sendImage,
+  healthCheck,
 };

@@ -991,11 +991,38 @@ app.post('/webhook/evolution', async (req, res) => {
       if (!texto.trim()) return res.json({ received: true });
       const isFromMe = !!msg.key?.fromMe;
 
-      // Dedup por messageId
+      // Dedup por messageId — 2 camadas:
+      // 1) Set in-memory por conversa (rapido, mas Vercel cold start zera)
+      // 2) lastMessageId persistido no historico_json (sobrevive cold start)
       const messageId = msg.key?.id;
       const conversa = getConversa(telefone);
       if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
-      if (messageId) conversa.mensagensProcessadas.add(messageId);
+      // Check persistente (cold start safe). 1 SELECT leve.
+      if (messageId) {
+        try {
+          const { data: rows } = await db.supabase
+            .from('leads')
+            .select('historico_json')
+            .eq('telefone', telefone)
+            .eq('usuario_id', user.id)
+            .eq('origem', 'whatsapp')
+            .order('updated_at', { ascending: false })
+            .limit(1);
+          const lastIdInDb = (() => {
+            try { return JSON.parse(rows?.[0]?.historico_json || '{}')?.lastMessageId || null; }
+            catch { return null; }
+          })();
+          if (lastIdInDb && lastIdInDb === messageId) {
+            console.log(`[evolution] dedup persistente — msg ${messageId} ja processada em invocation anterior`);
+            return res.json({ received: true });
+          }
+        } catch (e) {
+          console.warn('[evolution] erro check dedup persistente:', e.message);
+          // Falha do check nao bloqueia — fallback no dedup em-memoria
+        }
+        conversa.mensagensProcessadas.add(messageId);
+        conversa.ultimoMessageId = messageId; // pra incluir no save
+      }
 
       // MENSAGEM DO CORRETOR (key.fromMe=true): corretor respondeu manualmente do
       // celular dele. Salva no historico como 'assistant' pra aparecer na thread.
@@ -1027,6 +1054,7 @@ app.post('/webhook/evolution', async (req, res) => {
               v: 2,
               messages: conversa.historico.slice(-40),
               imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+              lastMessageId: conversa.ultimoMessageId || null,
             }),
           }, user.id);
           console.log(`[evolution] msg DO CORRETOR (fromMe) salva: user=${user.id} tel=${telefone} "${texto.slice(0,40)}..."`);
@@ -1096,6 +1124,7 @@ app.post('/webhook/evolution', async (req, res) => {
               v: 2,
               messages: conversa.historico.slice(-40),
               imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+              lastMessageId: conversa.ultimoMessageId || null,
             }),
           }, user.id);
         } catch (err) {
@@ -1265,6 +1294,7 @@ app.post('/webhook/evolution', async (req, res) => {
         v: 2,
         messages: conversa.historico.slice(-40),
         imoveisEnviados: Array.from(conversa.imoveisEnviados || []),
+        lastMessageId: conversa.ultimoMessageId || null,
       });
       let isNovoLead = false;
       try {
@@ -3029,6 +3059,7 @@ app.get('/health', async (req, res) => {
   const checks = {
     app: 'ok',
     db: 'unknown',
+    evolution: 'unknown',
     stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'not_configured',
     resend: process.env.RESEND_API_KEY ? 'configured' : 'not_configured',
     whatsapp: process.env.WHATSAPP_PHONE_ID ? 'configured' : 'not_configured',
@@ -3044,7 +3075,28 @@ app.get('/health', async (req, res) => {
     checks.db_latency_ms = Date.now() - t0;
   } catch (e) { checks.db = 'error'; }
 
-  const allOk = checks.db === 'ok';
+  // Testa Evolution API. Se a Evolution cair (Railway down, apikey errada,
+  // Postgres dela offline), o /health vira 503 e Uptime Robot alerta —
+  // antes que leads silenciosamente parem de receber resposta.
+  if (evolution?.healthCheck) {
+    try {
+      const t0 = Date.now();
+      await evolution.healthCheck(3000);
+      checks.evolution = 'ok';
+      checks.evolution_latency_ms = Date.now() - t0;
+    } catch (e) {
+      checks.evolution = 'error';
+      checks.evolution_error = e.message;
+    }
+  } else {
+    checks.evolution = 'not_configured';
+  }
+
+  // allOk: db obrigatorio. Evolution obrigatorio SE estiver configurada
+  // (quem nao tem Evolution rodando — dev local — nao deve cair em 503).
+  const dbOk = checks.db === 'ok';
+  const evolutionOk = checks.evolution === 'ok' || checks.evolution === 'not_configured';
+  const allOk = dbOk && evolutionOk;
   res.status(allOk ? 200 : 503).json({
     status: allOk ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
