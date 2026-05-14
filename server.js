@@ -841,18 +841,28 @@ app.get('/api/whatsapp-personal/status', authMiddleware, async (req, res) => {
 
 app.post('/api/whatsapp-personal/disconnect', authMiddleware, async (req, res) => {
   if (!evolution) return res.status(503).json({ erro: 'Evolution API nao configurada' });
+  // Politica: "desconectar" significa "parar de usar esse WhatsApp no LeadHouse".
+  // Sempre limpamos o DB, mesmo se a Evolution falhar — senao o usuario fica
+  // preso em "Conectado" pra sempre quando a instance esta num estado esquisito.
+  let evolutionErro = null;
   try {
     await evolution.deleteInstance(req.userId);
+  } catch (err) {
+    evolutionErro = err.message;
+    console.warn(`[whatsapp-personal/disconnect] Evolution falhou (user=${req.userId}): ${err.message}. Limpando DB mesmo assim.`);
+  }
+  try {
     await db.supabase.from('usuarios').update({
       evolution_instance_name: null,
       evolution_instance_status: 'disconnected',
       evolution_phone_number: null,
       evolution_connected_at: null,
     }).eq('id', req.userId);
-    res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error(`[whatsapp-personal/disconnect] falha critica ao limpar DB (user=${req.userId}):`, err.message);
+    return res.status(500).json({ erro: 'Falha ao limpar registro: ' + err.message });
   }
+  res.json({ ok: true, evolutionAviso: evolutionErro });
 });
 
 // ─────────────────────────────────────────────

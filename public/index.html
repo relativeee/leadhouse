@@ -1821,11 +1821,17 @@ async function toggleWhatsAppPersonal() {
         btn.disabled = true;
         try {
             const res = await fetch('/api/whatsapp-personal/disconnect', { method: 'POST', headers: getAuthHeaders() });
-            if (!res.ok) throw new Error();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.erro || 'Falha desconhecida');
             renderWppPersonal('disconnected');
-            toast('WhatsApp desconectado', 'success');
-        } catch {
-            toast('Erro ao desconectar', 'erro');
+            // Backend pode reportar erro da Evolution mas mesmo assim ter limpado o DB
+            if (data?.evolutionAviso) {
+                toast('WhatsApp desconectado (aviso: ' + data.evolutionAviso + ')', 'success');
+            } else {
+                toast('WhatsApp desconectado', 'success');
+            }
+        } catch (e) {
+            toast('Erro ao desconectar: ' + (e.message || ''), 'error');
         } finally { btn.disabled = false; }
     } else {
         await abrirQRModal();
