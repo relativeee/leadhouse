@@ -82,4 +82,4 @@ create table if not exists usuarios (
 );
 
 alter table usuarios enable row level security;
-create policy "Acesso total usuarios" on usuarios for all using (true) with check (true);
+create policy "Bloqueia anon usuarios" on usuarios for all to anon using (false) with check (false);

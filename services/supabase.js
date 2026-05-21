@@ -5,16 +5,17 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-// Prefere service_role (bypassa RLS) - usado apenas server-side.
-// Fallback para anon_key durante a migracao (se SERVICE_ROLE ainda nao estiver
-// configurada no Vercel). Apos confirmar que service_role funciona, podemos
-// fechar as policies anon (rodar sql de migracao no Supabase).
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_ANON_KEY;
+// service_role obrigatoria. Bypassa RLS — todas as policies em public.*
+// bloqueiam 'anon'. Sem service_role o app retorna vazio em tudo e quebra
+// silenciosamente. Falhamos alto no boot pra evitar isso em prod.
+if (!process.env.SUPABASE_URL) {
+  throw new Error('[Supabase] SUPABASE_URL obrigatoria.');
+}
 if (!process.env.SUPABASE_SERVICE_ROLE) {
-  console.warn('[Supabase] SUPABASE_SERVICE_ROLE nao configurada — usando anon_key (menos seguro). Configure no Vercel.');
+  throw new Error('[Supabase] SUPABASE_SERVICE_ROLE obrigatoria. Sem ela o app nao funciona — todas as policies bloqueiam anon. Configure no Vercel.');
 }
 
-const supabase = createClient(process.env.SUPABASE_URL, supabaseKey);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE);
 
 // ─────────────────────────────────────────────
 // Imoveis
