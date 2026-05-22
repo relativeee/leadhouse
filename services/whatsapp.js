@@ -169,56 +169,23 @@ function extrairMensagem(body) {
 }
 
 /**
- * Envia notificação para o corretor via WhatsApp.
- * @param {Object} leadData - Dados estruturados do lead
- * @param {string} telefoneLead - Telefone do lead
+ * DEPRECATED — no-op mantido por compatibilidade de import.
+ *
+ * Usava CORRETOR_TELEFONE (env global) que criava bug multi-tenant:
+ * lead quente de QUALQUER corretor notificava UM unico numero. Substituido
+ * por pushService.sendPushParaCorretor(userId, ...) que entrega push notif
+ * por corretor dono do lead. O callsite no server.js foi removido junto.
  */
-async function notificarCorretor(leadData, telefoneLead) {
-  const telefoneCorretor = process.env.CORRETOR_TELEFONE;
-  if (!telefoneCorretor) {
-    console.warn('[WhatsApp] CORRETOR_TELEFONE não configurado. Notificação ignorada.');
-    return;
-  }
-
-  const mensagem =
-    `🔥 *Lead QUENTE identificado!*\n\n` +
-    `👤 Nome: ${leadData.nome}\n` +
-    `🎯 Objetivo: ${leadData.objetivo}\n` +
-    `🏠 Imóvel: ${leadData.tipo_imovel}\n` +
-    `📍 Bairro: ${leadData.bairro}\n` +
-    `💰 Faixa: ${leadData.faixa_valor}\n` +
-    `💳 Pagamento: ${leadData.pagamento}\n` +
-    `⏱ Prazo: ${leadData.prazo}\n\n` +
-    `📋 Resumo: ${leadData.resumo}\n\n` +
-    `✅ Próximo passo: ${leadData.proximo_passo}\n\n` +
-    `📞 Telefone do lead: ${telefoneLead}`;
-
-  await enviarMensagem(telefoneCorretor, mensagem);
-  console.log('[WhatsApp] Corretor notificado sobre lead quente.');
+async function notificarCorretor() {
+  return; // no-op
 }
 
 /**
- * Notifica o corretor que um novo lead acabou de iniciar conversa pelo WhatsApp.
- * Mensagem mais leve que notificarCorretor — chega antes da qualificacao completa.
+ * DEPRECATED — no-op. Mesma razao que notificarCorretor. Push notification
+ * "🔥 {nome}" no primeiro contato ja eh enviado pelo dono real do lead.
  */
-async function notificarNovoLead(telefoneLead, primeiraMensagem) {
-  const telefoneCorretor = process.env.CORRETOR_TELEFONE;
-  if (!telefoneCorretor) {
-    console.warn('[WhatsApp] CORRETOR_TELEFONE nao configurado. Notificacao de novo lead ignorada.');
-    return;
-  }
-  const trecho = (primeiraMensagem || '').slice(0, 200);
-  const msg =
-    `🆕 *Novo lead no WhatsApp!*\n\n` +
-    `📞 Telefone: ${telefoneLead}\n` +
-    (trecho ? `💬 Primeira mensagem: "${trecho}"\n\n` : '\n') +
-    `A Lia ja esta qualificando. Acompanhe pelo LeadHouse.`;
-  try {
-    await enviarMensagem(telefoneCorretor, msg);
-    console.log('[WhatsApp] Corretor notificado de novo lead.');
-  } catch (e) {
-    console.error('[WhatsApp] Falha ao notificar novo lead:', e.message);
-  }
+async function notificarNovoLead() {
+  return; // no-op
 }
 
 module.exports = { enviarMensagem, enviarImagem, extrairMensagem, notificarCorretor, notificarNovoLead };

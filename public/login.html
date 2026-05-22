@@ -402,11 +402,15 @@ let isLogin = true;
 // Verifica se ja esta logado ou recebeu token do Google
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
+    // Google callback usa fragment (#google_token=...) — nao vai pra logs servidor
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
-    // Google login callback
-    if (params.get('google_token')) {
-        localStorage.setItem('lh_token', params.get('google_token'));
-        try { localStorage.setItem('lh_user', decodeURIComponent(params.get('google_user'))); } catch {}
+    // Google login callback (via hash, com fallback pra query string legado)
+    const googleToken = hashParams.get('google_token') || params.get('google_token');
+    const googleUser = hashParams.get('google_user') || params.get('google_user');
+    if (googleToken) {
+        localStorage.setItem('lh_token', googleToken);
+        try { if (googleUser) localStorage.setItem('lh_user', decodeURIComponent(googleUser)); } catch {}
         window.history.replaceState({}, '', '/login');
         window.location.href = '/';
         return;

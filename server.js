@@ -93,6 +93,22 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Idempotência: Stripe retenta o mesmo event.id em caso de timeout/5xx.
+  // Reprocessar = upgrade duplo + email duplo. INSERT antes de processar:
+  // se PK violation (23505), evento ja foi processado — retorna 200 silenciosamente.
+  try {
+    const { error: insertErr } = await db.supabase
+      .from('stripe_events')
+      .insert({ event_id: event.id, type: event.type });
+    if (insertErr?.code === '23505') {
+      console.log(`[Stripe] event ${event.id} (${event.type}) ja processado, ignorando retry`);
+      return res.json({ received: true, idempotent: true });
+    }
+    if (insertErr) console.warn('[Stripe] idempotency insert falhou (processando mesmo assim):', insertErr.message);
+  } catch (e) {
+    console.warn('[Stripe] idempotency check falhou (processando mesmo assim):', e.message);
+  }
+
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
@@ -516,8 +532,10 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Redireciona pro login com token via query param (frontend salva e redireciona)
-    res.redirect(`/login?google_token=${token}&google_user=${encodeURIComponent(JSON.stringify({ id: user.id, nome: user.nome, email: user.email, plano: user.plano }))}`);
+    // Redireciona com fragment (#) em vez de query (?). Fragment NAO eh enviado
+    // ao servidor — nao aparece em logs Vercel, nao vaza pra Referer de terceiros.
+    // Browser history local mantem, mas isso eh do proprio device do user.
+    res.redirect(`/login#google_token=${token}&google_user=${encodeURIComponent(JSON.stringify({ id: user.id, nome: user.nome, email: user.email, plano: user.plano }))}`);
   } catch (err) {
     console.error('[google login] erro:', err);
     res.redirect('/login?error=google_server');
@@ -877,8 +895,10 @@ app.get('/api/push/key', (req, res) => {
   res.json({ publicKey: pushService.publicKey() });
 });
 
-// GET /api/push/debug — diagnostico publico (so booleans, nao expõe keys)
-app.get('/api/push/debug', (req, res) => {
+// GET /api/push/debug — diagnostico admin-only. Exibia first8/last4 de envs
+// VAPID — info parcial vazada e nao precisa ser publica. Tem authMiddleware
+// + adminOnly pra so o owner conseguir checar.
+app.get('/api/push/debug', authMiddleware, adminOnly, (req, res) => {
   if (!pushService) return res.json({ moduleLoaded: false });
   res.json({ moduleLoaded: true, ...pushService.diagnostico() });
 });
@@ -950,8 +970,25 @@ app.post('/api/push/test', authMiddleware, async (req, res) => {
   }
 });
 
+// Validacao opcional de origem da Evolution. Se EVOLUTION_WEBHOOK_TOKEN setada,
+// exige header `x-webhook-token` igual. Sem env, processa (warning no boot).
+// Configurar no Evolution Dashboard: Webhook → Headers → x-webhook-token: <secret>
+function evolutionWebhookAuth(req, res, next) {
+  const expected = process.env.EVOLUTION_WEBHOOK_TOKEN;
+  if (!expected) return next();
+  const got = req.headers['x-webhook-token'] || '';
+  if (got !== expected) {
+    console.warn('[evolution webhook] token invalido — request rejeitado');
+    return res.status(401).json({ erro: 'Token invalido' });
+  }
+  next();
+}
+if (!process.env.EVOLUTION_WEBHOOK_TOKEN) {
+  console.warn('[evolution webhook] EVOLUTION_WEBHOOK_TOKEN nao configurado — webhook aceita qualquer origem (RISCO DE SEGURANCA)');
+}
+
 // Webhook que a Evolution chama quando algo acontece (mensagem recebida, conexao mudou, etc.)
-app.post('/webhook/evolution', async (req, res) => {
+app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
   // IMPORTANTE: NAO chamar res.json() no comeco. Em serverless do Vercel a funcao
   // pode ser morta logo apos a resposta — precisamos terminar tudo antes de responder.
   try {
@@ -2272,7 +2309,39 @@ async function calcularHorariosLivres(userId) {
   } catch(e) { console.error('[slots]', e.message); return null; }
 }
 
-app.post('/webhook', async (req, res) => {
+// Validacao X-Hub-Signature-256 (Meta WABA). Se META_APP_SECRET setada, exige
+// signature HMAC valida. Sem env, processa (warning no boot). Meta Console:
+// App → Webhooks → Edit Subscription → Confirm App Secret matches.
+function metaWebhookAuth(req, res, next) {
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) return next(); // raw body nao foi capturado, segue sem validar
+  // express.raw colocou Buffer em req.body. Re-parse depois.
+  const got = req.headers['x-hub-signature-256'] || '';
+  const expected = 'sha256=' + require('crypto').createHmac('sha256', appSecret).update(req.body).digest('hex');
+  const ok = got.length === expected.length && require('crypto').timingSafeEqual(Buffer.from(got), Buffer.from(expected));
+  if (!ok) {
+    console.warn('[meta webhook] X-Hub-Signature-256 invalido — request rejeitado');
+    return res.status(401).send('Invalid signature');
+  }
+  try {
+    req.body = JSON.parse(req.body.toString('utf8'));
+    next();
+  } catch (e) {
+    return res.status(400).send('Body invalido');
+  }
+}
+if (!process.env.META_APP_SECRET) {
+  console.warn('[meta webhook] META_APP_SECRET nao configurado — webhook aceita qualquer origem (RISCO DE SEGURANCA)');
+}
+
+// Se META_APP_SECRET setada, precisa raw body pra validar HMAC. Express.raw
+// vira no-op se Content-Type nao bater, e como nao tem META_APP_SECRET ainda,
+// metaWebhookAuth pula direto. Quando setar a env, ativa automaticamente.
+const metaRawBody = process.env.META_APP_SECRET
+  ? require('express').raw({ type: 'application/json', limit: '5mb' })
+  : (req, res, next) => next();
+
+app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
   // Em serverless, processamos ANTES do sendStatus pra evitar que o runtime corte a function
   if (!extrairMensagem) return res.sendStatus(200);
   const dados = extrairMensagem(req.body);
@@ -2540,10 +2609,8 @@ app.post('/webhook', async (req, res) => {
         historico_json: JSON.stringify(conversa.historico.slice(-40)),
       }, userIdDestino);
 
-      // Notifica corretor sobre novo lead (so na primeira mensagem)
-      if (isLeadNovo && notificarNovoLead) {
-        notificarNovoLead(telefone, mensagem).catch(e => console.error('[Webhook] notificarNovoLead falhou:', e.message));
-      }
+      // Notif de novo lead vai via push notification logo abaixo (por usuario_id,
+      // multi-tenant correto). Removido notificarNovoLead (CORRETOR_TELEFONE global).
     }
 
     try {
@@ -2600,9 +2667,8 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
-    if (notificarCorretor && leadData.temperatura === 'quente') {
-      await notificarCorretor(leadData, telefone);
-    }
+    // Lead quente: notif vai via push logo abaixo (multi-tenant). Removido
+    // notificarCorretor que usava CORRETOR_TELEFONE global (bug multi-tenant).
     // Push notification pro corretor — toda mensagem do cliente via Meta WABA.
     // 1a mensagem: "🔥 entrou em contato". Demais: "💬 [Nome]" + previa.
     // Tag por telefone substitui notificacao anterior do mesmo lead.
