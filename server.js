@@ -2070,6 +2070,19 @@ app.get('/api/admin/usuarios/:id', authMiddleware, adminOnly, async (req, res) =
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
+// Migra webhook URL de instancias Evolution existentes pra incluir ?token=
+// Necessario uma vez apos setar EVOLUTION_WEBHOOK_TOKEN. Idempotente.
+app.post('/api/admin/migrate-webhooks', authMiddleware, adminOnly, async (req, res) => {
+  try {
+    if (!evolution) return res.status(503).json({ erro: 'Evolution nao configurada' });
+    const result = await evolution.migrarWebhookInstancias();
+    res.json(result);
+  } catch (err) {
+    console.error('[admin/migrate-webhooks]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // Excluir usuario (admin only). Cancela Stripe, derruba instancia Evolution,
 // apaga dados em ordem de dependencia e por fim o registro do usuario.
 // Body: { senha: "<senha do admin>" } — autentica a acao.

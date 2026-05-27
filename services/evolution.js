@@ -268,6 +268,45 @@ async function sendImage(userId, telefone, urlOrBase64, caption = '') {
   }
 }
 
+/**
+ * Atualiza a URL do webhook de TODAS as instancias LeadHouse existentes
+ * pra incluir ?token= (se EVOLUTION_WEBHOOK_TOKEN setada). Necessario
+ * pra instancias criadas antes do token existir — sem isso, elas continuam
+ * mandando pra URL antiga e levam 401 do server.
+ */
+async function migrarWebhookInstancias() {
+  const token = process.env.EVOLUTION_WEBHOOK_TOKEN;
+  if (!token) return { migrated: 0, message: 'EVOLUTION_WEBHOOK_TOKEN nao setada' };
+  const webhookUrl = `${APP_URL}/webhook/evolution?token=${token}`;
+  const results = [];
+  try {
+    const instances = await call('/instance/fetchInstances');
+    for (const inst of (instances || [])) {
+      const name = inst.instance?.instanceName || inst.instanceName;
+      if (!name || !name.startsWith('leadhouse-user-')) continue;
+      try {
+        await call(`/webhook/set/${name}`, {
+          method: 'POST',
+          body: {
+            url: webhookUrl,
+            webhook_by_events: false,
+            webhook_base64: false,
+            events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+          },
+        });
+        results.push({ instance: name, ok: true });
+        console.log(`[evolution] webhook migrado: ${name}`);
+      } catch (e) {
+        results.push({ instance: name, ok: false, erro: e.message });
+        console.error(`[evolution] falha ao migrar webhook ${name}:`, e.message);
+      }
+    }
+  } catch (e) {
+    return { migrated: 0, erro: e.message };
+  }
+  return { migrated: results.filter(r => r.ok).length, total: results.length, results };
+}
+
 module.exports = {
   instanceNameFor,
   createInstance,
@@ -277,4 +316,5 @@ module.exports = {
   sendText,
   sendImage,
   healthCheck,
+  migrarWebhookInstancias,
 };
