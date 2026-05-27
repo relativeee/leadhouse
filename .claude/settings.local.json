@@ -5,5 +5,8 @@
       "Bash(node --check _c.js)",
       "Bash(rm _c.js)"
     ]
+  },
+  "env": {
+    "MEGA_BRAIN_ROOT": "c:\\Users\\magal\\Documents\\mybrain"
   }
 }
