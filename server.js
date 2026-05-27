@@ -980,7 +980,10 @@ app.post('/api/push/test', authMiddleware, async (req, res) => {
 function evolutionWebhookAuth(req, res, next) {
   const expected = process.env.EVOLUTION_WEBHOOK_TOKEN;
   if (!expected) return next();
-  const got = req.headers['x-webhook-token'] || '';
+  // Aceita token via query string (?token=) OU header (x-webhook-token).
+  // Query string e mais pratico porque Evolution v2.x nao envia headers
+  // customizados no webhook — mas a URL do webhook ja carrega o secret.
+  const got = req.query?.token || req.headers['x-webhook-token'] || '';
   if (got !== expected) {
     console.warn('[evolution webhook] token invalido — request rejeitado');
     return res.status(401).json({ erro: 'Token invalido' });

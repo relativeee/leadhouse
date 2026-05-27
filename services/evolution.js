@@ -119,7 +119,9 @@ async function createInstance(userId) {
       qrcode: true,
       integration: 'WHATSAPP-BAILEYS',
       webhook: {
-        url: `${APP_URL}/webhook/evolution`,
+        url: process.env.EVOLUTION_WEBHOOK_TOKEN
+          ? `${APP_URL}/webhook/evolution?token=${process.env.EVOLUTION_WEBHOOK_TOKEN}`
+          : `${APP_URL}/webhook/evolution`,
         byEvents: false,
         base64: false,
         events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
