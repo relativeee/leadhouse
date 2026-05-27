@@ -151,10 +151,14 @@ function extrairMensagem(body) {
 
     const msg = messages[0];
 
-    // Por enquanto suporta apenas mensagens de texto
     if (msg.type !== 'text') {
-      console.log(`[WhatsApp] Tipo de mensagem não suportado: ${msg.type}`);
-      return null;
+      console.log(`[WhatsApp] Tipo nao-texto: ${msg.type} de ${msg.from}`);
+      return {
+        telefone: msg.from,
+        mensagem: null,
+        naoSuportado: msg.type,
+        messageId: msg.id,
+      };
     }
 
     return {

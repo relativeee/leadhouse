@@ -239,6 +239,17 @@ const conversas = {};
 const CONVERSA_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 function getConversa(telefone) {
+  // Lazy eviction: limpa conversas expiradas a cada acesso (throttle 60s).
+  // setInterval nao funciona em Vercel serverless (funcao morre apos request).
+  if (!getConversa._lastEvict || Date.now() - getConversa._lastEvict > 60_000) {
+    getConversa._lastEvict = Date.now();
+    const agora = Date.now();
+    for (const tel of Object.keys(conversas)) {
+      if (agora - conversas[tel].ultimaAtividade > CONVERSA_TTL_MS) {
+        delete conversas[tel];
+      }
+    }
+  }
   if (!conversas[telefone]) {
     conversas[telefone] = {
       historico: [],
@@ -421,15 +432,8 @@ function buildAntiRepetContext(historico, leadData) {
   return ctx;
 }
 
-// Limpa conversas inativas a cada hora
-setInterval(() => {
-  const agora = Date.now();
-  for (const tel of Object.keys(conversas)) {
-    if (agora - conversas[tel].ultimaAtividade > CONVERSA_TTL_MS) {
-      delete conversas[tel];
-    }
-  }
-}, 60 * 60 * 1000);
+// Limpeza de conversas inativas: feita por lazy eviction dentro de getConversa()
+// (setInterval nao funciona em Vercel serverless — funcao morre apos cada request)
 
 // ─────────────────────────────────────────────
 // Auth — Registro, Login, Verificacao
@@ -1025,7 +1029,16 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
       if (remoteJid.endsWith('@g.us')) return res.json({ received: true });
       const telefone = remoteJid.split('@')[0];
       const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-      if (!texto.trim()) return res.json({ received: true });
+      if (!texto.trim()) {
+        // Lead mandou audio/imagem/sticker — responde pedindo texto
+        const hasMedia = msg.message && (msg.message.audioMessage || msg.message.imageMessage
+          || msg.message.videoMessage || msg.message.stickerMessage || msg.message.documentMessage);
+        if (hasMedia && evolution && !msg.key?.fromMe) {
+          evolution.sendText(user.id, telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
+            .catch(e => console.error('[evolution webhook] erro ao responder midia:', e.message));
+        }
+        return res.json({ received: true });
+      }
       const isFromMe = !!msg.key?.fromMe;
 
       // Dedup por messageId — 2 camadas:
@@ -2346,6 +2359,15 @@ app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
   if (!extrairMensagem) return res.sendStatus(200);
   const dados = extrairMensagem(req.body);
   if (!dados) return res.sendStatus(200);
+
+  // Lead mandou audio/imagem/sticker/video — responde pedindo texto
+  if (dados.naoSuportado) {
+    if (enviarMensagem && dados.telefone) {
+      enviarMensagem(dados.telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
+        .catch(e => console.error('[Webhook] erro ao responder tipo nao suportado:', e.message));
+    }
+    return res.sendStatus(200);
+  }
 
   const { telefone, mensagem, messageId } = dados;
   const conversa = getConversa(telefone);
