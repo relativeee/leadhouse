@@ -188,6 +188,120 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 });
 
+// ─────────────────────────────────────────────
+// HOTMART — webhook + checkout redirect
+// Validacao via hottok (shared secret no body) — sem signature HMAC.
+// ─────────────────────────────────────────────
+const hotmart = require('./services/hotmart');
+
+app.post('/api/hotmart/webhook', express.json({ limit: '1mb' }), async (req, res) => {
+  if (!hotmart.validarHottok(req.body)) {
+    console.warn('[hotmart webhook] hottok invalido ou ausente — rejeitado');
+    return res.status(401).send('Invalid hottok');
+  }
+
+  const dados = hotmart.extrairDadosCompra(req.body);
+  if (!dados.eventId || !dados.event) return res.json({ received: true });
+
+  // Idempotencia (mesmo padrao do Stripe)
+  try {
+    const { error: insertErr } = await db.supabase
+      .from('hotmart_events')
+      .insert({ event_id: dados.eventId, event_type: dados.event });
+    if (insertErr?.code === '23505') {
+      console.log(`[hotmart] event ${dados.eventId} (${dados.event}) ja processado, ignorando retry`);
+      return res.json({ received: true, idempotent: true });
+    }
+    if (insertErr) console.warn('[hotmart] idempotency insert falhou (processando):', insertErr.message);
+  } catch (e) {
+    console.warn('[hotmart] idempotency check falhou:', e.message);
+  }
+
+  try {
+    const acao = hotmart.acaoDoEvento(dados.event);
+    if (!acao) {
+      console.log(`[hotmart] evento ${dados.event} sem acao mapeada, ignorando`);
+      return res.json({ received: true });
+    }
+    if (!dados.email) {
+      console.warn(`[hotmart] evento ${dados.event} sem email do buyer`);
+      return res.json({ received: true });
+    }
+
+    if (acao === 'ativar' || acao === 'trocar_plano') {
+      const plano = hotmart.planoDoProductId(dados.productId);
+      if (!plano) {
+        console.warn(`[hotmart] product_id ${dados.productId} nao mapeado pra plano (verificar HOTMART_*_PRODUCT_ID envs)`);
+        return res.json({ received: true });
+      }
+      const update = { plano };
+      if (dados.transactionId) update.hotmart_transaction_id = dados.transactionId;
+      if (dados.subscriberCode) update.hotmart_subscriber_code = dados.subscriberCode;
+      const { data: u, error } = await db.supabase
+        .from('usuarios')
+        .update(update)
+        .eq('email', dados.email)
+        .select('id, email, nome');
+      if (error) console.error('[hotmart] erro atualizar plano:', error.message);
+      else if (!u || u.length === 0) console.error(`[hotmart] usuario nao encontrado: ${dados.email}`);
+      else {
+        console.log(`[hotmart] plano ${plano} ativado pra ${dados.email}`);
+        if (acao === 'ativar' && emails?.sendPaymentSuccess) {
+          emails.sendPaymentSuccess({ to: u[0].email, nome: u[0].nome, plano }).catch(e => console.error('[email] payment_success:', e.message));
+        }
+      }
+    }
+
+    if (acao === 'revogar') {
+      const { error } = await db.supabase
+        .from('usuarios')
+        .update({ plano: null })
+        .eq('email', dados.email);
+      if (error) console.error('[hotmart] erro revogar plano:', error.message);
+      else console.log(`[hotmart] plano revogado: ${dados.email}`);
+    }
+
+    if (acao === 'falha_cobranca') {
+      const { data: u } = await db.supabase
+        .from('usuarios')
+        .select('email, nome')
+        .eq('email', dados.email)
+        .maybeSingle();
+      if (u && emails?.sendPaymentFailed) {
+        emails.sendPaymentFailed({ to: u.email, nome: u.nome }).catch(e => console.error('[email] payment_failed:', e.message));
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[hotmart] erro processando webhook:', err);
+    res.status(500).send('Erro interno');
+  }
+});
+
+// Checkout redirect — frontend chama `/api/checkout/hotmart?plan=pro&email=...`
+// e o server faz 302 pro link Hotmart correspondente (com prefill de email/nome
+// no checkout pra reduzir friccao).
+app.get('/api/checkout/hotmart', (req, res) => {
+  const plan = String(req.query.plan || '').toLowerCase();
+  const urls = {
+    start: process.env.HOTMART_CHECKOUT_URL_START,
+    pro:   process.env.HOTMART_CHECKOUT_URL_PRO,
+    elite: process.env.HOTMART_CHECKOUT_URL_ELITE,
+  };
+  const baseUrl = urls[plan];
+  if (!baseUrl) {
+    return res.status(400).send(`Plano "${plan}" nao configurado (HOTMART_CHECKOUT_URL_${plan.toUpperCase()} ausente)`);
+  }
+  // Prefill de email/nome no Hotmart (param ?email= e ?name= sao suportados)
+  const params = new URLSearchParams();
+  if (req.query.email) params.set('email', String(req.query.email));
+  if (req.query.nome) params.set('name', String(req.query.nome));
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  const finalUrl = params.toString() ? `${baseUrl}${sep}${params}` : baseUrl;
+  res.redirect(finalUrl);
+});
+
 app.use(express.json({ limit: '5mb' }));
 
 // Security headers

@@ -2133,7 +2133,18 @@ function initImpersonationBanner() {
 }
 
 function paywallAssinar(plan) {
-    window.location.href = 'https://leadhouses.com.br/api/checkout?plan=' + plan;
+    // Hotmart checkout: redirect pelo backend pra resolver URL do produto
+    // (env-driven) + prefill de email/nome do usuario logado.
+    let email = '', nome = '';
+    try {
+        const u = JSON.parse(localStorage.getItem('lh_user') || '{}');
+        email = u.email || '';
+        nome = u.nome || '';
+    } catch {}
+    const params = new URLSearchParams({ plan });
+    if (email) params.set('email', email);
+    if (nome) params.set('nome', nome);
+    window.location.href = '/api/checkout/hotmart?' + params.toString();
 }
 
 function isPlanActive(user) {
