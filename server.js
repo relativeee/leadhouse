@@ -3335,7 +3335,10 @@ app.get('/health', async (req, res) => {
   // Testa Evolution API. Se a Evolution cair (Railway down, apikey errada,
   // Postgres dela offline), o /health vira 503 e Uptime Robot alerta —
   // antes que leads silenciosamente parem de receber resposta.
-  if (evolution?.healthCheck) {
+  // Se nao tem ENV setada (Evolution intencionalmente desligada), pula o
+  // teste — senao Uptime Robot alerta toda hora por falso positivo.
+  const evolutionConfigured = !!(process.env.EVOLUTION_URL && process.env.EVOLUTION_API_KEY);
+  if (evolutionConfigured && evolution?.healthCheck) {
     try {
       const t0 = Date.now();
       await evolution.healthCheck(3000);
