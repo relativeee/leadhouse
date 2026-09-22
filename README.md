@@ -10,6 +10,7 @@ push notifications e um painel web.
 ## Sumário
 
 - [Arquitetura](#arquitetura)
+- [Entrando no projeto](#entrando-no-projeto)
 - [Setup rápido](#setup-rápido)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Banco de dados](#banco-de-dados)
@@ -53,6 +54,45 @@ WhatsApp (Meta Cloud API **e** Evolution) · Hotmart · Resend · Sentry · Verc
 
 ---
 
+## Entrando no projeto
+
+Ler e alterar código não exige credencial nenhuma: clone (ou Codespace),
+`npm install`, e já dá para navegar o servidor, o front em `public/`, os
+prompts da Lia e a lógica de `utils/leadScoring.js`.
+
+**Subir o servidor** é o que exige configuração. Estas três fazem o processo
+morrer no boot:
+
+| Var | Onde obter | O que acontece sem ela |
+|-----|------------|------------------------|
+| `JWT_SECRET` | gere: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` | `process.exit(1)` — [server.js](server.js#L38) |
+| `SUPABASE_URL` | Supabase › Settings › API | throw em [services/supabase.js](services/supabase.js#L12) |
+| `SUPABASE_SERVICE_ROLE` | Supabase › Settings › API › service_role | throw em [services/supabase.js](services/supabase.js#L15) |
+
+A `ANTHROPIC_API_KEY` não derruba o boot — o servidor sobe e as rotas
+respondem, mas a Lia não gera resposta nenhuma. Para mexer em qualquer coisa
+que envolva a IA, ela é necessária na prática.
+
+### Como as credenciais chegam a um dev novo
+
+Pelo cofre de senhas do time ou por um link que expira — **nunca** por
+WhatsApp, Telegram, email, issue ou commit. A `SUPABASE_SERVICE_ROLE` bypassa
+todas as policies de RLS: quem a tem lê e apaga os dados de todos os tenants,
+sem restrição. Canal com histórico eterno é o problema, não o envio.
+
+Recebidas, elas vão no `.env` local (que está no `.gitignore`) e valem
+indefinidamente — o dev fica autônomo, sem depender de mais ninguém para
+trabalhar.
+
+> Enquanto o banco é de testes, compartilhar a `service_role` de produção é
+> aceitável. A partir do primeiro cliente pagante, o caminho é um projeto
+> Supabase separado para desenvolvimento: criar o projeto, rodar
+> [supabase-schema.sql](supabase-schema.sql) e as migrations na ordem da seção
+> [Banco de dados](#banco-de-dados), e distribuir as chaves desse projeto.
+> Nenhuma mudança de código é necessária — só o valor das vars.
+
+---
+
 ## Setup rápido
 
 ```bash
@@ -83,7 +123,10 @@ com link de onde obter cada valor. Resumo do que **quebra o boot se faltar**:
 | `JWT_SECRET` | assinatura das sessões |
 | `SUPABASE_URL` | conexão com o banco |
 | `SUPABASE_SERVICE_ROLE` | chave que bypassa RLS — **nunca exponha no front** |
-| `ANTHROPIC_API_KEY` | a Lia não responde sem isso |
+
+`ANTHROPIC_API_KEY` é um caso à parte: o boot passa sem ela, mas toda chamada
+da Lia falha em runtime. Na prática é obrigatória para qualquer trabalho que
+toque a IA.
 
 O resto é degradação graciosa: sem `RESEND_API_KEY` não sai email, sem
 `VAPID_*` não sai push, sem `SENTRY_DSN` não há error tracking, e sem as vars
