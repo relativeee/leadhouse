@@ -4,3 +4,7 @@ node_modules/
 # Claude Code local files
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# Backups e temporarios
+*.bak
+.DS_Store
