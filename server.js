@@ -59,6 +59,8 @@ try { ({ criarToolHandlers } = require('./services/liaTools')); } catch (e) { co
 let pushService = null;
 try { pushService = require('./services/push'); } catch (e) { console.warn('[Init] push service indisponivel:', e.message); }
 
+const { metaAuth, evolutionAuth, cronAuthorized } = require('./services/webhookSecurity');
+const { durableWebhook } = require('./services/webhookEvents');
 const app = express();
 
 // Vercel coloca um proxy na frente — precisamos confiar pra rate-limit e
@@ -302,7 +304,10 @@ app.get('/api/checkout/hotmart', (req, res) => {
   res.redirect(finalUrl);
 });
 
-app.use(express.json({ limit: '5mb' }));
+// Capture signed bytes before JSON parsing. Stripe uses its own raw parser above.
+app.use(express.json({ limit: '5mb', verify(req, res, buffer) {
+  if (req.path === '/webhook') req.rawBody = Buffer.from(buffer);
+} }));
 
 // Security headers
 app.use(helmet({
@@ -352,7 +357,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 const conversas = {};
 const CONVERSA_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
-function getConversa(telefone) {
+function getConversa(userId, telefone) {
+  const key = `${userId}:${telefone}`;
   // Lazy eviction: limpa conversas expiradas a cada acesso (throttle 60s).
   // setInterval nao funciona em Vercel serverless (funcao morre apos request).
   if (!getConversa._lastEvict || Date.now() - getConversa._lastEvict > 60_000) {
@@ -364,15 +370,14 @@ function getConversa(telefone) {
       }
     }
   }
-  if (!conversas[telefone]) {
-    conversas[telefone] = {
+  if (!conversas[key]) {
+    conversas[key] = {
       historico: [],
-      mensagensProcessadas: new Set(),
       ultimaAtividade: Date.now(),
     };
   }
-  conversas[telefone].ultimaAtividade = Date.now();
-  return conversas[telefone];
+  conversas[key].ultimaAtividade = Date.now();
+  return conversas[key];
 }
 
 // Parseia string de valor ("até 500 mil", "R$ 400.000", "entre 300 e 600 mil")
@@ -1088,28 +1093,10 @@ app.post('/api/push/test', authMiddleware, async (req, res) => {
   }
 });
 
-// Validacao opcional de origem da Evolution. Se EVOLUTION_WEBHOOK_TOKEN setada,
-// exige header `x-webhook-token` igual. Sem env, processa (warning no boot).
-// Configurar no Evolution Dashboard: Webhook → Headers → x-webhook-token: <secret>
-function evolutionWebhookAuth(req, res, next) {
-  const expected = process.env.EVOLUTION_WEBHOOK_TOKEN;
-  if (!expected) return next();
-  // Aceita token via query string (?token=) OU header (x-webhook-token).
-  // Query string e mais pratico porque Evolution v2.x nao envia headers
-  // customizados no webhook — mas a URL do webhook ja carrega o secret.
-  const got = req.query?.token || req.headers['x-webhook-token'] || '';
-  if (got !== expected) {
-    console.warn('[evolution webhook] token invalido — request rejeitado');
-    return res.status(401).json({ erro: 'Token invalido' });
-  }
-  next();
-}
-if (!process.env.EVOLUTION_WEBHOOK_TOKEN) {
-  console.warn('[evolution webhook] EVOLUTION_WEBHOOK_TOKEN nao configurado — webhook aceita qualquer origem (RISCO DE SEGURANCA)');
-}
+const evolutionWebhookAuth = evolutionAuth;
 
 // Webhook que a Evolution chama quando algo acontece (mensagem recebida, conexao mudou, etc.)
-app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
+app.post('/webhook/evolution', evolutionWebhookAuth, durableWebhook(db.supabase, 'evolution', async (req, res) => {
   // IMPORTANTE: NAO chamar res.json() no comeco. Em serverless do Vercel a funcao
   // pode ser morta logo apos a resposta — precisamos terminar tudo antes de responder.
   try {
@@ -1151,7 +1138,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
         const hasMedia = msg.message && (msg.message.audioMessage || msg.message.imageMessage
           || msg.message.videoMessage || msg.message.stickerMessage || msg.message.documentMessage);
         if (hasMedia && evolution && !msg.key?.fromMe) {
-          evolution.sendText(user.id, telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
+          await evolution.sendText(user.id, telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
             .catch(e => console.error('[evolution webhook] erro ao responder midia:', e.message));
         }
         return res.json({ received: true });
@@ -1159,37 +1146,10 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
       const isFromMe = !!msg.key?.fromMe;
 
       // Dedup por messageId — 2 camadas:
-      // 1) Set in-memory por conversa (rapido, mas Vercel cold start zera)
-      // 2) lastMessageId persistido no historico_json (sobrevive cold start)
+      // Deduplicacao persistente feita por durableWebhook antes do handler.
       const messageId = msg.key?.id;
-      const conversa = getConversa(telefone);
-      if (messageId && conversa.mensagensProcessadas.has(messageId)) return res.json({ received: true });
-      // Check persistente (cold start safe). 1 SELECT leve.
-      if (messageId) {
-        try {
-          const { data: rows } = await db.supabase
-            .from('leads')
-            .select('historico_json')
-            .eq('telefone', telefone)
-            .eq('usuario_id', user.id)
-            .eq('origem', 'whatsapp')
-            .order('updated_at', { ascending: false })
-            .limit(1);
-          const lastIdInDb = (() => {
-            try { return JSON.parse(rows?.[0]?.historico_json || '{}')?.lastMessageId || null; }
-            catch { return null; }
-          })();
-          if (lastIdInDb && lastIdInDb === messageId) {
-            console.log(`[evolution] dedup persistente — msg ${messageId} ja processada em invocation anterior`);
-            return res.json({ received: true });
-          }
-        } catch (e) {
-          console.warn('[evolution] erro check dedup persistente:', e.message);
-          // Falha do check nao bloqueia — fallback no dedup em-memoria
-        }
-        conversa.mensagensProcessadas.add(messageId);
-        conversa.ultimoMessageId = messageId; // pra incluir no save
-      }
+      const conversa = getConversa(user.id, telefone);
+      conversa.ultimoMessageId = messageId;
 
       // MENSAGEM DO CORRETOR (key.fromMe=true): corretor respondeu manualmente do
       // celular dele. Salva no historico como 'assistant' pra aparecer na thread.
@@ -1227,6 +1187,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
           console.log(`[evolution] msg DO CORRETOR (fromMe) salva: user=${user.id} tel=${telefone} "${texto.slice(0,40)}..."`);
         } catch (err) {
           console.error(`[evolution] erro salvar fromMe ${telefone}:`, err.message);
+          throw err;
         }
         return res.json({ received: true });
       }
@@ -1296,6 +1257,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
           }, user.id);
         } catch (err) {
           console.error(`[evolution] erro salvar msg com Lia pausada ${telefone}:`, err.message);
+          throw err;
         }
         // Sem push por mensagem — corretor ja sabe que assumiu (push so quando pausou/retomou).
         console.log(`[evolution] Lia pausada — msg salva (sem push): ${telefone}`);
@@ -1440,7 +1402,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
       } catch (err) {
         console.error(`[evolution] erro ao gerar resposta pra ${telefone}:`, err.message);
         try { await evolution.sendText(user.id, telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch {}
-        return res.json({ received: true });
+        return res.status(500).json({ erro: 'Falha ao gerar resposta' });
       }
 
       // Bloco 2: SALVA HISTORICO ANTES de mandar — garante persistencia mesmo se Evolution falhar
@@ -1466,6 +1428,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
         }, user.id);
       } catch (err) {
         console.error(`[evolution] erro ao salvar historico ${telefone}:`, err.message);
+        throw err;
       }
 
       // Push notification pro corretor — dispara em TODA mensagem do cliente.
@@ -1490,6 +1453,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
         await evolution.sendText(user.id, telefone, resposta);
       } catch (err) {
         console.error(`[evolution] erro ao enviar via Evolution pra ${telefone}:`, err.message);
+        throw err;
       }
 
       // Bloco 3b REMOVIDO — antes mandava foto AUTOMATICAMENTE sempre que pre-resposta
@@ -1581,7 +1545,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
     if (Sentry) Sentry.captureException(err);
     if (!res.headersSent) res.status(500).json({ erro: 'erro interno' });
   }
-});
+}));
 
 // ─────────────────────────────────────────────
 // LIA — Kill switch (pausar global ou por lead)
@@ -2075,14 +2039,7 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
 // CRON — trial expirando (Vercel Cron diario 13:00 UTC = 10:00 Fortaleza)
 // ─────────────────────────────────────────────
 app.get('/api/cron/trial-expiring', async (req, res) => {
-  // Auth dupla: (a) CRON_SECRET via Bearer (Vercel injeta automaticamente se setado),
-  // OU (b) User-Agent vercel-cron/* quando CRON_SECRET nao esta configurado.
-  // (b) eh fallback aceito pelo proprio Vercel quando CRON_SECRET ausente.
-  const expected = (process.env.CRON_SECRET || '').trim();
-  const provided = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  const ua = (req.headers['user-agent'] || '').toLowerCase();
-  const isVercelCron = ua.includes('vercel-cron');
-  const authOk = (expected && provided === expected) || (!expected && isVercelCron);
+  const authOk = cronAuthorized(req);
   if (!authOk) {
     return res.status(401).json({ erro: 'Acesso negado' });
   }
@@ -2358,7 +2315,7 @@ app.get('/webhook', (req, res) => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+  if (mode === 'subscribe' && process.env.WEBHOOK_VERIFY_TOKEN && token === process.env.WEBHOOK_VERIFY_TOKEN) {
     console.log('[Webhook] Verificacao aprovada pela Meta.');
     return res.status(200).send(challenge);
   }
@@ -2452,93 +2409,25 @@ async function calcularHorariosLivres(userId) {
   } catch(e) { console.error('[slots]', e.message); return null; }
 }
 
-// Validacao X-Hub-Signature-256 (Meta WABA). Se META_APP_SECRET setada, exige
-// signature HMAC valida. Sem env, processa (warning no boot). Meta Console:
-// App → Webhooks → Edit Subscription → Confirm App Secret matches.
-function metaWebhookAuth(req, res, next) {
-  const appSecret = process.env.META_APP_SECRET;
-  if (!appSecret) return next(); // raw body nao foi capturado, segue sem validar
-  // express.raw colocou Buffer em req.body. Re-parse depois.
-  const got = req.headers['x-hub-signature-256'] || '';
-  const expected = 'sha256=' + require('crypto').createHmac('sha256', appSecret).update(req.body).digest('hex');
-  const ok = got.length === expected.length && require('crypto').timingSafeEqual(Buffer.from(got), Buffer.from(expected));
-  if (!ok) {
-    console.warn('[meta webhook] X-Hub-Signature-256 invalido — request rejeitado');
-    return res.status(401).send('Invalid signature');
-  }
-  try {
-    req.body = JSON.parse(req.body.toString('utf8'));
-    next();
-  } catch (e) {
-    return res.status(400).send('Body invalido');
-  }
-}
-if (!process.env.META_APP_SECRET) {
-  console.warn('[meta webhook] META_APP_SECRET nao configurado — webhook aceita qualquer origem (RISCO DE SEGURANCA)');
-}
-
-// Se META_APP_SECRET setada, precisa raw body pra validar HMAC. Express.raw
-// vira no-op se Content-Type nao bater, e como nao tem META_APP_SECRET ainda,
-// metaWebhookAuth pula direto. Quando setar a env, ativa automaticamente.
-const metaRawBody = process.env.META_APP_SECRET
-  ? require('express').raw({ type: 'application/json', limit: '5mb' })
-  : (req, res, next) => next();
-
-app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
+app.post('/webhook', metaAuth, durableWebhook(db.supabase, 'meta', async (req, res) => {
   // Em serverless, processamos ANTES do sendStatus pra evitar que o runtime corte a function
-  if (!extrairMensagem) return res.sendStatus(200);
+  if (!extrairMensagem) return res.sendStatus(503);
   const dados = extrairMensagem(req.body);
   if (!dados) return res.sendStatus(200);
 
   // Lead mandou audio/imagem/sticker/video — responde pedindo texto
   if (dados.naoSuportado) {
     if (enviarMensagem && dados.telefone) {
-      enviarMensagem(dados.telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
+      await enviarMensagem(dados.telefone, 'Desculpa, por aqui consigo ler só mensagens de texto 😊 Pode digitar pra mim?')
         .catch(e => console.error('[Webhook] erro ao responder tipo nao suportado:', e.message));
     }
     return res.sendStatus(200);
   }
 
   const { telefone, mensagem, messageId } = dados;
-  const conversa = getConversa(telefone);
-
-  if (conversa.mensagensProcessadas.has(messageId)) return res.sendStatus(200);
-  conversa.mensagensProcessadas.add(messageId);
-
-  // PASSO 1: Determinar userIdDestino ANTES de qualquer query de historico.
-  // Tres tentativas em ordem: (1) lead existente, (2) admin, (3) bail out.
-  // Usa order+limit em vez de maybeSingle pra evitar erro em duplicatas.
-  let userIdDestino = null;
+  const userIdDestino = req.webhookUserId;
+  const conversa = getConversa(userIdDestino, telefone);
   let isLeadNovo = true;
-  try {
-    const { data: leadRows } = await db.supabase
-      .from('leads')
-      .select('id, usuario_id')
-      .eq('telefone', telefone)
-      .eq('origem', 'whatsapp')
-      .order('updated_at', { ascending: false })
-      .limit(1);
-    if (leadRows && leadRows.length > 0 && leadRows[0].usuario_id) {
-      userIdDestino = leadRows[0].usuario_id;
-      isLeadNovo = false;
-    }
-  } catch (e) {
-    console.warn(`[Webhook] busca lead existente falhou:`, e.message);
-  }
-  if (!userIdDestino) {
-    try {
-      const { data: admin } = await db.supabase
-        .from('usuarios')
-        .select('id')
-        .eq('is_admin', true)
-        .order('id', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      userIdDestino = admin?.id || null;
-    } catch (e) {
-      console.warn(`[Webhook] busca admin falhou:`, e.message);
-    }
-  }
 
   // PASSO 2: Recarrega historico do DB FILTRANDO por usuario_id (evita maybeSingle
   // erro se houver duplicatas) e usa order+limit em vez de maybeSingle.
@@ -2555,6 +2444,7 @@ app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
         .order('updated_at', { ascending: false })
         .limit(1);
       const leadAnterior = rows && rows[0];
+      isLeadNovo = !leadAnterior;
       if (leadAnterior?.historico_json) {
         try {
           const parsed = JSON.parse(leadAnterior.historico_json);
@@ -2732,7 +2622,7 @@ app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
     if (!respostaEnviada) {
       try { await enviarMensagem(telefone, 'Desculpe, tive um problema aqui. Pode repetir?'); } catch (_) {}
     }
-    res.sendStatus(200);
+    res.sendStatus(500);
     return;
   }
 
@@ -2837,11 +2727,12 @@ app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
     }
   } catch (err) {
     console.error(`[Webhook] Erro ao extrair/salvar lead ${telefone}:`, err.message);
+    return res.sendStatus(500);
     // Não envia mensagem de erro — a IA já respondeu
   }
 
   res.sendStatus(200);
-});
+}));
 
 // ─────────────────────────────────────────────
 // API — Leads WhatsApp (do Supabase)
@@ -2888,8 +2779,8 @@ app.get('/api/leads/:telefone/conversa', async (req, res) => {
       } catch {}
     }
     // Fallback: se o lead está em memória, usa o histórico da memória
-    if (!historico.length && conversas[req.params.telefone]) {
-      historico = conversas[req.params.telefone].historico || [];
+    if (!historico.length && conversas[`${req.userId}:${req.params.telefone}`]) {
+      historico = conversas[`${req.userId}:${req.params.telefone}`].historico || [];
     }
     res.json({ telefone: lead.telefone, nome: lead.nome, historico });
   } catch (err) { res.status(500).json({ erro: err.message }); }
