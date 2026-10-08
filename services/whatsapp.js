@@ -185,6 +185,42 @@ async function notificarCorretor() {
 }
 
 /**
+ * Envia um template aprovado na Meta. Obrigatorio pra iniciar conversa fora
+ * da janela de 24h (lembretes e automacoes). `params` preenche {{1}}, {{2}}...
+ * do corpo do template, na ordem.
+ */
+async function enviarTemplate(telefone, nome, params = [], idioma = 'pt_BR') {
+  try {
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: telefone,
+      type: 'template',
+      template: {
+        name: nome,
+        language: { code: idioma },
+        components: params.length
+          ? [{ type: 'body', parameters: params.map(t => ({ type: 'text', text: String(t) })) }]
+          : [],
+      },
+    };
+
+    const response = await axios.post(WHATSAPP_API_URL, payload, {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log(`[WhatsApp] Template ${nome} enviado para ${telefone}`);
+    return response.data;
+  } catch (err) {
+    const detalhe = err.response?.data || err.message;
+    console.error(`[WhatsApp] Erro ao enviar template ${nome}:`, JSON.stringify(detalhe));
+    throw err;
+  }
+}
+
+/**
  * DEPRECATED — no-op. Mesma razao que notificarCorretor. Push notification
  * "🔥 {nome}" no primeiro contato ja eh enviado pelo dono real do lead.
  */
@@ -192,4 +228,4 @@ async function notificarNovoLead() {
   return; // no-op
 }
 
-module.exports = { enviarMensagem, enviarImagem, extrairMensagem, notificarCorretor, notificarNovoLead };
+module.exports = { enviarMensagem, enviarImagem, enviarTemplate, extrairMensagem, notificarCorretor, notificarNovoLead };

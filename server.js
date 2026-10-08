@@ -40,11 +40,11 @@ if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido no .env'); proc
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
-let extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead;
+let extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead;
 let gerarResposta, extrairDadosLead, gerarResumoMatching;
 let salvarLead;
 
-try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
+try { ({ extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
 try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
@@ -59,6 +59,9 @@ try { ({ criarToolHandlers } = require('./services/liaTools')); } catch (e) { co
 
 let pushService = null;
 try { pushService = require('./services/push'); } catch (e) { console.warn('[Init] push service indisponivel:', e.message); }
+
+let automacoes = null;
+try { automacoes = require('./services/automacoes'); } catch (e) { console.warn('[Init] automacoes indisponivel:', e.message); }
 
 const app = express();
 
@@ -1459,9 +1462,11 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
         // Detecta lead novo: se totalMsgsUser === 1, e a primeira mensagem desse contato
         // (apos cold start, historico_json ja teria mais mensagens).
         isNovoLead = totalMsgsUser === 1;
+        // Sem `temperatura` aqui: lead novo nasce 'frio' pelo default da coluna e o
+        // Bloco 4 grava a real. Forcar 'frio' fazia quente->frio->quente a cada msg,
+        // disparando eventos falsos de temperatura_mudou (automacoes).
         await db.upsertLeadWhatsApp(telefone, {
           nome: msg.pushName || '',
-          temperatura: 'frio',
           total_mensagens: totalMsgsUser,
           historico_json: buildHistoricoJson(),
         }, user.id);
@@ -1581,6 +1586,60 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
     console.error('[evolution webhook] erro:', err.message);
     if (Sentry) Sentry.captureException(err);
     if (!res.headersSent) res.status(500).json({ erro: 'erro interno' });
+  }
+});
+
+// ─────────────────────────────────────────────
+// AUTOMACOES — liga/desliga das receitas + historico (worker: /api/cron/automacoes)
+// ─────────────────────────────────────────────
+const { RECEITAS, configUsuario } = require('./utils/automacoesRegras');
+
+function listarReceitas(linhas) {
+  const cfg = configUsuario(linhas);
+  return Object.values(RECEITAS).map(r => ({ id: r.id, nome: r.nome, descricao: r.descricao, enviaParaLead: r.enviaParaLead, ...cfg[r.id] }));
+}
+
+app.get('/api/automacoes', authMiddleware, async (req, res) => {
+  try {
+    const [{ data: linhas, error }, { data: historico }] = await Promise.all([
+      db.supabase.from('automacoes').select('receita, ativo, config').eq('usuario_id', req.userId),
+      db.supabase.from('automacao_execucoes').select('receita, chave, status, detalhe, criado_em')
+        .eq('usuario_id', req.userId).order('criado_em', { ascending: false }).limit(20),
+    ]);
+    // Migration ainda nao rodou: mostra os padroes, sem permitir salvar.
+    if (error && automacoes?.tabelaAusente(error)) {
+      return res.json({ instalado: false, receitas: listarReceitas([]), historico: [] });
+    }
+    if (error) throw error;
+    res.json({ instalado: true, receitas: listarReceitas(linhas), historico: historico || [] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.put('/api/automacoes/:receita', authMiddleware, async (req, res) => {
+  const receita = RECEITAS[req.params.receita];
+  if (!receita) return res.status(400).json({ erro: 'Automação inválida' });
+  const { ativo, config } = req.body || {};
+  if (typeof ativo !== 'boolean') return res.status(400).json({ erro: 'Campo "ativo" deve ser true ou false' });
+  // Fase 1: so as horas do SLA sao configuraveis.
+  const cfgLimpa = {};
+  if (config !== undefined) {
+    if (receita.id !== 'sla_corretor' || typeof config !== 'object' || config === null) return res.status(400).json({ erro: 'Configuração inválida' });
+    if (config.horas !== undefined) {
+      if (!Number.isInteger(config.horas) || config.horas < 1 || config.horas > 720) return res.status(400).json({ erro: 'Horas deve ser um inteiro entre 1 e 720' });
+      cfgLimpa.horas = config.horas;
+    }
+  }
+  try {
+    const linha = { usuario_id: req.userId, receita: receita.id, ativo, updated_at: new Date().toISOString() };
+    if (config !== undefined) linha.config = cfgLimpa;
+    const { error } = await db.supabase.from('automacoes').upsert(linha, { onConflict: 'usuario_id,receita' });
+    if (error && automacoes?.tabelaAusente(error)) return res.status(503).json({ erro: 'Automações ainda não foram instaladas no banco.' });
+    if (error) throw error;
+    res.json({ ok: true, receita: receita.id, ativo });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
   }
 });
 
@@ -2070,6 +2129,33 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// ─────────────────────────────────────────────
+// CRON — automacoes (Supabase pg_cron a cada minuto, ver migrations/automacoes_cron.sql)
+// ─────────────────────────────────────────────
+// Diferente do trial-expiring: CRON_SECRET obrigatorio (chamada vem do Supabase,
+// nao da Vercel — sem fallback por User-Agent). Compare timing-safe.
+function cronSecretAuth(req, res, next) {
+  const expected = Buffer.from((process.env.CRON_SECRET || '').trim());
+  const provided = Buffer.from((req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim());
+  if (!expected.length || expected.length !== provided.length || !crypto.timingSafeEqual(expected, provided)) {
+    return res.status(401).json({ erro: 'Acesso negado' });
+  }
+  next();
+}
+
+app.get('/api/cron/automacoes', cronSecretAuth, async (req, res) => {
+  if (!automacoes) return res.status(503).json({ erro: 'automacoes service indisponivel' });
+  try {
+    const r = await automacoes.rodarCiclo({ db, push: pushService, emails, enviarTemplate });
+    if (r.falhas.length && Sentry) Sentry.captureMessage(`[cron automacoes] ${r.falhas.join(' | ')}`);
+    res.json(r);
+  } catch (err) {
+    console.error('[cron automacoes]', err.message);
+    if (Sentry) Sentry.captureException(err);
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // ─────────────────────────────────────────────

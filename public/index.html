@@ -94,6 +94,10 @@
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Funil de Vendas
         </button>
+        <button class="sidebar__item" onclick="trocarAba('automacoes', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Automações
+        </button>
         <button class="sidebar__item sidebar__item--ai" onclick="trocarAba('agente', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Agente IA
@@ -881,6 +885,28 @@
 </main>
 
 <!-- ============================================
+     ABA: AUTOMACOES
+     ============================================ -->
+<main class="dashboard" id="aba-automacoes" style="display:none;">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Automações</h1>
+            <p class="page-header__sub">Ações que o LeadHouse faz sozinho quando algo acontece com seus leads</p>
+        </div>
+    </header>
+
+    <div id="automacoesAviso"></div>
+    <div id="automacoesLista"></div>
+
+    <section class="conta-section">
+        <div class="conta-section__title">Últimas execuções</div>
+        <div id="automacoesHistorico"></div>
+    </section>
+
+</main>
+
+<!-- ============================================
      ABA: FUNIL DE VENDAS
      ============================================ -->
 <main class="dashboard" id="aba-funil" style="display:none;">
@@ -1558,9 +1584,77 @@ function trocarAba(aba, btn) {
     if (aba === 'comunicacoes') carregarComunicacoes();
     if (aba === 'agenda') carregarAgenda();
     if (aba === 'funil') carregarFunil();
+    if (aba === 'automacoes') carregarAutomacoes();
     if (aba === 'admin') carregarAdmin();
     if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
+}
+
+// ═══════════════════════════════════════════════
+// AUTOMACOES
+// ═══════════════════════════════════════════════
+const AUTOMACAO_STATUS = { ok: 'Executada', pulado: 'Pulada', erro: 'Erro', executando: 'Executando' };
+
+async function carregarAutomacoes() {
+    const lista = document.getElementById('automacoesLista');
+    const aviso = document.getElementById('automacoesAviso');
+    try {
+        const res = await fetch('/api/automacoes', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        const { instalado, receitas, historico } = await res.json();
+
+        aviso.innerHTML = instalado ? '' : `<div class="lia-card"><div class="lia-card__desc">As automações estão sendo ativadas na sua conta. Os botões ficam disponíveis em breve.</div></div>`;
+
+        lista.innerHTML = receitas.map(r => `
+            <div class="lia-card">
+                <div class="lia-card__row">
+                    <div class="lia-card__info">
+                        <div class="lia-card__title">${esc(r.nome)}</div>
+                        <div class="lia-card__desc">${esc(r.descricao)}</div>
+                        ${r.enviaParaLead ? `<div class="lia-card__desc" style="margin-top:0.5rem;color:var(--gold-light)">Envia mensagem ao cliente pelo WhatsApp oficial do LeadHouse.</div>` : ''}
+                    </div>
+                    <button class="lia-toggle${r.ativo ? ' lia-toggle--on' : ''}" ${instalado ? '' : 'disabled'}
+                        onclick="toggleAutomacao('${r.id}', this)" aria-label="Ligar/desligar ${esc(r.nome)}" aria-pressed="${r.ativo}">
+                        <span class="lia-toggle__dot"></span>
+                    </button>
+                </div>
+            </div>`).join('');
+
+        const nomes = Object.fromEntries(receitas.map(r => [r.id, r.nome]));
+        document.getElementById('automacoesHistorico').innerHTML = historico.length
+            ? historico.map(h => `
+                <div class="lia-card__row" style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <div class="lia-card__info">
+                        <div class="lia-card__desc"><strong>${esc(nomes[h.receita] || h.receita)}</strong>${h.detalhe ? ' · ' + esc(h.detalhe) : ''}</div>
+                        <div class="lia-card__desc" style="font-size:0.72rem">${new Date(h.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' })}</div>
+                    </div>
+                    <span class="badge">${esc(AUTOMACAO_STATUS[h.status] || h.status)}</span>
+                </div>`).join('')
+            : `<div class="lia-card__desc">Nenhuma automação executada ainda.</div>`;
+    } catch {
+        lista.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Não foi possível carregar as automações. Tente novamente.</div></div>`;
+    }
+}
+
+async function toggleAutomacao(id, btn) {
+    const ativo = !btn.classList.contains('lia-toggle--on');
+    btn.classList.toggle('lia-toggle--on', ativo);
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/automacoes/' + encodeURIComponent(id), {
+            method: 'PUT',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ativo }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        btn.setAttribute('aria-pressed', ativo);
+        toast(ativo ? 'Automação ligada' : 'Automação desligada', 'sucesso');
+    } catch (e) {
+        btn.classList.toggle('lia-toggle--on', !ativo);
+        toast(e.message || 'Erro ao salvar', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // ═══════════════════════════════════════════════
