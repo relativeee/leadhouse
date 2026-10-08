@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION quando o app shell mudar significativamente
  * (forcar o SW a re-cachear). Auto-update via skipWaiting + clients.claim.
  */
-const CACHE_VERSION = 'lh-v22-2026-10-08-admin-paywall';
+const CACHE_VERSION = 'lh-v23-2026-10-08-fluxos';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

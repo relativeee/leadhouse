@@ -16,6 +16,7 @@
  */
 
 const R = require('../utils/automacoesRegras');
+const fluxos = require('./fluxos');
 
 const HORA = 60 * 60 * 1000;
 const DIA = 24 * HORA;
@@ -42,10 +43,11 @@ async function carregarConfigs(sb, usuarioIds) {
 }
 
 function criarExecutor(sb, stats) {
-  return async function executarUmaVez(usuarioId, receita, chave, fn) {
+  // `extra`: colunas opcionais (lead_id, canal) — usadas pela trava de WhatsApp dos fluxos.
+  return async function executarUmaVez(usuarioId, receita, chave, fn, extra = {}) {
     const { data: reg, error } = await sb
       .from('automacao_execucoes')
-      .insert({ usuario_id: usuarioId, receita, chave, status: 'executando' })
+      .insert({ ...extra, usuario_id: usuarioId, receita, chave, status: 'executando' })
       .select('id')
       .single();
     if (error) {
@@ -123,6 +125,20 @@ async function processarEventos(ctx) {
           await db.atualizarLead(lead.id, { estagio: acao.para }, ev.usuario_id);
           return { status: 'ok', detalhe: `${lead.estagio || 'novo'} -> ${acao.para}` };
         });
+      }
+    }
+  }
+
+  // Mesmo lote alimenta os fluxos do corretor. Falha aqui nao pode travar a
+  // fila da Fase 1: registra e segue (o evento e marcado como processado).
+  if (processados.length) {
+    try {
+      await fluxos.inscreverPorEventos(ctx, eventos.filter(e => processados.includes(e.id)));
+    } catch (e) {
+      if (!tabelaAusente(e)) {
+        stats.erros++;
+        stats.falhas.push(`fluxos_eventos: ${e.message}`);
+        console.error('[automacoes] fluxos (eventos) falhou:', e.message);
       }
     }
   }
@@ -273,12 +289,13 @@ function escapeHtml(s) {
  * Executa um ciclo completo. Cada etapa isolada: falha numa nao impede as outras.
  * @returns {Promise<{instalado: boolean, eventos: number, acoes: number, erros: number, falhas: string[]}>}
  */
-async function rodarCiclo({ db, push, emails, enviarTemplate, agora = new Date(), orcamentoMs = 45000 }) {
+async function rodarCiclo({ db, push, emails, enviarTemplate, enviarMensagem, evolution, agora = new Date(), orcamentoMs = 45000 }) {
   const sb = db.supabase;
   const inicio = Date.now();
-  const stats = { instalado: true, eventos: 0, acoes: 0, erros: 0, falhas: [] };
+  const stats = { instalado: true, eventos: 0, acoes: 0, erros: 0, falhas: [], fluxos: { instalado: true, inscritos: 0, passos: 0 } };
   const ctx = {
-    sb, db, push, emails, enviarTemplate, agora, stats,
+    sb, db, push, emails, enviarTemplate, enviarMensagem, evolution, agora, stats,
+    usuarios: new Map(),
     executarUmaVez: criarExecutor(sb, stats),
     estourou: () => Date.now() - inicio > orcamentoMs,
   };
@@ -289,6 +306,20 @@ async function rodarCiclo({ db, push, emails, enviarTemplate, agora = new Date()
       await etapa(ctx);
     } catch (e) {
       if (tabelaAusente(e)) return { ...stats, instalado: false };
+      stats.erros++;
+      stats.falhas.push(`${nome}: ${e.message}`);
+      console.error(`[automacoes] etapa ${nome} falhou:`, e.message);
+    }
+  }
+
+  // Fluxos (Fase 2). Tabela ausente = migrations/fluxos.sql ainda nao rodou:
+  // so os fluxos ficam desligados, a Fase 1 segue normal.
+  for (const [nome, etapa] of [['fluxos_tempo', fluxos.inscreverPorTempo], ['fluxos', fluxos.avancarInscricoes]]) {
+    if (ctx.estourou() || !stats.fluxos.instalado) break;
+    try {
+      await etapa(ctx);
+    } catch (e) {
+      if (tabelaAusente(e)) { stats.fluxos.instalado = false; break; }
       stats.erros++;
       stats.falhas.push(`${nome}: ${e.message}`);
       console.error(`[automacoes] etapa ${nome} falhou:`, e.message);

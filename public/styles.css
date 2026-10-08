@@ -4925,3 +4925,33 @@ body.body--impersonating.body--lia-pausada .sidebar { top: 76px; }
 }
 .admin-user-row__act:hover { background: var(--gold, #C9A84C); color: #0c0c0c; }
 [data-theme="light"] .admin-user-row__act { color: #8a7028; }
+
+/* ── Fluxos (Automações Fase 2) ── */
+.fluxo-card__acoes { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.fluxo-modelo {
+    display: block; width: 100%; text-align: left;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem; margin-bottom: 0.6rem;
+    cursor: pointer; color: inherit; font: inherit;
+    transition: border-color 0.15s;
+}
+.fluxo-modelo:hover, .fluxo-modelo:focus-visible { border-color: var(--gold); outline: none; }
+.fluxo-bloco {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    border: 1px solid var(--border); border-left: 2px solid var(--gold);
+    border-radius: 10px; padding: 0.85rem 1rem; margin-top: 0.85rem;
+}
+.fluxo-bloco__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.fluxo-bloco__rotulo { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.fluxo-bloco__btns { display: flex; gap: 0.25rem; }
+.fluxo-bloco__btns .btn--ghost-sm { padding: 0.25rem 0.55rem; min-width: 32px; }
+.fluxo-bloco__btns .btn--ghost-sm:disabled { opacity: 0.3; cursor: default; }
+.fluxo-add { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.85rem; }
+.fluxo-inline { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-2); margin-top: 0.4rem; }
+.fluxo-inline .form-input { flex: 1; min-width: 140px; }
+.fluxo-inline .fluxo-num { flex: 0 0 90px; min-width: 0; }
+#fluxoModalContent { max-height: 65vh; overflow-y: auto; padding-right: 0.25rem; }
+@media (max-width: 600px) {
+    .fluxo-bloco { padding: 0.75rem; }
+    #fluxoModalContent { max-height: 70vh; }
+}

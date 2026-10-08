@@ -897,7 +897,19 @@
     </header>
 
     <div id="automacoesAviso"></div>
-    <div id="automacoesLista"></div>
+
+    <section class="conta-section">
+        <div class="conta-section__head">
+            <div class="conta-section__title">Meus fluxos</div>
+            <button class="btn btn--primary" id="btnNovoFluxo" style="display:none" onclick="novoFluxo()">+ Novo fluxo</button>
+        </div>
+        <div id="fluxosLista"></div>
+    </section>
+
+    <section class="conta-section">
+        <div class="conta-section__title">Automações prontas</div>
+        <div id="automacoesLista"></div>
+    </section>
 
     <section class="conta-section">
         <div class="conta-section__title">Últimas execuções</div>
@@ -1482,6 +1494,21 @@
     </div>
 </div>
 
+<!-- ── Modal editor de fluxo ── -->
+<div class="modal-overlay" id="fluxoModalOverlay" onclick="if(event.target===this)fecharFluxoEditor()">
+    <div class="modal modal--lg" onclick="event.stopPropagation()">
+        <div class="modal__header">
+            <div class="modal__title" id="fluxoModalTitle">Novo fluxo</div>
+            <button class="modal__close" onclick="fecharFluxoEditor()" aria-label="Fechar">&times;</button>
+        </div>
+        <div id="fluxoModalContent"></div>
+        <div class="modal__footer" id="fluxoModalFooter">
+            <button class="btn btn--primary" id="fluxoSalvarBtn" onclick="salvarFluxo()">Salvar fluxo</button>
+            <button class="btn btn--ghost" onclick="fecharFluxoEditor()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Modal QR Code WhatsApp ── -->
 <div class="modal-overlay" id="qrModalOverlay" onclick="if(event.target===this)fecharQRModal()" style="display:none">
   <div class="modal" style="max-width:420px">
@@ -1598,6 +1625,7 @@ const AUTOMACAO_STATUS = { ok: 'Executada', pulado: 'Pulada', erro: 'Erro', exec
 async function carregarAutomacoes() {
     const lista = document.getElementById('automacoesLista');
     const aviso = document.getElementById('automacoesAviso');
+    const fluxosPronto = carregarFluxos();
     try {
         const res = await fetch('/api/automacoes', { headers: getAuthHeaders() });
         if (!res.ok) throw new Error();
@@ -1621,6 +1649,8 @@ async function carregarAutomacoes() {
             </div>`).join('');
 
         const nomes = Object.fromEntries(receitas.map(r => [r.id, r.nome]));
+        await fluxosPronto;
+        for (const f of fluxosEstado.fluxos) nomes['fluxo:' + f.id] = 'Fluxo: ' + f.nome;
         document.getElementById('automacoesHistorico').innerHTML = historico.length
             ? historico.map(h => `
                 <div class="lia-card__row" style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
@@ -1654,6 +1684,477 @@ async function toggleAutomacao(id, btn) {
         toast(e.message || 'Erro ao salvar', 'erro');
     } finally {
         btn.disabled = false;
+    }
+}
+
+// ═══════════════════════════════════════════════
+// FLUXOS (Automações Fase 2) — lista + editor em formulário
+// O backend guarda um grafo (nos + no_inicial); aqui o editor trabalha com
+// uma lista linear de passos e converte na hora de salvar.
+// ═══════════════════════════════════════════════
+let fluxosEstado = { instalado: true, permitido: false, fluxos: [], catalogo: null };
+let fluxoEd = null; // fluxo em edição: { id, nome, ativo, gatilho, passos: [], parar_se_responder }
+
+const FLUXO_OPERADORES = { igual: 'é igual a', diferente: 'é diferente de', contem: 'contém', vazio: 'está vazio', nao_vazio: 'está preenchido' };
+const FLUXO_CAMPOS = { temperatura: 'Temperatura', estagio: 'Estágio', bairro: 'Bairro', faixa_valor: 'Faixa de valor', objetivo: 'Objetivo', tipo_imovel: 'Tipo de imóvel', origem: 'Origem', pagamento: 'Pagamento', prazo: 'Prazo' };
+const FLUXO_MARCOS = { '24h': '24h antes da visita', '2h': '2h antes da visita', pos: 'No dia seguinte à visita' };
+const FLUXO_UNIDADES = { minutos: 1, horas: 60, dias: 1440 };
+const FLUXO_STATUS = { ativa: 'Em andamento', concluida: 'Concluído', parada: 'Parado', erro: 'Erro' };
+const capitalizar = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+const FLUXO_MODELOS = [
+    {
+        nome: 'Follow-up de lead sem resposta',
+        descricao: 'Lead parado 24h em Atendimento recebe 2 mensagens (dia 0 e dia 2). Sem resposta em 5 dias, vira frio e você é avisado.',
+        gatilho: { tipo: 'lead_parado', estagio: 'atendimento', horas: 24 },
+        passos: [
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Tudo bem? Ainda está procurando imóvel? Posso te mandar algumas opções novas 😊' },
+            { tipo: 'esperar', minutos: 2 * 1440 },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}, separei umas opções que combinam com o que você procura. Quer que eu te mande?' },
+            { tipo: 'esperar', minutos: 3 * 1440 },
+            { tipo: 'acao', acao: 'mudar_temperatura', para: 'frio' },
+            { tipo: 'acao', acao: 'push', titulo: 'Lead sem resposta: {nome}', texto: '5 dias sem responder ao follow-up. Marquei como frio.' },
+        ],
+    },
+    {
+        nome: 'Boas-vindas a lead cadastrado à mão',
+        descricao: 'Quando você cadastra um lead manualmente, ele recebe uma mensagem de apresentação.',
+        gatilho: { tipo: 'lead_criado' },
+        passos: [
+            { tipo: 'condicao', campo: 'origem', op: 'igual', valor: 'manual' },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Aqui é {corretor}, corretor(a) de imóveis. Peguei seu contato e vou te ajudar a encontrar o imóvel ideal. O que você está procurando?' },
+        ],
+    },
+    {
+        nome: 'Reativar lead frio',
+        descricao: 'Lead que esfriou recebe uma mensagem 7 dias depois, se continuar frio.',
+        gatilho: { tipo: 'temperatura_mudou', para: 'frio' },
+        passos: [
+            { tipo: 'esperar', minutos: 7 * 1440 },
+            { tipo: 'condicao', campo: 'temperatura', op: 'igual', valor: 'frio' },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}, tudo bem? Entraram imóveis novos que podem te interessar. Quer dar uma olhada?' },
+        ],
+    },
+    {
+        nome: 'Confirmar visita',
+        descricao: '24h antes da visita, pede confirmação ao cliente e te avisa.',
+        gatilho: { tipo: 'visita', marco: '24h' },
+        passos: [
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Passando para confirmar nossa visita amanhã. Está tudo certo?' },
+            { tipo: 'acao', acao: 'push', titulo: 'Visita amanhã: {nome}', texto: 'Pedi confirmação ao cliente.' },
+        ],
+    },
+];
+
+async function carregarFluxos() {
+    const box = document.getElementById('fluxosLista');
+    const btnNovo = document.getElementById('btnNovoFluxo');
+    try {
+        const res = await fetch('/api/fluxos', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        fluxosEstado = await res.json();
+    } catch {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Não foi possível carregar seus fluxos. Tente novamente.</div></div>`;
+        return;
+    }
+    const { instalado, permitido, fluxos } = fluxosEstado;
+    btnNovo.style.display = permitido && instalado ? '' : 'none';
+    if (!permitido) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__row">
+            <div class="lia-card__info">
+                <div class="lia-card__title">Crie seus próprios fluxos</div>
+                <div class="lia-card__desc">Monte sequências de follow-up, regras "quando → se → faça" e mensagens automáticas no WhatsApp. Disponível nos planos Pro e Elite.</div>
+            </div>
+            <button class="btn btn--primary" onclick="document.querySelector('.sidebar__item[onclick*=conta]')?.click()">Ver planos</button>
+        </div></div>`;
+        return;
+    }
+    if (!instalado) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Os fluxos estão sendo ativados na sua conta. Volte em instantes.</div></div>`;
+        return;
+    }
+    if (!fluxos.length) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Você ainda não criou nenhum fluxo. Clique em <strong>+ Novo fluxo</strong> para começar por um modelo pronto.</div></div>`;
+        return;
+    }
+    box.innerHTML = fluxos.map(f => `
+        <div class="lia-card">
+            <div class="lia-card__row">
+                <div class="lia-card__info">
+                    <div class="lia-card__title">${esc(f.nome)}</div>
+                    <div class="lia-card__desc">${esc(descreverGatilho(f.gatilho))} · ${Object.keys(f.nos || {}).length} passo(s) · ${f.leads_ativos} lead(s) no fluxo</div>
+                    <div class="fluxo-card__acoes">
+                        <button class="btn btn--ghost-sm" onclick="editarFluxo(${f.id})">Editar</button>
+                        <button class="btn btn--ghost-sm" onclick="excluirFluxo(${f.id})">Excluir</button>
+                    </div>
+                </div>
+                <button class="lia-toggle${f.ativo ? ' lia-toggle--on' : ''}" onclick="toggleFluxo(${f.id}, this)"
+                    aria-label="Ligar/desligar ${esc(f.nome)}" aria-pressed="${f.ativo}">
+                    <span class="lia-toggle__dot"></span>
+                </button>
+            </div>
+        </div>`).join('');
+}
+
+function descreverGatilho(g) {
+    if (!g) return '';
+    switch (g.tipo) {
+        case 'lead_criado': return 'Quando um lead novo chega';
+        case 'lead_respondeu': return 'Quando o lead manda mensagem';
+        case 'estagio_mudou': return g.para ? `Quando o lead vai para "${capitalizar(g.para)}"` : 'Quando o lead muda de estágio';
+        case 'temperatura_mudou': return g.para ? `Quando o lead fica ${g.para}` : 'Quando a temperatura muda';
+        case 'lead_parado': return `Lead parado ${g.horas}h em "${capitalizar(g.estagio)}"`;
+        case 'visita': return FLUXO_MARCOS[g.marco] || 'Visita';
+        case 'manual': return 'Manual (você coloca o lead)';
+        default: return g.tipo;
+    }
+}
+
+async function toggleFluxo(id, btn) {
+    const ativo = !btn.classList.contains('lia-toggle--on');
+    if (!ativo && !confirm('Desligar este fluxo? Os leads que estão nele param onde estão.')) return;
+    btn.classList.toggle('lia-toggle--on', ativo);
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/fluxos/${id}/${ativo ? 'ativar' : 'desativar'}`, { method: 'POST', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        btn.setAttribute('aria-pressed', ativo);
+        toast(ativo ? 'Fluxo ligado' : 'Fluxo desligado', 'sucesso');
+        const f = fluxosEstado.fluxos.find(x => x.id === id);
+        if (f) f.ativo = ativo;
+    } catch (e) {
+        btn.classList.toggle('lia-toggle--on', !ativo);
+        toast(e.message || 'Erro ao salvar', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function excluirFluxo(id) {
+    const f = fluxosEstado.fluxos.find(x => x.id === id);
+    if (!f || !confirm(`Excluir o fluxo "${f.nome}"? Isso não pode ser desfeito.`)) return;
+    try {
+        const res = await fetch('/api/fluxos/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        toast('Fluxo excluído', 'sucesso');
+        carregarFluxos();
+    } catch (e) {
+        toast(e.message || 'Erro ao excluir', 'erro');
+    }
+}
+
+// ── Conversão grafo <-> lista linear ──
+function grafoParaPassos(fluxo) {
+    const passos = [];
+    let id = fluxo.no_inicial;
+    const vistos = new Set();
+    while (id && fluxo.nos[id] && !vistos.has(id)) {
+        vistos.add(id);
+        const no = fluxo.nos[id];
+        if (no.tipo === 'condicao' && no.nao) return null; // tem ramificação: o formulário não representa
+        const { sim, nao, proximo, pos, ...resto } = no;
+        passos.push(resto);
+        id = no.tipo === 'condicao' ? no.sim : no.proximo;
+    }
+    return vistos.size === Object.keys(fluxo.nos).length ? passos : null;
+}
+
+function passosParaGrafo(passos) {
+    const nos = {};
+    passos.forEach((p, i) => {
+        const prox = i + 1 < passos.length ? 'p' + (i + 2) : null;
+        nos['p' + (i + 1)] = p.tipo === 'condicao' ? { ...p, sim: prox, nao: null } : { ...p, proximo: prox };
+    });
+    return { nos, no_inicial: 'p1' };
+}
+
+// ── Abrir editor ──
+function novoFluxo() {
+    document.getElementById('fluxoModalTitle').textContent = 'Novo fluxo';
+    document.getElementById('fluxoModalFooter').style.display = 'none';
+    document.getElementById('fluxoModalContent').innerHTML = `
+        <div class="lia-card__desc" style="margin-bottom:1rem">Comece por um modelo e ajuste do seu jeito:</div>
+        ${FLUXO_MODELOS.map((m, i) => `
+            <button class="fluxo-modelo" onclick="abrirEditorFluxo(null, ${i})">
+                <div class="lia-card__title">${esc(m.nome)}</div>
+                <div class="lia-card__desc">${esc(m.descricao)}</div>
+            </button>`).join('')}
+        <button class="fluxo-modelo" onclick="abrirEditorFluxo(null, -1)">
+            <div class="lia-card__title">Em branco</div>
+            <div class="lia-card__desc">Monte o fluxo do zero.</div>
+        </button>`;
+    document.getElementById('fluxoModalOverlay').classList.add('modal-overlay--open');
+}
+
+function editarFluxo(id) {
+    abrirEditorFluxo(fluxosEstado.fluxos.find(x => x.id === id), null);
+}
+
+function abrirEditorFluxo(fluxo, modeloIdx) {
+    if (fluxo) {
+        const passos = grafoParaPassos(fluxo);
+        if (!passos) { toast('Este fluxo tem ramificações e só pode ser editado no modo visual.', 'erro'); return; }
+        fluxoEd = { id: fluxo.id, nome: fluxo.nome, ativo: fluxo.ativo, gatilho: { ...fluxo.gatilho }, passos, parar_se_responder: fluxo.parar_se_responder };
+    } else {
+        const m = FLUXO_MODELOS[modeloIdx];
+        fluxoEd = m
+            ? { id: null, nome: m.nome, ativo: false, gatilho: { ...m.gatilho }, passos: JSON.parse(JSON.stringify(m.passos)), parar_se_responder: true }
+            : { id: null, nome: '', ativo: false, gatilho: { tipo: 'lead_criado' }, passos: [{ tipo: 'acao', acao: 'push', titulo: '', texto: '' }], parar_se_responder: true };
+    }
+    document.getElementById('fluxoModalTitle').textContent = fluxoEd.id ? 'Editar fluxo' : 'Novo fluxo';
+    document.getElementById('fluxoModalFooter').style.display = '';
+    document.getElementById('fluxoModalOverlay').classList.add('modal-overlay--open');
+    renderEditorFluxo();
+}
+
+function fecharFluxoEditor() {
+    document.getElementById('fluxoModalOverlay').classList.remove('modal-overlay--open');
+    fluxoEd = null;
+}
+
+// ── Render ──
+function opcoes(mapa, atual) {
+    return Object.entries(mapa).map(([v, l]) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(l)}</option>`).join('');
+}
+const opcoesLista = (lista, atual, rotulo = capitalizar) => opcoes(Object.fromEntries(lista.map(v => [v, rotulo(v)])), atual);
+
+function renderEditorFluxo() {
+    const cat = fluxosEstado.catalogo;
+    const g = fluxoEd.gatilho;
+    const gatilhos = Object.fromEntries(Object.entries(cat.gatilhos).map(([k, v]) => [k, v.nome]));
+    let extraGatilho = '';
+    if (g.tipo === 'estagio_mudou') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null"><option value="">Qualquer estágio</option>${opcoesLista(cat.estagios, g.para)}</select>`;
+    if (g.tipo === 'temperatura_mudou') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null"><option value="">Qualquer temperatura</option>${opcoesLista(cat.temperaturas, g.para)}</select>`;
+    if (g.tipo === 'lead_parado') extraGatilho = `
+        <select class="form-input" onchange="fluxoEd.gatilho.estagio=this.value">${opcoesLista(cat.estagios, g.estagio)}</select>
+        <label class="fluxo-inline">por mais de <input type="number" min="1" max="720" class="form-input fluxo-num" value="${g.horas || 24}" onchange="fluxoEd.gatilho.horas=parseInt(this.value,10)"> horas</label>`;
+    if (g.tipo === 'visita') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.marco=this.value">${opcoes(FLUXO_MARCOS, g.marco)}</select>`;
+
+    document.getElementById('fluxoModalContent').innerHTML = `
+        <div class="modal-edit__group">
+            <label class="modal-edit__label" for="fluxoNome">Nome do fluxo</label>
+            <input id="fluxoNome" class="form-input" maxlength="80" value="${esc(fluxoEd.nome)}" oninput="fluxoEd.nome=this.value" placeholder="Ex.: Follow-up de lead novo">
+        </div>
+
+        <div class="fluxo-bloco">
+            <div class="fluxo-bloco__rotulo">Quando</div>
+            <select class="form-input" onchange="trocarGatilhoFluxo(this.value)">${opcoes(gatilhos, g.tipo)}</select>
+            ${extraGatilho}
+        </div>
+
+        ${fluxoEd.passos.map((p, i) => renderPassoFluxo(p, i)).join('')}
+
+        <div class="fluxo-add">
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('acao')">+ Ação</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('esperar')">+ Esperar</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('condicao')">+ Condição</button>
+        </div>
+
+        <label class="fluxo-inline" style="margin-top:1rem">
+            <input type="checkbox" ${fluxoEd.parar_se_responder ? 'checked' : ''} onchange="fluxoEd.parar_se_responder=this.checked">
+            Parar o fluxo quando o lead responder
+        </label>
+        <label class="fluxo-inline">
+            <input type="checkbox" ${fluxoEd.ativo ? 'checked' : ''} onchange="fluxoEd.ativo=this.checked">
+            Fluxo ligado
+        </label>
+        <div class="lia-card__desc" style="margin-top:0.75rem;font-size:0.75rem">
+            Variáveis nas mensagens: {nome}, {primeiro_nome}, {bairro}, {tipo_imovel}, {faixa_valor}, {objetivo}, {corretor}.<br>
+            WhatsApp automático: no máximo 2 por lead por dia, só no seu horário de trabalho. Pelo seu WhatsApp conectado; sem ele, só dentro de 24h da última mensagem do lead.
+        </div>
+        ${fluxoEd.id ? `<div class="conta-section__title" style="margin-top:1.5rem">Leads neste fluxo</div><div id="fluxoInscricoes"><div class="lia-card__desc">Carregando...</div></div>` : ''}`;
+    if (fluxoEd.id) carregarInscricoesFluxo(fluxoEd.id);
+}
+
+function renderPassoFluxo(p, i) {
+    const cat = fluxosEstado.catalogo;
+    const set = campo => `fluxoEd.passos[${i}].${campo}`;
+    let rotulo = '', corpo = '';
+    if (p.tipo === 'condicao') {
+        rotulo = 'Se';
+        const semValor = p.op === 'vazio' || p.op === 'nao_vazio';
+        corpo = `
+            <select class="form-input" onchange="${set('campo')}=this.value">${opcoes(FLUXO_CAMPOS, p.campo)}</select>
+            <select class="form-input" onchange="${set('op')}=this.value;renderEditorFluxo()">${opcoes(FLUXO_OPERADORES, p.op)}</select>
+            ${semValor ? '' : `<input class="form-input" maxlength="200" value="${esc(p.valor || '')}" oninput="${set('valor')}=this.value" placeholder="valor">`}
+            <div class="lia-card__desc" style="font-size:0.75rem">Se não, o fluxo para aqui.</div>`;
+    } else if (p.tipo === 'esperar') {
+        rotulo = 'Esperar';
+        const unidade = p.minutos % 1440 === 0 ? 'dias' : p.minutos % 60 === 0 ? 'horas' : 'minutos';
+        corpo = `<label class="fluxo-inline">
+            <input type="number" min="1" class="form-input fluxo-num" value="${p.minutos / FLUXO_UNIDADES[unidade]}" onchange="mudarEsperaFluxo(${i}, this.value, this.nextElementSibling.value)">
+            <select class="form-input" onchange="mudarEsperaFluxo(${i}, this.previousElementSibling.value, this.value)">${opcoes({ minutos: 'minutos', horas: 'horas', dias: 'dias' }, unidade)}</select>
+        </label>`;
+    } else {
+        rotulo = 'Fazer';
+        const acoes = Object.fromEntries(Object.entries(cat.acoes).map(([k, v]) => [k, v.nome]));
+        let campos = '';
+        if (p.acao === 'push' || p.acao === 'email') campos = `
+            <input class="form-input" maxlength="120" value="${esc(p.titulo || '')}" oninput="${set('titulo')}=this.value" placeholder="${p.acao === 'email' ? 'Assunto' : 'Título'} (opcional)">
+            <textarea class="form-input" rows="2" maxlength="1000" oninput="${set('texto')}=this.value" placeholder="Mensagem para você">${esc(p.texto || '')}</textarea>`;
+        if (p.acao === 'whatsapp') campos = `
+            <textarea class="form-input" rows="3" maxlength="1000" oninput="${set('texto')}=this.value" placeholder="Mensagem para o lead">${esc(p.texto || '')}</textarea>`;
+        if (p.acao === 'whatsapp_template') campos = `
+            <input class="form-input" maxlength="512" value="${esc(p.template || '')}" oninput="${set('template')}=this.value.trim()" placeholder="Nome do template aprovado na Meta">
+            <input class="form-input" value="${esc((p.params || []).join(' | '))}" oninput="${set('params')}=this.value.split('|').map(s=>s.trim()).filter(Boolean)" placeholder="Parâmetros separados por | (ex.: {primeiro_nome} | {bairro})">`;
+        if (p.acao === 'mover_estagio') campos = `<select class="form-input" onchange="${set('para')}=this.value">${opcoesLista(cat.estagios, p.para)}</select>`;
+        if (p.acao === 'mudar_temperatura') campos = `<select class="form-input" onchange="${set('para')}=this.value">${opcoesLista(cat.temperaturas, p.para)}</select>`;
+        corpo = `<select class="form-input" onchange="trocarAcaoFluxo(${i}, this.value)">${opcoes(acoes, p.acao)}</select>${campos}`;
+    }
+    const n = fluxoEd.passos.length;
+    return `
+        <div class="fluxo-bloco">
+            <div class="fluxo-bloco__head">
+                <div class="fluxo-bloco__rotulo">${i + 1}. ${rotulo}</div>
+                <div class="fluxo-bloco__btns">
+                    <button class="btn btn--ghost-sm" ${i === 0 ? 'disabled' : ''} onclick="moverPassoFluxo(${i}, -1)" aria-label="Subir passo">↑</button>
+                    <button class="btn btn--ghost-sm" ${i === n - 1 ? 'disabled' : ''} onclick="moverPassoFluxo(${i}, 1)" aria-label="Descer passo">↓</button>
+                    <button class="btn btn--ghost-sm" onclick="removerPassoFluxo(${i})" aria-label="Remover passo">✕</button>
+                </div>
+            </div>
+            ${corpo}
+        </div>`;
+}
+
+// ── Edição ──
+function trocarGatilhoFluxo(tipo) {
+    const padrao = { lead_parado: { estagio: 'atendimento', horas: 24 }, visita: { marco: '24h' } };
+    fluxoEd.gatilho = { tipo, ...(padrao[tipo] || {}) };
+    renderEditorFluxo();
+}
+
+function trocarAcaoFluxo(i, acao) {
+    const padrao = { push: { titulo: '', texto: '' }, email: { titulo: '', texto: '' }, whatsapp: { texto: '' }, whatsapp_template: { template: '', params: [] }, mover_estagio: { para: 'qualificado' }, mudar_temperatura: { para: 'quente' } };
+    const texto = fluxoEd.passos[i].texto;
+    fluxoEd.passos[i] = { tipo: 'acao', acao, ...(padrao[acao] || {}) };
+    if (texto && 'texto' in fluxoEd.passos[i]) fluxoEd.passos[i].texto = texto;
+    renderEditorFluxo();
+}
+
+function mudarEsperaFluxo(i, valor, unidade) {
+    const n = Math.max(1, parseInt(valor, 10) || 1);
+    fluxoEd.passos[i].minutos = n * FLUXO_UNIDADES[unidade];
+    renderEditorFluxo();
+}
+
+function addPassoFluxo(tipo) {
+    const lim = fluxosEstado.catalogo.limites.nosPorFluxo;
+    if (fluxoEd.passos.length >= lim) { toast(`Máximo de ${lim} passos`, 'erro'); return; }
+    const novo = tipo === 'esperar' ? { tipo, minutos: 1440 }
+        : tipo === 'condicao' ? { tipo, campo: 'temperatura', op: 'igual', valor: 'quente' }
+        : { tipo: 'acao', acao: 'push', titulo: '', texto: '' };
+    fluxoEd.passos.push(novo);
+    renderEditorFluxo();
+}
+
+function moverPassoFluxo(i, d) {
+    const p = fluxoEd.passos;
+    [p[i], p[i + d]] = [p[i + d], p[i]];
+    renderEditorFluxo();
+}
+
+function removerPassoFluxo(i) {
+    fluxoEd.passos.splice(i, 1);
+    renderEditorFluxo();
+}
+
+async function salvarFluxo() {
+    if (!fluxoEd) return;
+    if (!fluxoEd.passos.length) { toast('Adicione pelo menos um passo', 'erro'); return; }
+    const btn = document.getElementById('fluxoSalvarBtn');
+    const body = {
+        nome: (fluxoEd.nome || '').trim(),
+        gatilho: fluxoEd.gatilho,
+        parar_se_responder: fluxoEd.parar_se_responder,
+        ativo: fluxoEd.ativo,
+        ...passosParaGrafo(fluxoEd.passos),
+    };
+    btn.disabled = true;
+    try {
+        const res = await fetch(fluxoEd.id ? '/api/fluxos/' + fluxoEd.id : '/api/fluxos', {
+            method: fluxoEd.id ? 'PUT' : 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.erro || 'Erro ao salvar');
+        toast('Fluxo salvo', 'sucesso');
+        fecharFluxoEditor();
+        carregarFluxos();
+    } catch (e) {
+        toast(e.message, 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Leads no fluxo ──
+async function carregarInscricoesFluxo(id) {
+    const box = document.getElementById('fluxoInscricoes');
+    try {
+        const res = await fetch(`/api/fluxos/${id}/inscricoes`, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        const lista = await res.json();
+        if (!box) return;
+        box.innerHTML = lista.length ? lista.map(i => `
+            <div class="lia-card__row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+                <div class="lia-card__info">
+                    <div class="lia-card__desc"><strong>${esc(i.lead_nome || 'Lead')}</strong>${i.motivo ? ' · ' + esc(i.motivo) : ''}</div>
+                    <div class="lia-card__desc" style="font-size:0.72rem">${i.status === 'ativa' && i.proximo_em ? 'Próximo passo: ' + new Date(i.proximo_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : new Date(i.atualizado_em || i.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' })}</div>
+                </div>
+                <span class="badge">${esc(FLUXO_STATUS[i.status] || i.status)}</span>
+                ${i.status === 'ativa' ? `<button class="btn btn--ghost-sm" onclick="pararInscricaoFluxo(${id}, ${i.id})">Parar</button>` : ''}
+            </div>`).join('') : '<div class="lia-card__desc">Nenhum lead passou por este fluxo ainda.</div>';
+    } catch {
+        if (box) box.innerHTML = '<div class="lia-card__desc">Não foi possível carregar.</div>';
+    }
+}
+
+async function pararInscricaoFluxo(fluxoId, inscId) {
+    try {
+        const res = await fetch(`/api/fluxos/${fluxoId}/inscricoes/${inscId}/parar`, { method: 'POST', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        toast('Lead retirado do fluxo', 'sucesso');
+        carregarInscricoesFluxo(fluxoId);
+    } catch (e) {
+        toast(e.message || 'Erro', 'erro');
+    }
+}
+
+// ── Ficha do lead: "Colocar em fluxo" ──
+async function abrirColocarEmFluxo(leadId) {
+    const box = document.getElementById('leadFluxoBox');
+    if (!box) return;
+    if (!fluxosEstado.catalogo) {
+        try {
+            const res = await fetch('/api/fluxos', { headers: getAuthHeaders() });
+            if (res.ok) fluxosEstado = await res.json();
+        } catch {}
+    }
+    if (!fluxosEstado.permitido) { box.innerHTML = '<div class="lia-card__desc">Fluxos estão disponíveis nos planos Pro e Elite.</div>'; return; }
+    const ativos = fluxosEstado.fluxos.filter(f => f.ativo);
+    if (!ativos.length) { box.innerHTML = '<div class="lia-card__desc">Você não tem fluxos ligados. Crie um na aba Automações.</div>'; return; }
+    box.innerHTML = `<div class="fluxo-inline">
+        <select class="form-input" id="leadFluxoSelect">${ativos.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('')}</select>
+        <button class="btn btn--primary" onclick="colocarEmFluxo(${leadId})">Colocar</button>
+    </div>`;
+}
+
+async function colocarEmFluxo(leadId) {
+    const fluxoId = document.getElementById('leadFluxoSelect')?.value;
+    if (!fluxoId) return;
+    try {
+        const res = await fetch(`/api/fluxos/${encodeURIComponent(fluxoId)}/inscrever`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ lead_id: leadId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.erro || 'Erro');
+        toast('Lead colocado no fluxo. O primeiro passo roda em até 1 minuto.', 'sucesso');
+        document.getElementById('leadFluxoBox').innerHTML = '';
+    } catch (e) {
+        toast(e.message, 'erro');
     }
 }
 
@@ -2540,6 +3041,10 @@ function abrirModalLead(index) {
         ${lead.proximo_passo && lead.proximo_passo !== 'nao informado' ? `<div class="lead-modal__next"><div class="modal__label">Próximo passo</div><div class="modal__value">${esc(lead.proximo_passo)}</div></div>` : ''}
         ${lead.resumo ? `<div class="lead-modal__next"><div class="modal__label">Resumo da IA</div><div class="modal__value">${esc(lead.resumo)}</div></div>` : ''}
         <div class="lead-modal__meta">${lead.totalMensagens || 0} mensagens · Atualizado: ${esc(lead.ultimaAtualizacao || '--')}</div>
+        ${lead.id ? `<div class="lead-modal__next">
+            <button class="btn btn--ghost-sm" onclick="abrirColocarEmFluxo(${Number(lead.id)})">Colocar em fluxo</button>
+            <div id="leadFluxoBox" style="margin-top:0.5rem"></div>
+        </div>` : ''}
     `;
 
     document.getElementById('modalTitle').textContent = lead.nome || 'Detalhes do Lead';
