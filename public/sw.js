@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION quando o app shell mudar significativamente
  * (forcar o SW a re-cachear). Auto-update via skipWaiting + clients.claim.
  */
-const CACHE_VERSION = 'lh-v20-2026-06-11-hotmart-migration';
+const CACHE_VERSION = 'lh-v21-2026-10-07-automacoes';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
