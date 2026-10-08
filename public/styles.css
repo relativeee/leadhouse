@@ -168,7 +168,12 @@ body::after {
     bottom: 0;
     z-index: 100;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Rola com roda/toque, mas sem barra visivel */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+.sidebar::-webkit-scrollbar { display: none; }
 
 /* Collapse button */
 .sidebar__collapse {
