@@ -32,6 +32,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const db = require('./services/supabase');
+const { updateMiddleware } = require('./services/crmValidation');
 const { registrar, login, authMiddleware } = require('./services/auth');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -2939,8 +2940,8 @@ app.post('/api/imoveis', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/imoveis/:id', async (req, res) => {
-  try { res.json(await db.atualizarImovel(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/imoveis/:id', updateMiddleware('imovel', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarImovel(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -3010,16 +3011,16 @@ app.post('/api/leads-manual', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/leads-manual/:id', async (req, res) => {
-  try { res.json(await db.atualizarLead(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/leads-manual/:id', updateMiddleware('lead', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarLead(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 // Atualiza estagio de qualquer lead (por ID)
-app.put('/api/leads/:id/estagio', async (req, res) => {
+app.put('/api/leads/:id/estagio', updateMiddleware('estagio', db.supabase), async (req, res) => {
   const { estagio } = req.body;
   if (!estagio) return res.status(400).json({ erro: 'Estagio obrigatorio' });
-  try { res.json(await db.atualizarLead(parseInt(req.params.id), { estagio }, req.userId)); }
+  try { res.json(await db.atualizarLead(req.recordId, { estagio }, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -3058,8 +3059,8 @@ app.post('/api/visitas', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/visitas/:id', async (req, res) => {
-  try { res.json(await db.atualizarVisita(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/visitas/:id', updateMiddleware('visita', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarVisita(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
