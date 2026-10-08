@@ -1644,6 +1644,213 @@ app.put('/api/automacoes/:receita', authMiddleware, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// FLUXOS — automacoes criadas pelo corretor (Fase 2). Worker: services/fluxos.js
+// Pro, Elite, trial valido e admin. Ownership por usuario_id em toda query.
+// ─────────────────────────────────────────────
+const FLX = require('./utils/fluxosRegras');
+const fluxosService = require('./services/fluxos');
+const FLUXO_COLUNAS = 'id, nome, ativo, gatilho, nos, no_inicial, parar_se_responder, created_at, updated_at';
+
+async function podeUsarFluxos(req) {
+  if (req.isAdmin) return true;
+  const { data: u } = await db.supabase.from('usuarios').select('plano, is_admin, trial_expires_at').eq('id', req.userId).maybeSingle();
+  return FLX.planoPermiteFluxos(u);
+}
+
+async function exigeFluxos(req, res, next) {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.status(403).json({ erro: 'Fluxos estão disponíveis nos planos Pro e Elite.', upgrade: true });
+    next();
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao verificar plano' });
+  }
+}
+
+function idFluxo(v) {
+  return /^[1-9]\d{0,15}$/.test(String(v)) ? Number(v) : null;
+}
+
+async function buscarFluxo(req, res) {
+  const id = idFluxo(req.params.id);
+  if (!id) { res.status(400).json({ erro: 'ID inválido' }); return null; }
+  const { data, error } = await db.supabase.from('fluxos').select(FLUXO_COLUNAS).eq('id', id).eq('usuario_id', req.userId).maybeSingle();
+  if (error) throw error;
+  if (!data) { res.status(404).json({ erro: 'Fluxo não encontrado' }); return null; }
+  return data;
+}
+
+function erroFluxos(res, err) {
+  if (automacoes?.tabelaAusente(err)) return res.status(503).json({ erro: 'Fluxos ainda não foram instalados no banco.' });
+  console.error('[fluxos]', err.message);
+  return res.status(500).json({ erro: 'Erro interno' });
+}
+
+const CATALOGO_FLUXOS = {
+  gatilhos: FLX.GATILHOS,
+  acoes: FLX.ACOES,
+  campos: FLX.CAMPOS_CONDICAO,
+  operadores: FLX.OPERADORES,
+  estagios: FLX.ESTAGIOS,
+  temperaturas: FLX.TEMPERATURAS,
+  marcosVisita: FLX.MARCOS_VISITA,
+  limites: FLX.LIMITES,
+};
+
+app.get('/api/fluxos', authMiddleware, async (req, res) => {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.json({ instalado: true, permitido: false, fluxos: [], catalogo: CATALOGO_FLUXOS });
+    const [{ data: lista, error }, { data: ativas, error: errI }] = await Promise.all([
+      db.supabase.from('fluxos').select(FLUXO_COLUNAS).eq('usuario_id', req.userId).order('created_at', { ascending: true }),
+      db.supabase.from('fluxo_inscricoes').select('fluxo_id').eq('usuario_id', req.userId).eq('status', 'ativa').limit(5000),
+    ]);
+    if (error && automacoes?.tabelaAusente(error)) return res.json({ instalado: false, permitido: true, fluxos: [], catalogo: CATALOGO_FLUXOS });
+    if (error) throw error;
+    if (errI) throw errI;
+    const contagem = {};
+    for (const i of ativas || []) contagem[i.fluxo_id] = (contagem[i.fluxo_id] || 0) + 1;
+    res.json({
+      instalado: true,
+      permitido: true,
+      fluxos: (lista || []).map(f => ({ ...f, leads_ativos: contagem[f.id] || 0 })),
+      catalogo: CATALOGO_FLUXOS,
+    });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const v = FLX.validarFluxo(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const { data: existentes, error: errC } = await db.supabase.from('fluxos').select('id').eq('usuario_id', req.userId).limit(FLX.LIMITES.fluxosPorUsuario);
+    if (errC) throw errC;
+    if ((existentes || []).length >= FLX.LIMITES.fluxosPorUsuario) return res.status(400).json({ erro: `Limite de ${FLX.LIMITES.fluxosPorUsuario} fluxos atingido` });
+    const { data, error } = await db.supabase
+      .from('fluxos')
+      .insert({ ...v.fluxo, usuario_id: req.userId, ativo: req.body.ativo === true })
+      .select(FLUXO_COLUNAS)
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.get('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (fluxo) res.json(fluxo);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.put('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const atual = await buscarFluxo(req, res);
+    if (!atual) return;
+    const v = FLX.validarFluxo(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const agora = new Date().toISOString();
+    const { data, error } = await db.supabase
+      .from('fluxos')
+      .update({ ...v.fluxo, ...(typeof req.body.ativo === 'boolean' && { ativo: req.body.ativo }), updated_at: agora })
+      .eq('id', atual.id)
+      .eq('usuario_id', req.userId)
+      .select(FLUXO_COLUNAS)
+      .single();
+    if (error) throw error;
+    // Lead parado num passo que foi removido nao tem como seguir.
+    const ids = Object.keys(v.fluxo.nos);
+    const { data: ativas } = await db.supabase.from('fluxo_inscricoes').select('id, no_atual').eq('fluxo_id', atual.id).eq('status', 'ativa').limit(5000);
+    const orfas = (ativas || []).filter(i => i.no_atual && !ids.includes(i.no_atual)).map(i => i.id);
+    if (orfas.length) {
+      await db.supabase.from('fluxo_inscricoes').update({ status: 'parada', motivo: 'passo removido na edição', atualizado_em: agora }).in('id', orfas);
+    }
+    res.json(data);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.delete('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const { error } = await db.supabase.from('fluxos').delete().eq('id', fluxo.id).eq('usuario_id', req.userId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/:acao(ativar|desativar)', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const ativo = req.params.acao === 'ativar';
+    const agora = new Date().toISOString();
+    const { error } = await db.supabase.from('fluxos').update({ ativo, updated_at: agora }).eq('id', fluxo.id).eq('usuario_id', req.userId);
+    if (error) throw error;
+    if (!ativo) {
+      await db.supabase.from('fluxo_inscricoes').update({ status: 'parada', motivo: 'fluxo desligado', atualizado_em: agora }).eq('fluxo_id', fluxo.id).eq('status', 'ativa');
+    }
+    res.json({ ok: true, ativo });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.get('/api/fluxos/:id/inscricoes', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const { data: insc, error } = await db.supabase
+      .from('fluxo_inscricoes')
+      .select('id, lead_id, no_atual, proximo_em, status, motivo, criado_em, atualizado_em')
+      .eq('fluxo_id', fluxo.id)
+      .eq('usuario_id', req.userId)
+      .order('criado_em', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    const leadIds = [...new Set((insc || []).map(i => i.lead_id))];
+    const { data: leads } = leadIds.length
+      ? await db.supabase.from('leads').select('id, nome, telefone').in('id', leadIds).eq('usuario_id', req.userId)
+      : { data: [] };
+    const porId = new Map((leads || []).map(l => [l.id, l]));
+    res.json((insc || []).map(i => ({ ...i, lead_nome: porId.get(i.lead_id)?.nome || null })));
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/inscrever', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    if (!fluxo.ativo) return res.status(400).json({ erro: 'Ligue o fluxo antes de colocar leads nele' });
+    const leadId = idFluxo(req.body?.lead_id);
+    if (!leadId) return res.status(400).json({ erro: 'Lead inválido' });
+    const { data: lead, error: errL } = await db.supabase.from('leads').select('id').eq('id', leadId).eq('usuario_id', req.userId).maybeSingle();
+    if (errL) throw errL;
+    if (!lead) return res.status(404).json({ erro: 'Lead não encontrado' });
+    const ctx = { sb: db.supabase, agora: new Date(), stats: { fluxos: { inscritos: 0 } } };
+    const ok = await fluxosService.inscrever(ctx, { ...fluxo, usuario_id: req.userId }, leadId, `manual:${Date.now()}`);
+    if (!ok) return res.status(409).json({ erro: 'Este lead já está neste fluxo (ou atingiu o limite de hoje)' });
+    res.status(201).json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/inscricoes/:insc/parar', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const inscId = idFluxo(req.params.insc);
+    if (!inscId) return res.status(400).json({ erro: 'ID inválido' });
+    const { data, error } = await db.supabase
+      .from('fluxo_inscricoes')
+      .update({ status: 'parada', motivo: 'parado manualmente', atualizado_em: new Date().toISOString() })
+      .eq('id', inscId)
+      .eq('fluxo_id', fluxo.id)
+      .eq('usuario_id', req.userId)
+      .eq('status', 'ativa')
+      .select('id');
+    if (error) throw error;
+    if (!data?.length) return res.status(404).json({ erro: 'Inscrição ativa não encontrada' });
+    res.json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+// ─────────────────────────────────────────────
 // LIA — Kill switch (pausar global ou por lead)
 // ─────────────────────────────────────────────
 app.get('/api/lia/status', authMiddleware, async (req, res) => {
@@ -2148,7 +2355,7 @@ function cronSecretAuth(req, res, next) {
 app.get('/api/cron/automacoes', cronSecretAuth, async (req, res) => {
   if (!automacoes) return res.status(503).json({ erro: 'automacoes service indisponivel' });
   try {
-    const r = await automacoes.rodarCiclo({ db, push: pushService, emails, enviarTemplate });
+    const r = await automacoes.rodarCiclo({ db, push: pushService, emails, enviarTemplate, enviarMensagem, evolution });
     if (r.falhas.length && Sentry) Sentry.captureMessage(`[cron automacoes] ${r.falhas.join(' | ')}`);
     res.json(r);
   } catch (err) {

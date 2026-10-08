@@ -1,52 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { rodarCiclo } = require('../services/automacoes');
-
-// Supabase falso em memoria — so o subconjunto do query builder usado pelo worker.
-function fakeSupabase(tabelas, { unique = {}, ausentes = [] } = {}) {
-  let seq = 1000;
-  function from(nome) {
-    const filtros = [];
-    let op = 'select', payload = null, limite = Infinity, modo = 'many';
-    const b = {
-      select() { return b; },
-      insert(row) { op = 'insert'; payload = row; return b; },
-      update(obj) { op = 'update'; payload = obj; return b; },
-      upsert(row) { op = 'upsert'; payload = row; return b; },
-      eq(c, v) { filtros.push(r => r[c] === v); return b; },
-      in(c, vs) { filtros.push(r => vs.includes(r[c])); return b; },
-      is(c, v) { filtros.push(r => (r[c] ?? null) === v); return b; },
-      not(c, _op, v) { filtros.push(r => (r[c] ?? null) !== v); return b; },
-      lt(c, v) { filtros.push(r => r[c] < v); return b; },
-      gt(c, v) { filtros.push(r => r[c] > v); return b; },
-      gte(c, v) { filtros.push(r => r[c] >= v); return b; },
-      lte(c, v) { filtros.push(r => r[c] <= v); return b; },
-      order() { return b; },
-      limit(n) { limite = n; return b; },
-      single() { modo = 'single'; return b; },
-      maybeSingle() { modo = 'maybe'; return b; },
-      then(ok, fail) { return Promise.resolve(exec()).then(ok, fail); },
-    };
-    function exec() {
-      if (ausentes.includes(nome)) return { data: null, error: { code: 'PGRST205', message: `Could not find the table 'public.${nome}' in the schema cache` } };
-      const t = (tabelas[nome] ||= []);
-      if (op === 'insert') {
-        const cols = unique[nome];
-        if (cols && t.some(r => cols.every(c => r[c] === payload[c]))) return { data: null, error: { code: '23505', message: 'duplicate key' } };
-        const row = { id: seq++, ...payload };
-        t.push(row);
-        return { data: row, error: null };
-      }
-      const alvo = t.filter(r => filtros.every(f => f(r)));
-      if (op === 'update') { alvo.forEach(r => Object.assign(r, payload)); return { data: alvo, error: null }; }
-      const data = alvo.slice(0, limite);
-      if (modo === 'many') return { data, error: null };
-      return { data: data[0] || null, error: null };
-    }
-    return b;
-  }
-  return { from };
-}
+const { fakeSupabase } = require('./helpers/fakeSupabase');
 
 function cenario(extra = {}) {
   const tabelas = {
