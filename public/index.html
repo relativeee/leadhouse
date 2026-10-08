@@ -2242,6 +2242,9 @@ function paywallAssinar(plan) {
 }
 
 function isPlanActive(user) {
+    // Admin (ou admin impersonando) tem acesso total — espelha requirePlan no backend
+    if (user && user.is_admin) return true;
+    if (localStorage.getItem('lh_acting_as')) return true;
     if (!user || !user.plano) return false;
     if (user.plano === 'trial') {
         const exp = user.trial_expires_at ? new Date(user.trial_expires_at).getTime() : 0;
