@@ -4960,3 +4960,96 @@ body.body--impersonating.body--lia-pausada .sidebar { top: 76px; }
     .fluxo-bloco { padding: 0.75rem; }
     #fluxoModalContent { max-height: 70vh; }
 }
+
+/* ── Fluxos: construtor visual (Drawflow) ── */
+.modal.modal--tela-cheia {
+    max-width: none; width: 100vw; height: 100vh; max-height: 100vh;
+    border-radius: 0; margin: 0; display: flex; flex-direction: column;
+    overflow: hidden; padding: 1rem 1.25rem; animation: none;
+}
+.modal--tela-cheia .modal__footer { margin-top: 0.75rem; }
+.modal--tela-cheia #fluxoModalContent { max-height: none; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-right: 0; }
+.modal--tela-cheia #fluxoEdCorpo { flex: 1; min-height: 0; display: flex; }
+.fx-topo { display: flex; align-items: flex-end; gap: 0.75rem 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.fx-topo .modal-edit__group { flex: 1 1 220px; }
+.fx-topo .fluxo-bloco { margin-top: 0; flex: 2 1 380px; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 0.5rem 0.75rem; }
+.fx-topo .fluxo-bloco .form-input { flex: 1; min-width: 140px; }
+.fx-topo__opcoes { display: flex; align-items: center; gap: 0.25rem 1rem; flex-wrap: wrap; }
+.fx-modo { display: inline-flex; border: 1px solid var(--border-hover); border-radius: 999px; padding: 2px; margin-top: 0.4rem; }
+.fx-modo__btn { background: none; border: 0; color: var(--text-2); font: inherit; font-size: 0.75rem; padding: 0.3rem 0.85rem; border-radius: 999px; cursor: pointer; }
+.fx-modo__btn--on { background: var(--gold); color: var(--bg-dark); font-weight: 600; }
+.fx-modo__btn:disabled { opacity: 0.35; cursor: default; }
+
+.fx-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; }
+.fx-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; padding: 0.5rem 0; }
+.fx-toolbar__sep { width: 1px; height: 20px; background: var(--border-hover); margin: 0 0.35rem; }
+.fx-dica { font-size: 0.72rem; color: var(--text-2); margin-left: auto; }
+.fx-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 360px; gap: 0.75rem; }
+.fx-canvas {
+    position: relative; min-height: 420px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    background-color: rgba(255,255,255,0.015);
+    background-image: radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1px);
+    background-size: 22px 22px;
+}
+.fx-painel { overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.fx-painel .fluxo-bloco:first-of-type { margin-top: 0.5rem; }
+.fx-painel__titulo { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+.fx-painel__vazio { font-size: 0.82rem; color: var(--text-2); line-height: 1.5; }
+.fx-painel__apagar { margin-top: 1rem; color: #FF8A7A; }
+
+/* Cartões */
+#fxCanvas .drawflow .drawflow-node {
+    width: 260px; padding: 0; align-items: flex-start;
+    background: var(--bg-card-solid); color: var(--text-1);
+    border: 1px solid var(--border-hover); border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+#fxCanvas .drawflow .drawflow-node.selected { background: var(--bg-card-solid); border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-muted), 0 6px 20px rgba(0,0,0,0.35); }
+#fxCanvas .drawflow .drawflow-node.fx-gatilho { width: 220px; border-color: var(--border-gold); }
+#fxCanvas .drawflow .drawflow-node.fx-condicao { width: 230px; }
+#fxCanvas .drawflow .drawflow-node .drawflow_content_node { padding: 0 0 0.6rem; }
+.fx-card__head {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.8rem;
+    font-size: 0.78rem; font-weight: 600; border-bottom: 1px solid var(--border); margin-bottom: 0.5rem;
+}
+.fx-gatilho .fx-card__head { background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%); color: var(--bg-dark); border-radius: 11px 11px 0 0; border-bottom: 0; }
+.fx-card__icone { display: inline-flex; width: 1.4rem; height: 1.4rem; align-items: center; justify-content: center; border-radius: 6px; background: var(--gold-muted); color: var(--gold); font-size: 0.75rem; }
+.fx-gatilho .fx-card__icone { background: rgba(0,0,0,0.15); color: var(--bg-dark); }
+.fx-passo { margin: 0 0.6rem 0.4rem; padding: 0.45rem 0.55rem; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
+.fx-passo--vazio { font-size: 0.72rem; color: var(--text-2); text-align: center; border-style: dashed; }
+.fx-passo__tipo { font-size: 0.66rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.15rem; }
+.fx-passo__valor { font-size: 0.74rem; color: var(--text-1); line-height: 1.35; word-break: break-word; }
+.fx-saidas { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; padding: 0 0.75rem; font-size: 0.66rem; color: var(--text-2); }
+
+/* Bolinhas de ligação */
+#fxCanvas .drawflow .drawflow-node .input,
+#fxCanvas .drawflow .drawflow-node .output {
+    width: 14px; height: 14px; background: var(--bg-card-solid); border: 2px solid var(--gold);
+}
+#fxCanvas .drawflow .drawflow-node .input { left: -8px; top: 24px; }
+#fxCanvas .drawflow .drawflow-node .output { right: -8px; top: 24px; }
+#fxCanvas .drawflow .drawflow-node .output:hover,
+#fxCanvas .drawflow .drawflow-node .input:hover { background: var(--gold); }
+
+/* Linhas tracejadas */
+#fxCanvas .drawflow .connection .main-path { stroke: var(--gold); stroke-width: 2px; stroke-dasharray: 7 6; opacity: 0.8; }
+#fxCanvas .drawflow .connection .main-path:hover { stroke: var(--gold-light); opacity: 1; }
+#fxCanvas .drawflow .connection .main-path.selected { stroke: #FF8A7A; opacity: 1; }
+#fxCanvas .drawflow-delete { width: 22px; height: 22px; line-height: 18px; background: #FF8A7A; color: #0c0c0c; border: 2px solid var(--bg-card-solid); font-size: 0.75rem; }
+#fxCanvas .drawflow-node.fx-gatilho .drawflow-delete { display: none; }
+
+.fx-leitura { font-size: 0.8rem; color: var(--text-1); padding: 0.25rem 0; border-left: 1px solid var(--border-gold); margin-left: 0.25rem; text-indent: 0.5rem; }
+
+@media (max-width: 1100px) {
+    .fx-main { grid-template-columns: 1fr 300px; }
+}
+/* Rótulo colado em cada saída */
+#fxCanvas .drawflow-node .output::before {
+    position: absolute; right: 16px; top: -1px; white-space: nowrap;
+    font-size: 0.64rem; color: var(--text-2); pointer-events: none;
+}
+#fxCanvas .drawflow-node.fx-grupo .output_1::before { content: 'Próximo passo'; }
+#fxCanvas .drawflow-node.fx-condicao .output_1::before { content: 'Sim'; color: #8AD4A0; }
+#fxCanvas .drawflow-node.fx-condicao .output_2::before { content: 'Não'; color: #FF8A7A; }
+#fxCanvas .drawflow-node.fx-condicao .output { margin-bottom: 10px; }
+.fx-passo__valor { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

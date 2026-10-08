@@ -1579,6 +1579,7 @@
 </div><!-- /main-content -->
 </div><!-- /layout -->
 
+<script src="/fluxosGrafo.js"></script>
 <script>
 // ═══════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -1785,6 +1786,7 @@ async function carregarFluxos() {
                     <div class="lia-card__desc">${esc(descreverGatilho(f.gatilho))} · ${Object.keys(f.nos || {}).length} passo(s) · ${f.leads_ativos} lead(s) no fluxo</div>
                     <div class="fluxo-card__acoes">
                         <button class="btn btn--ghost-sm" onclick="editarFluxo(${f.id})">Editar</button>
+                        <button class="btn btn--ghost-sm" onclick="duplicarFluxo(${f.id})">Duplicar</button>
                         <button class="btn btn--ghost-sm" onclick="excluirFluxo(${f.id})">Excluir</button>
                     </div>
                 </div>
@@ -1869,6 +1871,11 @@ function passosParaGrafo(passos) {
 }
 
 // ── Abrir editor ──
+// Dois modos sobre o mesmo fluxo: 'form' (lista de passos) e 'visual' (cartões
+// ligados no canvas, tela cheia). Fluxo com ramificação só abre no visual.
+const telaGrandeFluxo = () => window.matchMedia('(min-width: 900px)').matches;
+let canvasEd = null; // modo visual: { editor, cards, df: { cardId -> dfId }, sel }
+
 function novoFluxo() {
     document.getElementById('fluxoModalTitle').textContent = 'Novo fluxo';
     document.getElementById('fluxoModalFooter').style.display = 'none';
@@ -1890,74 +1897,109 @@ function editarFluxo(id) {
     abrirEditorFluxo(fluxosEstado.fluxos.find(x => x.id === id), null);
 }
 
+function duplicarFluxo(id) {
+    const f = fluxosEstado.fluxos.find(x => x.id === id);
+    if (!f) return;
+    abrirEditorFluxo({ ...f, id: null, nome: (f.nome + ' (cópia)').slice(0, 80), ativo: false }, null);
+}
+
 function abrirEditorFluxo(fluxo, modeloIdx) {
     if (fluxo) {
         const passos = grafoParaPassos(fluxo);
-        if (!passos) { toast('Este fluxo tem ramificações e só pode ser editado no modo visual.', 'erro'); return; }
-        fluxoEd = { id: fluxo.id, nome: fluxo.nome, ativo: fluxo.ativo, gatilho: { ...fluxo.gatilho }, passos, parar_se_responder: fluxo.parar_se_responder };
+        fluxoEd = {
+            id: fluxo.id, nome: fluxo.nome, ativo: fluxo.ativo, gatilho: { ...fluxo.gatilho },
+            passos, grafo: passos ? null : { nos: fluxo.nos, no_inicial: fluxo.no_inicial },
+            parar_se_responder: fluxo.parar_se_responder, modo: 'form',
+        };
     } else {
         const m = FLUXO_MODELOS[modeloIdx];
         fluxoEd = m
-            ? { id: null, nome: m.nome, ativo: false, gatilho: { ...m.gatilho }, passos: JSON.parse(JSON.stringify(m.passos)), parar_se_responder: true }
-            : { id: null, nome: '', ativo: false, gatilho: { tipo: 'lead_criado' }, passos: [{ tipo: 'acao', acao: 'push', titulo: '', texto: '' }], parar_se_responder: true };
+            ? { id: null, nome: m.nome, ativo: false, gatilho: { ...m.gatilho }, passos: JSON.parse(JSON.stringify(m.passos)), parar_se_responder: true, modo: 'form' }
+            : { id: null, nome: '', ativo: false, gatilho: { tipo: 'lead_criado' }, passos: [{ tipo: 'acao', acao: 'push', titulo: '', texto: '' }], parar_se_responder: true, modo: 'form' };
     }
     document.getElementById('fluxoModalTitle').textContent = fluxoEd.id ? 'Editar fluxo' : 'Novo fluxo';
     document.getElementById('fluxoModalFooter').style.display = '';
+    document.getElementById('fluxoModalContent').innerHTML = '<div id="fluxoEdTopo"></div><div id="fluxoEdCorpo"></div><div id="fluxoEdRodape"></div>';
     document.getElementById('fluxoModalOverlay').classList.add('modal-overlay--open');
-    renderEditorFluxo();
+    renderRodapeFluxo();
+    // Ramificado: no computador abre direto no visual; no celular, só leitura
+    if (!fluxoEd.passos && telaGrandeFluxo()) entrarModoVisual();
+    else renderEditorFluxo();
 }
 
 function fecharFluxoEditor() {
+    sairDoCanvas();
     document.getElementById('fluxoModalOverlay').classList.remove('modal-overlay--open');
     fluxoEd = null;
 }
 
-// ── Render ──
+// ── Conteúdo ──
 function opcoes(mapa, atual) {
     return Object.entries(mapa).map(([v, l]) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(l)}</option>`).join('');
 }
 const opcoesLista = (lista, atual, rotulo = capitalizar) => opcoes(Object.fromEntries(lista.map(v => [v, rotulo(v)])), atual);
 
 function renderEditorFluxo() {
-    const cat = fluxosEstado.catalogo;
-    const g = fluxoEd.gatilho;
-    const gatilhos = Object.fromEntries(Object.entries(cat.gatilhos).map(([k, v]) => [k, v.nome]));
-    let extraGatilho = '';
-    if (g.tipo === 'estagio_mudou') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null"><option value="">Qualquer estágio</option>${opcoesLista(cat.estagios, g.para)}</select>`;
-    if (g.tipo === 'temperatura_mudou') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null"><option value="">Qualquer temperatura</option>${opcoesLista(cat.temperaturas, g.para)}</select>`;
-    if (g.tipo === 'lead_parado') extraGatilho = `
-        <select class="form-input" onchange="fluxoEd.gatilho.estagio=this.value">${opcoesLista(cat.estagios, g.estagio)}</select>
-        <label class="fluxo-inline">por mais de <input type="number" min="1" max="720" class="form-input fluxo-num" value="${g.horas || 24}" onchange="fluxoEd.gatilho.horas=parseInt(this.value,10)"> horas</label>`;
-    if (g.tipo === 'visita') extraGatilho = `<select class="form-input" onchange="fluxoEd.gatilho.marco=this.value">${opcoes(FLUXO_MARCOS, g.marco)}</select>`;
-
-    document.getElementById('fluxoModalContent').innerHTML = `
-        <div class="modal-edit__group">
-            <label class="modal-edit__label" for="fluxoNome">Nome do fluxo</label>
-            <input id="fluxoNome" class="form-input" maxlength="80" value="${esc(fluxoEd.nome)}" oninput="fluxoEd.nome=this.value" placeholder="Ex.: Follow-up de lead novo">
-        </div>
-
-        <div class="fluxo-bloco">
-            <div class="fluxo-bloco__rotulo">Quando</div>
-            <select class="form-input" onchange="trocarGatilhoFluxo(this.value)">${opcoes(gatilhos, g.tipo)}</select>
-            ${extraGatilho}
-        </div>
-
+    if (!fluxoEd) return;
+    renderTopoFluxo();
+    if (fluxoEd.modo === 'visual') {
+        atualizarRotulosCanvas();
+        renderPainelCanvas();
+        return;
+    }
+    const corpo = document.getElementById('fluxoEdCorpo');
+    if (!fluxoEd.passos) {
+        corpo.innerHTML = `<div class="fluxo-bloco"><div class="lia-card__desc">Este fluxo tem ramificações (caminhos de sim/não). Para editar, abra no computador.</div>
+            ${descreverGrafoHtml(fluxoEd.grafo)}</div>`;
+        return;
+    }
+    corpo.innerHTML = `
         ${fluxoEd.passos.map((p, i) => renderPassoFluxo(p, i)).join('')}
-
         <div class="fluxo-add">
             <button class="btn btn--ghost-sm" onclick="addPassoFluxo('acao')">+ Ação</button>
             <button class="btn btn--ghost-sm" onclick="addPassoFluxo('esperar')">+ Esperar</button>
             <button class="btn btn--ghost-sm" onclick="addPassoFluxo('condicao')">+ Condição</button>
-        </div>
+        </div>`;
+}
 
-        <label class="fluxo-inline" style="margin-top:1rem">
-            <input type="checkbox" ${fluxoEd.parar_se_responder ? 'checked' : ''} onchange="fluxoEd.parar_se_responder=this.checked">
-            Parar o fluxo quando o lead responder
-        </label>
-        <label class="fluxo-inline">
-            <input type="checkbox" ${fluxoEd.ativo ? 'checked' : ''} onchange="fluxoEd.ativo=this.checked">
-            Fluxo ligado
-        </label>
+function renderTopoFluxo() {
+    const cat = fluxosEstado.catalogo;
+    const g = fluxoEd.gatilho;
+    const gatilhos = Object.fromEntries(Object.entries(cat.gatilhos).map(([k, v]) => [k, v.nome]));
+    let extra = '';
+    if (g.tipo === 'estagio_mudou') extra = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null;aoMudarPassoFluxo()"><option value="">Qualquer estágio</option>${opcoesLista(cat.estagios, g.para)}</select>`;
+    if (g.tipo === 'temperatura_mudou') extra = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null;aoMudarPassoFluxo()"><option value="">Qualquer temperatura</option>${opcoesLista(cat.temperaturas, g.para)}</select>`;
+    if (g.tipo === 'lead_parado') extra = `
+        <select class="form-input" onchange="fluxoEd.gatilho.estagio=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.estagios, g.estagio)}</select>
+        <label class="fluxo-inline">por mais de <input type="number" min="1" max="720" class="form-input fluxo-num" value="${g.horas || 24}" onchange="fluxoEd.gatilho.horas=parseInt(this.value,10);aoMudarPassoFluxo()"> horas</label>`;
+    if (g.tipo === 'visita') extra = `<select class="form-input" onchange="fluxoEd.gatilho.marco=this.value;aoMudarPassoFluxo()">${opcoes(FLUXO_MARCOS, g.marco)}</select>`;
+
+    const visual = fluxoEd.modo === 'visual';
+    const podeVisual = telaGrandeFluxo();
+    document.getElementById('fluxoEdTopo').innerHTML = `
+        <div class="${visual ? 'fx-topo' : ''}">
+            <div class="modal-edit__group">
+                <label class="modal-edit__label" for="fluxoNome">Nome do fluxo</label>
+                <input id="fluxoNome" class="form-input" maxlength="80" value="${esc(fluxoEd.nome)}" oninput="fluxoEd.nome=this.value" placeholder="Ex.: Follow-up de lead novo">
+            </div>
+            <div class="fluxo-bloco${visual ? ' fx-topo__gatilho' : ''}">
+                <div class="fluxo-bloco__rotulo">Quando</div>
+                <select class="form-input" onchange="trocarGatilhoFluxo(this.value)">${opcoes(gatilhos, g.tipo)}</select>
+                ${extra}
+            </div>
+            <div class="fx-topo__opcoes">
+                <label class="fluxo-inline"><input type="checkbox" ${fluxoEd.parar_se_responder ? 'checked' : ''} onchange="fluxoEd.parar_se_responder=this.checked"> Parar quando o lead responder</label>
+                <label class="fluxo-inline"><input type="checkbox" ${fluxoEd.ativo ? 'checked' : ''} onchange="fluxoEd.ativo=this.checked"> Fluxo ligado</label>
+                ${podeVisual ? `<div class="fx-modo" role="group" aria-label="Modo do editor">
+                    <button class="fx-modo__btn${visual ? '' : ' fx-modo__btn--on'}" onclick="entrarModoFormulario()" ${fluxoEd.passos === null && !visual ? 'disabled' : ''}>Formulário</button>
+                    <button class="fx-modo__btn${visual ? ' fx-modo__btn--on' : ''}" onclick="entrarModoVisual()">Visual</button>
+                </div>` : ''}
+            </div>
+        </div>`;
+}
+
+function renderRodapeFluxo() {
+    document.getElementById('fluxoEdRodape').innerHTML = `
         <div class="lia-card__desc" style="margin-top:0.75rem;font-size:0.75rem">
             Variáveis nas mensagens: {nome}, {primeiro_nome}, {bairro}, {tipo_imovel}, {faixa_valor}, {objetivo}, {corretor}.<br>
             WhatsApp automático: no máximo 2 por lead por dia, só no seu horário de trabalho. Pelo seu WhatsApp conectado; sem ele, só dentro de 24h da última mensagem do lead.
@@ -1966,108 +2008,366 @@ function renderEditorFluxo() {
     if (fluxoEd.id) carregarInscricoesFluxo(fluxoEd.id);
 }
 
-function renderPassoFluxo(p, i) {
+// Campos de um passo, usados no formulário e no painel do visual.
+// alvo: expressão JS que aponta para o objeto do passo (ex.: "fluxoEd.passos[2]").
+function camposPasso(p, alvo, notaCondicao) {
     const cat = fluxosEstado.catalogo;
-    const set = campo => `fluxoEd.passos[${i}].${campo}`;
-    let rotulo = '', corpo = '';
+    const set = campo => `${alvo}.${campo}`;
     if (p.tipo === 'condicao') {
-        rotulo = 'Se';
         const semValor = p.op === 'vazio' || p.op === 'nao_vazio';
-        corpo = `
-            <select class="form-input" onchange="${set('campo')}=this.value">${opcoes(FLUXO_CAMPOS, p.campo)}</select>
+        return `
+            <select class="form-input" onchange="${set('campo')}=this.value;aoMudarPassoFluxo()">${opcoes(FLUXO_CAMPOS, p.campo)}</select>
             <select class="form-input" onchange="${set('op')}=this.value;renderEditorFluxo()">${opcoes(FLUXO_OPERADORES, p.op)}</select>
-            ${semValor ? '' : `<input class="form-input" maxlength="200" value="${esc(p.valor || '')}" oninput="${set('valor')}=this.value" placeholder="valor">`}
-            <div class="lia-card__desc" style="font-size:0.75rem">Se não, o fluxo para aqui.</div>`;
-    } else if (p.tipo === 'esperar') {
-        rotulo = 'Esperar';
-        const unidade = p.minutos % 1440 === 0 ? 'dias' : p.minutos % 60 === 0 ? 'horas' : 'minutos';
-        corpo = `<label class="fluxo-inline">
-            <input type="number" min="1" class="form-input fluxo-num" value="${p.minutos / FLUXO_UNIDADES[unidade]}" onchange="mudarEsperaFluxo(${i}, this.value, this.nextElementSibling.value)">
-            <select class="form-input" onchange="mudarEsperaFluxo(${i}, this.previousElementSibling.value, this.value)">${opcoes({ minutos: 'minutos', horas: 'horas', dias: 'dias' }, unidade)}</select>
-        </label>`;
-    } else {
-        rotulo = 'Fazer';
-        const acoes = Object.fromEntries(Object.entries(cat.acoes).map(([k, v]) => [k, v.nome]));
-        let campos = '';
-        if (p.acao === 'push' || p.acao === 'email') campos = `
-            <input class="form-input" maxlength="120" value="${esc(p.titulo || '')}" oninput="${set('titulo')}=this.value" placeholder="${p.acao === 'email' ? 'Assunto' : 'Título'} (opcional)">
-            <textarea class="form-input" rows="2" maxlength="1000" oninput="${set('texto')}=this.value" placeholder="Mensagem para você">${esc(p.texto || '')}</textarea>`;
-        if (p.acao === 'whatsapp') campos = `
-            <textarea class="form-input" rows="3" maxlength="1000" oninput="${set('texto')}=this.value" placeholder="Mensagem para o lead">${esc(p.texto || '')}</textarea>`;
-        if (p.acao === 'whatsapp_template') campos = `
-            <input class="form-input" maxlength="512" value="${esc(p.template || '')}" oninput="${set('template')}=this.value.trim()" placeholder="Nome do template aprovado na Meta">
-            <input class="form-input" value="${esc((p.params || []).join(' | '))}" oninput="${set('params')}=this.value.split('|').map(s=>s.trim()).filter(Boolean)" placeholder="Parâmetros separados por | (ex.: {primeiro_nome} | {bairro})">`;
-        if (p.acao === 'mover_estagio') campos = `<select class="form-input" onchange="${set('para')}=this.value">${opcoesLista(cat.estagios, p.para)}</select>`;
-        if (p.acao === 'mudar_temperatura') campos = `<select class="form-input" onchange="${set('para')}=this.value">${opcoesLista(cat.temperaturas, p.para)}</select>`;
-        corpo = `<select class="form-input" onchange="trocarAcaoFluxo(${i}, this.value)">${opcoes(acoes, p.acao)}</select>${campos}`;
+            ${semValor ? '' : `<input class="form-input" maxlength="200" value="${esc(p.valor || '')}" oninput="${set('valor')}=this.value;aoMudarPassoFluxo()" placeholder="valor">`}
+            <div class="lia-card__desc" style="font-size:0.75rem">${notaCondicao}</div>`;
     }
-    const n = fluxoEd.passos.length;
+    if (p.tipo === 'esperar') {
+        const unidade = p.minutos % 1440 === 0 ? 'dias' : p.minutos % 60 === 0 ? 'horas' : 'minutos';
+        return `<label class="fluxo-inline">
+            <input type="number" min="1" class="form-input fluxo-num" value="${p.minutos / FLUXO_UNIDADES[unidade]}" onchange="mudarEsperaNo(${alvo}, this.value, this.nextElementSibling.value)">
+            <select class="form-input" onchange="mudarEsperaNo(${alvo}, this.previousElementSibling.value, this.value)">${opcoes({ minutos: 'minutos', horas: 'horas', dias: 'dias' }, unidade)}</select>
+        </label>`;
+    }
+    const acoes = Object.fromEntries(Object.entries(cat.acoes).map(([k, v]) => [k, v.nome]));
+    let campos = '';
+    if (p.acao === 'push' || p.acao === 'email') campos = `
+        <input class="form-input" maxlength="120" value="${esc(p.titulo || '')}" oninput="${set('titulo')}=this.value;aoMudarPassoFluxo()" placeholder="${p.acao === 'email' ? 'Assunto' : 'Título'} (opcional)">
+        <textarea class="form-input" rows="2" maxlength="1000" oninput="${set('texto')}=this.value;aoMudarPassoFluxo()" placeholder="Mensagem para você">${esc(p.texto || '')}</textarea>`;
+    if (p.acao === 'whatsapp') campos = `
+        <textarea class="form-input" rows="3" maxlength="1000" oninput="${set('texto')}=this.value;aoMudarPassoFluxo()" placeholder="Mensagem para o lead">${esc(p.texto || '')}</textarea>`;
+    if (p.acao === 'whatsapp_template') campos = `
+        <input class="form-input" maxlength="512" value="${esc(p.template || '')}" oninput="${set('template')}=this.value.trim();aoMudarPassoFluxo()" placeholder="Nome do template aprovado na Meta">
+        <input class="form-input" value="${esc((p.params || []).join(' | '))}" oninput="${set('params')}=this.value.split('|').map(s=>s.trim()).filter(Boolean)" placeholder="Parâmetros separados por | (ex.: {primeiro_nome} | {bairro})">`;
+    if (p.acao === 'mover_estagio') campos = `<select class="form-input" onchange="${set('para')}=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.estagios, p.para)}</select>`;
+    if (p.acao === 'mudar_temperatura') campos = `<select class="form-input" onchange="${set('para')}=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.temperaturas, p.para)}</select>`;
+    return `<select class="form-input" onchange="trocarAcaoNo(${alvo}, this.value)">${opcoes(acoes, p.acao)}</select>${campos}`;
+}
+
+const ROTULO_PASSO = { condicao: 'Se', esperar: 'Esperar', acao: 'Fazer' };
+
+function blocoPasso(p, i, n, corpo, acoes) {
     return `
         <div class="fluxo-bloco">
             <div class="fluxo-bloco__head">
-                <div class="fluxo-bloco__rotulo">${i + 1}. ${rotulo}</div>
+                <div class="fluxo-bloco__rotulo">${i + 1}. ${ROTULO_PASSO[p.tipo]}</div>
                 <div class="fluxo-bloco__btns">
-                    <button class="btn btn--ghost-sm" ${i === 0 ? 'disabled' : ''} onclick="moverPassoFluxo(${i}, -1)" aria-label="Subir passo">↑</button>
-                    <button class="btn btn--ghost-sm" ${i === n - 1 ? 'disabled' : ''} onclick="moverPassoFluxo(${i}, 1)" aria-label="Descer passo">↓</button>
-                    <button class="btn btn--ghost-sm" onclick="removerPassoFluxo(${i})" aria-label="Remover passo">✕</button>
+                    <button class="btn btn--ghost-sm" ${i === 0 ? 'disabled' : ''} onclick="${acoes}(${i}, -1)" aria-label="Subir passo">↑</button>
+                    <button class="btn btn--ghost-sm" ${i === n - 1 ? 'disabled' : ''} onclick="${acoes}(${i}, 1)" aria-label="Descer passo">↓</button>
+                    <button class="btn btn--ghost-sm" onclick="${acoes}(${i}, 0)" aria-label="Remover passo">✕</button>
                 </div>
             </div>
             ${corpo}
         </div>`;
 }
 
+function renderPassoFluxo(p, i) {
+    return blocoPasso(p, i, fluxoEd.passos.length, camposPasso(p, `fluxoEd.passos[${i}]`, 'Se não, o fluxo para aqui.'), 'mexerPassoFluxo');
+}
+
 // ── Edição ──
+function aoMudarPassoFluxo() {
+    if (fluxoEd?.modo === 'visual') atualizarRotulosCanvas();
+}
+
 function trocarGatilhoFluxo(tipo) {
     const padrao = { lead_parado: { estagio: 'atendimento', horas: 24 }, visita: { marco: '24h' } };
     fluxoEd.gatilho = { tipo, ...(padrao[tipo] || {}) };
     renderEditorFluxo();
 }
 
-function trocarAcaoFluxo(i, acao) {
+function trocarAcaoNo(no, acao) {
     const padrao = { push: { titulo: '', texto: '' }, email: { titulo: '', texto: '' }, whatsapp: { texto: '' }, whatsapp_template: { template: '', params: [] }, mover_estagio: { para: 'qualificado' }, mudar_temperatura: { para: 'quente' } };
-    const texto = fluxoEd.passos[i].texto;
-    fluxoEd.passos[i] = { tipo: 'acao', acao, ...(padrao[acao] || {}) };
-    if (texto && 'texto' in fluxoEd.passos[i]) fluxoEd.passos[i].texto = texto;
+    const { texto, _id } = no;
+    for (const k of Object.keys(no)) delete no[k];
+    Object.assign(no, _id ? { _id } : {}, { tipo: 'acao', acao }, padrao[acao] || {});
+    if (texto && 'texto' in no) no.texto = texto;
     renderEditorFluxo();
 }
 
-function mudarEsperaFluxo(i, valor, unidade) {
-    const n = Math.max(1, parseInt(valor, 10) || 1);
-    fluxoEd.passos[i].minutos = n * FLUXO_UNIDADES[unidade];
+function mudarEsperaNo(no, valor, unidade) {
+    no.minutos = Math.max(1, parseInt(valor, 10) || 1) * FLUXO_UNIDADES[unidade];
     renderEditorFluxo();
+}
+
+function novoPasso(tipo) {
+    return tipo === 'esperar' ? { tipo, minutos: 1440 }
+        : tipo === 'condicao' ? { tipo, campo: 'temperatura', op: 'igual', valor: 'quente' }
+        : { tipo: 'acao', acao: 'push', titulo: '', texto: '' };
+}
+
+function limitePassosFluxo(total) {
+    const lim = fluxosEstado.catalogo.limites.nosPorFluxo;
+    if (total < lim) return true;
+    toast(`Máximo de ${lim} passos`, 'erro');
+    return false;
 }
 
 function addPassoFluxo(tipo) {
-    const lim = fluxosEstado.catalogo.limites.nosPorFluxo;
-    if (fluxoEd.passos.length >= lim) { toast(`Máximo de ${lim} passos`, 'erro'); return; }
-    const novo = tipo === 'esperar' ? { tipo, minutos: 1440 }
-        : tipo === 'condicao' ? { tipo, campo: 'temperatura', op: 'igual', valor: 'quente' }
-        : { tipo: 'acao', acao: 'push', titulo: '', texto: '' };
-    fluxoEd.passos.push(novo);
+    if (!limitePassosFluxo(fluxoEd.passos.length)) return;
+    fluxoEd.passos.push(novoPasso(tipo));
     renderEditorFluxo();
 }
 
-function moverPassoFluxo(i, d) {
-    const p = fluxoEd.passos;
-    [p[i], p[i + d]] = [p[i + d], p[i]];
+// d = -1 sobe, 1 desce, 0 remove
+function mexerLista(lista, i, d) {
+    if (d === 0) lista.splice(i, 1);
+    else [lista[i], lista[i + d]] = [lista[i + d], lista[i]];
+}
+function mexerPassoFluxo(i, d) { mexerLista(fluxoEd.passos, i, d); renderEditorFluxo(); }
+
+// ── Leitura de fluxo ramificado (celular) ──
+function resumoPasso(p) {
+    if (p.tipo === 'esperar') {
+        const m = p.minutos;
+        return m % 1440 === 0 ? `Esperar ${m / 1440} dia(s)` : m % 60 === 0 ? `Esperar ${m / 60} hora(s)` : `Esperar ${m} min`;
+    }
+    if (p.tipo === 'condicao') {
+        const valor = p.op === 'vazio' || p.op === 'nao_vazio' ? '' : ` "${p.valor || ''}"`;
+        return `Se ${(FLUXO_CAMPOS[p.campo] || p.campo).toLowerCase()} ${FLUXO_OPERADORES[p.op] || p.op}${valor}`;
+    }
+    const nome = fluxosEstado.catalogo?.acoes[p.acao]?.nome || p.acao;
+    const detalhe = p.acao === 'mover_estagio' || p.acao === 'mudar_temperatura' ? capitalizar(p.para)
+        : p.acao === 'whatsapp_template' ? p.template
+        : (p.titulo || p.texto || '');
+    return detalhe ? `${nome}: ${detalhe}` : nome;
+}
+
+function descreverGrafoHtml(grafo) {
+    const vistos = new Set();
+    const linha = (id, prefixo, nivel) => {
+        const no = grafo.nos[id];
+        if (!no) return '';
+        if (vistos.has(id)) return `<div class="fx-leitura" style="padding-left:${nivel}rem">${prefixo}↪ continua no passo acima</div>`;
+        vistos.add(id);
+        let html = `<div class="fx-leitura" style="padding-left:${nivel}rem">${prefixo}${esc(resumoPasso(no))}</div>`;
+        if (no.tipo === 'condicao') {
+            html += no.sim ? linha(no.sim, 'Sim → ', nivel + 1) : '';
+            html += no.nao ? linha(no.nao, 'Não → ', nivel + 1) : '';
+        } else if (no.proximo) html += linha(no.proximo, '', nivel);
+        return html;
+    };
+    return linha(grafo.no_inicial, '', 0);
+}
+
+// ── Modo visual (Drawflow) ──
+const DRAWFLOW_CDN = {
+    js: ['https://cdn.jsdelivr.net/npm/drawflow@0.0.60/dist/drawflow.min.js', 'sha384-JsnM4f1X8b5e9VbQCj6Bt6840HQNDYVKohzbXJnqOetMno8i6cmKNLVkyK3snqSw'],
+    css: ['https://cdn.jsdelivr.net/npm/drawflow@0.0.60/dist/drawflow.min.css', 'sha384-IFh+Q6zh+LRcTjqVmAKetdGY59dT485vtvWT5DAKQy8iv5+fYWHXisHP7mFKcFqV'],
+};
+let drawflowCarregando = null;
+function carregarDrawflow() {
+    if (window.Drawflow) return Promise.resolve();
+    if (drawflowCarregando) return drawflowCarregando;
+    drawflowCarregando = new Promise((ok, falha) => {
+        const css = document.createElement('link');
+        Object.assign(css, { rel: 'stylesheet', href: DRAWFLOW_CDN.css[0], integrity: DRAWFLOW_CDN.css[1], crossOrigin: 'anonymous' });
+        document.head.appendChild(css);
+        const js = document.createElement('script');
+        Object.assign(js, { src: DRAWFLOW_CDN.js[0], integrity: DRAWFLOW_CDN.js[1], crossOrigin: 'anonymous' });
+        js.onload = () => ok();
+        js.onerror = () => { drawflowCarregando = null; falha(new Error('Drawflow indisponível')); };
+        document.head.appendChild(js);
+    });
+    return drawflowCarregando;
+}
+
+function rotuloCartao(card) {
+    if (card.tipo === 'gatilho') {
+        return `<div class="fx-card__head"><span class="fx-card__icone">⚡</span>Quando</div>
+            <div class="fx-passo"><div class="fx-passo__valor">${esc(descreverGatilho(card.gatilho))}</div></div>`;
+    }
+    if (card.tipo === 'condicao') {
+        return `<div class="fx-card__head"><span class="fx-card__icone">◇</span>Condição</div>
+            <div class="fx-passo"><div class="fx-passo__valor">${esc(resumoPasso(card))}</div></div>`;
+    }
+    const passos = card.passos.length
+        ? card.passos.map(p => `<div class="fx-passo">
+                <div class="fx-passo__tipo">${esc(p.tipo === 'esperar' ? 'Esperar' : (fluxosEstado.catalogo.acoes[p.acao]?.nome || p.acao))}</div>
+                <div class="fx-passo__valor">${esc(resumoPasso(p).replace(/^[^:]*: /, '').slice(0, 90))}</div>
+            </div>`).join('')
+        : '<div class="fx-passo fx-passo--vazio">Clique para adicionar passos</div>';
+    return `<div class="fx-card__head"><span class="fx-card__icone">▤</span>Bloco</div>${passos}`;
+}
+
+function atualizarRotulosCanvas() {
+    if (!canvasEd) return;
+    const ed = canvasEd.editor;
+    const trocar = (dfId, html) => {
+        const el = document.querySelector(`#node-${dfId} .drawflow_content_node`);
+        if (el && el.innerHTML !== html) { el.innerHTML = html; ed.updateConnectionNodes('node-' + dfId); }
+    };
+    trocar(1, rotuloCartao({ tipo: 'gatilho', gatilho: fluxoEd.gatilho }));
+    for (const [id, card] of Object.entries(canvasEd.cards)) trocar(canvasEd.df[id], rotuloCartao(card));
+}
+
+async function entrarModoVisual() {
+    if (fluxoEd.modo === 'visual') return;
+    const grafo = fluxoEd.passos ? passosParaGrafo(fluxoEd.passos) : fluxoEd.grafo;
+    try { await carregarDrawflow(); } catch { toast('Não foi possível carregar o editor visual. Tente de novo.', 'erro'); return; }
+    if (!fluxoEd) return; // fechou enquanto carregava
+
+    fluxoEd.modo = 'visual';
+    document.querySelector('#fluxoModalOverlay .modal').classList.add('modal--tela-cheia');
+    document.getElementById('fluxoEdRodape').style.display = 'none';
+    document.getElementById('fluxoEdCorpo').innerHTML = `
+        <div class="fx-wrap">
+            <div class="fx-toolbar">
+                <button class="btn btn--ghost-sm" onclick="addCartaoCanvas('grupo')">+ Bloco de ações</button>
+                <button class="btn btn--ghost-sm" onclick="addCartaoCanvas('condicao')">+ Condição</button>
+                <span class="fx-toolbar__sep"></span>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_out()" aria-label="Diminuir zoom">−</button>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_reset()">100%</button>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_in()" aria-label="Aumentar zoom">+</button>
+                <span class="fx-dica">Arraste da bolinha da direita até a da esquerda para ligar. Clique num bloco para editar.</span>
+            </div>
+            <div class="fx-main">
+                <div id="fxCanvas" class="fx-canvas"></div>
+                <aside id="fxPainel" class="fx-painel"></aside>
+            </div>
+        </div>`;
+
+    const { json, cards, dfPorId } = FluxosGrafo.paraDrawflow({ gatilho: fluxoEd.gatilho, ...grafo }, rotuloCartao);
+    const ed = new Drawflow(document.getElementById('fxCanvas'));
+    // Delete/Backspace digitando no painel ou no topo não pode apagar o bloco selecionado
+    const teclaOrig = ed.key.bind(ed);
+    ed.key = e => { if (e.target?.closest?.('#fxPainel, #fluxoEdTopo, input, textarea, select')) return; teclaOrig(e); };
+    // O "Quando" (nó 1) não pode ser apagado
+    const removerOrig = ed.removeNodeId.bind(ed);
+    ed.removeNodeId = id => { if (id !== 'node-1') removerOrig(id); };
+    ed.reroute = false;
+    ed.start();
+    ed.import(json);
+    canvasEd = { editor: ed, cards, df: dfPorId, sel: null };
+
+    ed.on('nodeSelected', dfId => {
+        const n = ed.getNodeFromId(dfId);
+        canvasEd.sel = n.name === 'gatilho' ? 'gatilho' : n.data._id;
+        renderPainelCanvas();
+    });
+    ed.on('nodeUnselected', () => { canvasEd.sel = null; renderPainelCanvas(); });
+    ed.on('nodeRemoved', dfId => {
+        const id = Object.keys(canvasEd.df).find(k => String(canvasEd.df[k]) === String(dfId));
+        if (id) { delete canvasEd.cards[id]; delete canvasEd.df[id]; }
+        canvasEd.sel = null;
+        renderPainelCanvas();
+    });
+    // Cada saída leva a um só bloco: ligar de novo substitui a ligação anterior
+    ed.on('connectionCreated', ({ output_id, input_id, output_class, input_class }) => {
+        if (String(output_id) === String(input_id)) { ed.removeSingleConnection(output_id, input_id, output_class, input_class); return; }
+        const outras = ed.getNodeFromId(output_id).outputs[output_class].connections.filter(c => String(c.node) !== String(input_id));
+        for (const c of outras) ed.removeSingleConnection(output_id, c.node, output_class, c.output);
+    });
     renderEditorFluxo();
 }
 
-function removerPassoFluxo(i) {
-    fluxoEd.passos.splice(i, 1);
+function sairDoCanvas() {
+    if (canvasEd) canvasEd.editor.editor_mode = 'view'; // desliga o atalho de teclado do Drawflow
+    canvasEd = null;
+    document.querySelector('#fluxoModalOverlay .modal')?.classList.remove('modal--tela-cheia');
+    const rodape = document.getElementById('fluxoEdRodape');
+    if (rodape) rodape.style.display = '';
+}
+
+function grafoDoCanvas() {
+    return FluxosGrafo.deDrawflow(canvasEd.editor.export(), canvasEd.cards);
+}
+
+function entrarModoFormulario() {
+    if (fluxoEd.modo !== 'visual') return;
+    const r = grafoDoCanvas();
+    if (r.erros.length) { toast(r.erros[0], 'erro'); return; }
+    const passos = grafoParaPassos(r);
+    if (!passos) { toast('Este fluxo tem ramificações (sim/não) e só pode ser editado no modo visual.', 'erro'); return; }
+    fluxoEd.passos = passos;
+    fluxoEd.grafo = null;
+    fluxoEd.modo = 'form';
+    sairDoCanvas();
     renderEditorFluxo();
+}
+
+function totalPassosCanvas() {
+    return Object.values(canvasEd.cards).reduce((t, c) => t + (c.tipo === 'grupo' ? c.passos.length : 1), 0);
+}
+
+function addCartaoCanvas(tipo) {
+    if (!limitePassosFluxo(totalPassosCanvas())) return;
+    const ed = canvasEd.editor;
+    const id = FluxosGrafo.novoId(FluxosGrafo.idsEmUso(canvasEd.cards));
+    const card = tipo === 'condicao' ? novoPasso('condicao') : { tipo: 'grupo', passos: [{ _id: id, ...novoPasso('acao') }] };
+    // À direita do cartão mais à direita, na altura dele (sem cobrir nada)
+    const nos = Object.values(ed.export().drawflow.Home.data);
+    const ultimo = nos.reduce((a, n) => (!a || n.pos_x > a.pos_x ? n : a), null);
+    const x = ultimo ? ultimo.pos_x + 340 : 100;
+    const y = ultimo ? ultimo.pos_y : 100;
+    canvasEd.cards[id] = card;
+    canvasEd.df[id] = ed.addNode(card.tipo, 1, tipo === 'condicao' ? 2 : 1, x, y, 'fx-' + card.tipo, { _id: id }, rotuloCartao(card));
+    canvasEd.sel = id;
+    renderPainelCanvas();
+}
+
+function addPassoCartao(id, tipo) {
+    if (!limitePassosFluxo(totalPassosCanvas())) return;
+    const novo = FluxosGrafo.novoId(FluxosGrafo.idsEmUso(canvasEd.cards));
+    canvasEd.cards[id].passos.push({ _id: novo, ...novoPasso(tipo) });
+    renderEditorFluxo();
+}
+
+function mexerPassoCartao(id, i, d) { mexerLista(canvasEd.cards[id].passos, i, d); renderEditorFluxo(); }
+
+function apagarCartaoCanvas(id) {
+    canvasEd.editor.removeNodeId('node-' + canvasEd.df[id]);
+}
+
+function renderPainelCanvas() {
+    const painel = document.getElementById('fxPainel');
+    if (!painel || !canvasEd) return;
+    const id = canvasEd.sel;
+    if (!id) {
+        painel.innerHTML = `<div class="fx-painel__vazio">Clique num bloco para editar.<br><br>Use <strong>+ Bloco de ações</strong> para uma sequência de passos e <strong>+ Condição</strong> para dividir o caminho em Sim e Não.</div>`;
+        return;
+    }
+    if (id === 'gatilho') {
+        painel.innerHTML = `<div class="fx-painel__titulo">Quando</div><div class="lia-card__desc">O gatilho fica no topo, em "Quando". Ligue a bolinha da direita dele ao primeiro bloco do fluxo.</div>`;
+        return;
+    }
+    const card = canvasEd.cards[id];
+    if (!card) { painel.innerHTML = ''; return; }
+    const alvo = `canvasEd.cards['${id}']`;
+    const apagar = `<button class="btn btn--ghost-sm fx-painel__apagar" onclick="apagarCartaoCanvas('${id}')">Apagar bloco</button>`;
+    if (card.tipo === 'condicao') {
+        painel.innerHTML = `<div class="fx-painel__titulo">Condição</div>
+            <div class="fluxo-bloco">${camposPasso(card, alvo, 'Saída de cima = Sim. Saída de baixo = Não. Saída sem ligação encerra o fluxo.')}</div>${apagar}`;
+        return;
+    }
+    painel.innerHTML = `<div class="fx-painel__titulo">Bloco de ações</div>
+        <div class="lia-card__desc" style="font-size:0.75rem">Os passos rodam em sequência, de cima para baixo.</div>
+        ${card.passos.map((p, i) => blocoPasso(p, i, card.passos.length, camposPasso(p, `${alvo}.passos[${i}]`, ''), `mexerPassoCartao.bind(null, '${id}')`)).join('')}
+        <div class="fluxo-add">
+            <button class="btn btn--ghost-sm" onclick="addPassoCartao('${id}', 'acao')">+ Ação</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoCartao('${id}', 'esperar')">+ Esperar</button>
+        </div>${apagar}`;
 }
 
 async function salvarFluxo() {
     if (!fluxoEd) return;
-    if (!fluxoEd.passos.length) { toast('Adicione pelo menos um passo', 'erro'); return; }
+    let grafo;
+    if (fluxoEd.modo === 'visual') {
+        const r = grafoDoCanvas();
+        if (r.erros.length) { toast(r.erros[0], 'erro'); return; }
+        grafo = { nos: r.nos, no_inicial: r.no_inicial };
+    } else if (fluxoEd.passos) {
+        if (!fluxoEd.passos.length) { toast('Adicione pelo menos um passo', 'erro'); return; }
+        grafo = passosParaGrafo(fluxoEd.passos);
+    } else {
+        grafo = fluxoEd.grafo; // ramificado aberto no celular: só nome/gatilho/opções mudam
+    }
     const btn = document.getElementById('fluxoSalvarBtn');
     const body = {
         nome: (fluxoEd.nome || '').trim(),
         gatilho: fluxoEd.gatilho,
         parar_se_responder: fluxoEd.parar_se_responder,
         ativo: fluxoEd.ativo,
-        ...passosParaGrafo(fluxoEd.passos),
+        ...grafo,
     };
     btn.disabled = true;
     try {
