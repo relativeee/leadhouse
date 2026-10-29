@@ -10,14 +10,59 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { buildSystemPrompt } = require('../prompts/systemPrompt');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+
+// LIA_MODEL (nao ANTHROPIC_MODEL): a variavel antiga pode estar setada na
+// Vercel com o Haiku 4.5 e prenderia a Lia no modelo velho sem ninguem ver.
+const MODEL = process.env.LIA_MODEL || 'claude-opus-5-5';
+// low: conversa de WhatsApp responde rapido e o modelo pula o raciocinio nas
+// mensagens simples. Subir pra medium se a qualidade pedir (env, sem deploy de codigo).
+const EFFORT = process.env.LIA_EFFORT || 'low';
+
+// Parametros que dependem do modelo. Modelos antigos (Haiku 4.5, Sonnet 4.5)
+// rejeitam `effort`; o fallback do servidor so existe pra Opus 5.x / Sonnet 5.5 / Fable.
+function paramsModelo(effort = EFFORT) {
+  const params = {};
+  const antigo = /haiku-4|sonnet-4-5|claude-3/.test(MODEL);
+  if (!antigo) params.output_config = { effort };
+  if (/^claude-(opus-5|sonnet-5-5|fable-5)/.test(MODEL)) {
+    params.betas = ['server-side-fallback-2026-07-01'];
+    params.fallbacks = 'default';
+  }
+  return params;
+}
+
+// Le o texto pelo tipo do bloco: o modelo novo pode abrir a resposta com
+// blocos `thinking` (vazios por padrao), entao content[0] nao e mais o texto.
+function textoDaResposta(response) {
+  if (response.stop_reason === 'refusal') {
+    console.warn('[Claude] recusa:', response.stop_details?.category || 'sem categoria');
+    return '';
+  }
+  return response.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+}
+
+// Se a chave nao tiver acesso ao modelo configurado (404/403), a Lia nao pode
+// ficar muda com lead real: cai no modelo anterior e registra o erro.
+const MODELO_RESERVA = 'claude-haiku-4-5-20251001';
+
+async function criarMensagem(params, effort) {
+  try {
+    return await client.beta.messages.create({ model: MODEL, ...paramsModelo(effort), ...params });
+  } catch (err) {
+    if (MODEL !== MODELO_RESERVA && (err instanceof Anthropic.NotFoundError || err instanceof Anthropic.PermissionDeniedError)) {
+      console.error(`[Claude] modelo ${MODEL} indisponivel (${err.status}): usando ${MODELO_RESERVA}.`, err.message);
+      return client.beta.messages.create({ model: MODELO_RESERVA, ...params });
+    }
+    throw err;
+  }
+}
 
 // Schemas das tools que a Lia pode acionar.
 // O loop de tool_use so eh ativado se o caller passar `toolHandlers` em opcoes.
 const TOOL_SCHEMAS = [
   {
     name: 'imoveis',
-    description: 'Consulta o banco de imoveis disponiveis do corretor. Use sempre que o lead perguntar sobre imoveis, mencionar criterios (bairro, tipo, valor, quartos), ou citar um imovel especifico. Retorna lista com id, titulo, bairro, tipo, valor, quartos, area, status.',
+    description: 'Consulta os imoveis disponiveis do corretor. Use sempre que o lead perguntar sobre imoveis, mencionar criterios (bairro, tipo, valor, quartos) ou citar um imovel especifico, e antes de afirmar qualquer coisa sobre o que existe ou nao existe. Retorna `imoveis` (os que atendem todos os filtros) e `total_imoveis_disponiveis_do_corretor`. Se nada atender, vem `alternativas` (imoveis reais mais proximos, cada um com `nao_atende`) e um `aviso`: siga o aviso e nunca cite imovel que nao veio desta tool.',
     input_schema: {
       type: 'object',
       properties: {
@@ -57,11 +102,11 @@ const TOOL_SCHEMAS = [
  */
 async function gerarResposta(historico, contextoExtra, opcoes = {}) {
   try {
-    // contextoExtra vai como estadoConversa (INJETADO NO TOPO do system).
-    // Anti-saudacao + dados-coletados precisam ter primazia sobre os few-shot
-    // exemplos da secao 12 do prompt — modelo copia o "Oi! Aqui e a Lia..." de
-    // todos os exemplos se a regra ficar enterrada no final do system.
-    const system = buildSystemPrompt({ ...opcoes, estadoConversa: contextoExtra });
+    // Bloco fixo (prompt + roteiro do corretor) cacheado; estado da conversa
+    // (dados coletados, horarios, imoveis) vem depois, fora do cache.
+    const { fixo, estado } = buildSystemPrompt({ ...opcoes, estadoConversa: contextoExtra, separado: true });
+    const system = [{ type: 'text', text: fixo, cache_control: { type: 'ephemeral' } }];
+    if (estado) system.push({ type: 'text', text: estado });
 
     const { toolHandlers } = opcoes;
     const useTools = !!toolHandlers;
@@ -72,9 +117,9 @@ async function gerarResposta(historico, contextoExtra, opcoes = {}) {
     const MAX_ITER = 5;
 
     for (let iter = 0; iter < MAX_ITER; iter++) {
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 600,
+      // max_tokens inclui o raciocinio do modelo, nao so a mensagem pro lead.
+      const response = await criarMensagem({
+        max_tokens: 4000,
         system,
         messages,
         ...(tools ? { tools } : {}),
@@ -82,9 +127,7 @@ async function gerarResposta(historico, contextoExtra, opcoes = {}) {
 
       // Se parou por end_turn ou nao tem tool_use, extrai texto e retorna
       if (response.stop_reason !== 'tool_use') {
-        const textBlock = response.content.find(b => b.type === 'text');
-        const texto = (textBlock?.text || '').trim();
-        return { texto, toolsExecutadas };
+        return { texto: textoDaResposta(response), toolsExecutadas };
       }
 
       // tool_use: executa cada tool, monta tool_result e continua o loop
@@ -166,13 +209,12 @@ Retorne exatamente neste formato JSON:
 }`;
 
   try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 500,
+    const response = await criarMensagem({
+      max_tokens: 2000,
       messages: [{ role: 'user', content: promptExtracao }],
     });
 
-    const texto = response.content[0].text.trim();
+    const texto = textoDaResposta(response);
 
     // Remove possíveis blocos de markdown caso apareçam
     const jsonLimpo = texto.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -259,17 +301,16 @@ Uma única observação curta sobre a carteira. Uma frase só.
 Responda em português brasileiro.`;
 
   try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
+    const response = await criarMensagem({
+      max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    return response.content[0].text.trim();
+    return textoDaResposta(response);
   } catch (err) {
     console.error('[Claude] Erro ao gerar resumo de matching:', err.message);
     throw err;
   }
 }
 
-module.exports = { gerarResposta, extrairDadosLead, gerarResumoMatching };
+module.exports = { gerarResposta, extrairDadosLead, gerarResumoMatching, MODEL };

@@ -41,11 +41,11 @@ const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
 let extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead;
-let gerarResposta, extrairDadosLead, gerarResumoMatching;
+let gerarResposta, extrairDadosLead, gerarResumoMatching, claudeModel;
 let salvarLead;
 
 try { ({ extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
-try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
+try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching, MODEL: claudeModel } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
 let emails = null;
@@ -491,23 +491,12 @@ function buildAntiRepetContext(historico, leadData) {
   const msgsUser = (historico || []).filter(m => m.role === 'user').length;
   const jaApresentou = msgsAssistant > 0;
 
-  // Bloco de estado SEMPRE no topo — contextualiza o modelo antes dos few-shot.
-  ctx += `# ⚠️ ESTADO DESTA CONVERSA AGORA\n\n`;
-  ctx += `- Total de mensagens trocadas: ${totalMsgs} (${msgsAssistant} suas, ${msgsUser} do cliente)\n`;
-  ctx += `- É a sua primeira resposta nesta conversa? ${jaApresentou ? 'NÃO. Você JÁ respondeu antes.' : 'SIM. É a primeira.'}\n`;
-
-  if (jaApresentou) {
-    ctx += `\n## 🚫 REGRA #1 — VOCÊ JÁ SE APRESENTOU\n\n`;
-    ctx += `Você JÁ disse "Oi! Aqui é a Lia, assistente do(a)..." anteriormente. Esta NÃO é sua primeira mensagem.\n\n`;
-    ctx += `**É TERMINANTEMENTE PROIBIDO**:\n`;
-    ctx += `- Começar com "Oi"\n`;
-    ctx += `- Começar com "Olá"\n`;
-    ctx += `- Dizer "Aqui é a Lia"\n`;
-    ctx += `- Dizer "assistente do(a) [nome]"\n`;
-    ctx += `- Se apresentar de qualquer forma\n\n`;
-    ctx += `IGNORE os exemplos da Seção 12 do prompt — eles mostram só a PRIMEIRA mensagem de cada cenário. Você NÃO está na primeira mensagem. Entre DIRETO no assunto, sem saudação, sem apresentação.\n`;
-    ctx += `\nExemplos de início CORRETO pra esta resposta: "Show!", "Legal,", "Perfeito,", "Entendi.", "Beleza,", ou direto na pergunta/info.\n`;
-  }
+  // Estado da conversa: vai no fim do system (fora do cache), ver services/claude.js.
+  ctx += `[ESTADO DA CONVERSA]\n`;
+  ctx += `- Mensagens trocadas: ${totalMsgs} (${msgsAssistant} suas, ${msgsUser} do lead).\n`;
+  ctx += jaApresentou
+    ? `- Você já se apresentou. Não cumprimente nem se apresente de novo: continue a conversa de onde ela está.\n`
+    : `- É a sua primeira resposta: apresente-se em uma frase curta.\n`;
 
   const naoInformado = v => !v || v === 'não informado' || v === 'nao informado';
   const ld = leadData || {};
@@ -541,10 +530,8 @@ function buildAntiRepetContext(historico, leadData) {
   if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
 
   if (coletados.length) {
-    ctx += `\n## 🚫 REGRA #2 — DADOS QUE O CLIENTE JÁ FORNECEU\n\n`;
-    ctx += `O cliente JÁ disse os seguintes dados nesta conversa:\n\n`;
-    coletados.forEach(d => { ctx += `- ${d}\n`; });
-    ctx += `\n**É TERMINANTEMENTE PROIBIDO perguntar de novo sobre qualquer item acima.** Se você perguntar "tá procurando pra comprar ou alugar?" depois que ele já disse que quer COMPRAR, ele desiste. Use os dados pra AVANÇAR. Pergunte SÓ sobre o que ainda falta das 7 informações-chave (nome, intenção, tipo, bairro, faixa, pagamento, prazo).\n`;
+    ctx += `- O lead já informou (não pergunte de novo, use para avançar):\n`;
+    coletados.forEach(d => { ctx += `  - ${d}\n`; });
   }
 
   return ctx;
@@ -3736,6 +3723,7 @@ app.get('/health', async (req, res) => {
     resend: process.env.RESEND_API_KEY ? 'configured' : 'not_configured',
     whatsapp: process.env.WHATSAPP_PHONE_ID ? 'configured' : 'not_configured',
     claude: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured',
+    claude_model: claudeModel || 'unknown',
     google: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not_configured',
     sentry: Sentry ? 'initialized' : (process.env.SENTRY_DSN ? 'env_set_but_not_init' : 'not_configured'),
   };

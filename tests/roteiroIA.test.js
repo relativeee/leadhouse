@@ -54,12 +54,12 @@ test('validarRoteiro: remove < > e quebras de linha das perguntas', () => {
 
 test('formatarRoteiroPrompt: texto do corretor fica dentro do delimitador', () => {
   const s = R.formatarRoteiroPrompt(base());
-  assert.match(s, /## ROTEIRO DO CORRETOR/);
+  assert.match(s, /## Roteiro do corretor/);
   assert.match(s, /NESTA ORDEM/);
   assert.match(s, /1\. Qual seu nome\? \[Nome\] \(obrigatória\)/);
   assert.match(s, /2\. Já tem carta de crédito aprovada\? \(opcional\)/);
   assert.match(s, /tom formal/);
-  assert.match(s, /QUENTE/);
+  assert.match(s, /quente pelos critérios da seção 7/);
   assert.doesNotMatch(s, /pedir para falar com uma pessoa/);
   // Cada bloco de texto do corretor abre e fecha uma vez.
   assert.equal(s.split('<roteiro_do_corretor>').length - 1, 2);
@@ -70,15 +70,23 @@ test('formatarRoteiroPrompt: texto do corretor fica dentro do delimitador', () =
 
 test('buildSystemPrompt: sem roteiro o prompt não muda', () => {
   assert.equal(buildSystemPrompt({ nomeCorretor: 'Ana' }), buildSystemPrompt({ nomeCorretor: 'Ana', roteiro: null }));
-  assert.doesNotMatch(buildSystemPrompt({ nomeCorretor: 'Ana' }), /ROTEIRO DO CORRETOR/);
+  assert.doesNotMatch(buildSystemPrompt({ nomeCorretor: 'Ana' }), /Roteiro do corretor/);
+});
+
+test('buildSystemPrompt: separado devolve bloco fixo (cacheável) e estado', () => {
+  const { fixo, estado } = buildSystemPrompt({ nomeCorretor: 'Ana', estadoConversa: '[ESTADO DA CONVERSA]\n- x', separado: true });
+  assert.doesNotMatch(fixo, /ESTADO DA CONVERSA\]\n- x/);
+  assert.equal(estado, '[ESTADO DA CONVERSA]\n- x');
+  assert.equal(buildSystemPrompt({ nomeCorretor: 'Ana', estadoConversa: estado }), `${fixo}\n\n${estado}`);
+  assert.doesNotMatch(fixo, /Edifício Ondas|Residencial Mar|\*\*/);
 });
 
 test('buildSystemPrompt: roteiro entra antes dos exemplos e troca o nome', () => {
   const r = base();
   r.instrucoes_extras = 'Valor $& e $1 literal';
   const s = buildSystemPrompt({ nomeCorretor: 'Ana', roteiro: r });
-  const iRoteiro = s.indexOf('## ROTEIRO DO CORRETOR');
-  const iExemplos = s.indexOf('## 12. EXEMPLOS DE CONVERSA');
+  const iRoteiro = s.indexOf('## Roteiro do corretor');
+  const iExemplos = s.indexOf('## 11. Exemplos de tom');
   assert.ok(iRoteiro > 0 && iRoteiro < iExemplos);
   assert.match(s, /O\(a\) Ana configurou/);
   assert.doesNotMatch(s, /\{\{NOME_CORRETOR\}\}/);
