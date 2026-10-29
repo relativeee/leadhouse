@@ -5053,3 +5053,46 @@ body.body--impersonating.body--lia-pausada .sidebar { top: 76px; }
 #fxCanvas .drawflow-node.fx-condicao .output_2::before { content: 'Não'; color: #FF8A7A; }
 #fxCanvas .drawflow-node.fx-condicao .output { margin-bottom: 10px; }
 .fx-passo__valor { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ── Roteiro da Lia (Configuracoes) ── */
+.rot-intro { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1.5rem; }
+.rot-aviso { padding: 1rem 1.25rem; border: 1px solid var(--border-gold); border-radius: var(--radius-md); background: var(--gold-muted); color: var(--text-primary); font-size: 0.88rem; }
+.rot-bloco { padding: 1.25rem; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-card); }
+.rot-bloco__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.rot-bloco__title { font-size: 0.95rem; font-weight: 600; color: var(--text-white); margin: 0 0 0.35rem; }
+.rot-bloco__desc { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 0.9rem; }
+.rot-bloco__hint { font-size: 0.75rem; color: var(--text-muted); }
+.rot-perguntas { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.9rem; }
+.rot-pergunta { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); }
+.rot-pergunta__num { flex-shrink: 0; width: 24px; height: 24px; margin-top: 0.55rem; border-radius: 50%; background: var(--gold-muted); color: var(--text-gold); font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.rot-pergunta__corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.rot-pergunta__corpo > input { width: 100%; }
+.rot-pergunta__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.rot-pergunta__meta select { padding: 0.45rem 0.75rem; font-size: 0.8rem; max-width: 100%; }
+.rot-pergunta__botoes { display: flex; flex-direction: column; gap: 0.25rem; }
+.rot-icone { width: 30px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; }
+.rot-icone:hover:not(:disabled) { border-color: var(--border-hover); color: var(--text-primary); }
+.rot-icone:disabled { opacity: 0.3; cursor: default; }
+.rot-icone--del:hover:not(:disabled) { color: #FF8A7A; border-color: rgba(255, 138, 122, 0.4); }
+.rot-check { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--text-primary); cursor: pointer; }
+.rot-add { margin-bottom: 0.9rem; }
+.rot-bloco > .rot-check { display: flex; width: fit-content; }
+.rot-opcoes { display: flex; flex-direction: column; gap: 0.55rem; }
+.rot-opcao { display: flex; align-items: center; gap: 0.55rem; font-size: 0.86rem; color: var(--text-primary); cursor: pointer; }
+.rot-extras { width: 100%; box-sizing: border-box; }
+.rot-acoes { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.5rem 0 1.75rem; }
+.rot-vazio { font-size: 0.8rem; color: var(--text-muted); padding: 0.5rem 0; }
+.rot-link { background: none; border: none; color: var(--text-gold); font-size: 0.8rem; cursor: pointer; padding: 0; }
+.rot-chat { display: flex; flex-direction: column; gap: 0.5rem; max-height: 340px; min-height: 120px; overflow-y: auto; padding: 0.75rem; margin-bottom: 0.75rem; border-radius: var(--radius-sm); background: var(--bg-input); }
+.rot-msg { max-width: 80%; padding: 0.55rem 0.8rem; border-radius: 12px; font-size: 0.85rem; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+.rot-msg--lead { align-self: flex-end; background: var(--brand-muted); color: var(--text-primary); border-bottom-right-radius: 4px; }
+.rot-msg--lia { align-self: flex-start; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); border-bottom-left-radius: 4px; }
+.rot-msg--digitando { color: var(--text-muted); font-style: italic; }
+.rot-chat__form { display: flex; gap: 0.5rem; }
+.rot-chat__form input { flex: 1; min-width: 0; }
+.rot-chat__form .btn { flex: 0 0 auto; width: auto; }
+@media (max-width: 600px) {
+    .rot-pergunta { flex-wrap: wrap; }
+    .rot-pergunta__botoes { flex-direction: row; width: 100%; justify-content: flex-end; }
+    .rot-msg { max-width: 92%; }
+}

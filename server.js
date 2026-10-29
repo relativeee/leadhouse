@@ -1425,7 +1425,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, async (req, res) => {
           sendImage: (tel, urlOuB64, caption) => evolution.sendImage(user.id, tel, urlOuB64, caption),
         }) : undefined;
 
-        const opcoesLia = { nomeCorretor: primeiroNome, toolHandlers };
+        const opcoesLia = { nomeCorretor: primeiroNome, toolHandlers, roteiro: await carregarRoteiro(user.id) };
         const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
         if (respLia.toolsExecutadas?.length) {
           console.log(`[evolution] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
@@ -1848,6 +1848,101 @@ app.post('/api/fluxos/:id/inscricoes/:insc/parar', authMiddleware, exigeFluxos, 
     if (!data?.length) return res.status(404).json({ erro: 'Inscrição ativa não encontrada' });
     res.json({ ok: true });
   } catch (err) { erroFluxos(res, err); }
+});
+
+// ─────────────────────────────────────────────
+// ROTEIRO DA LIA — perguntas, tom e passagem ao corretor (Fase 2, entrega 3).
+// Mesmo gate dos fluxos (Pro, Elite, trial valido, admin). Regras: utils/roteiroIA.js
+// ─────────────────────────────────────────────
+const ROT = require('./utils/roteiroIA');
+
+const CATALOGO_ROTEIRO = { campos: ROT.CAMPOS, tons: ROT.TONS, passagens: ROT.PASSAGENS, limites: ROT.LIMITES };
+
+// Usado no atendimento: qualquer falha (coluna ainda nao criada, rede) cai no
+// roteiro padrao em vez de derrubar a resposta da Lia.
+async function carregarRoteiro(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await db.supabase.from('usuarios').select('roteiro_ia').eq('id', userId).maybeSingle();
+    if (error) { console.warn('[roteiro] leitura falhou:', error.message); return null; }
+    return data?.roteiro_ia || null;
+  } catch (err) {
+    console.warn('[roteiro] leitura falhou:', err.message);
+    return null;
+  }
+}
+
+app.get('/api/roteiro-ia', authMiddleware, async (req, res) => {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.json({ instalado: true, permitido: false, roteiro: null, catalogo: CATALOGO_ROTEIRO });
+    const { data, error } = await db.supabase.from('usuarios').select('roteiro_ia').eq('id', req.userId).maybeSingle();
+    if (error && automacoes?.tabelaAusente(error)) return res.json({ instalado: false, permitido: true, roteiro: null, catalogo: CATALOGO_ROTEIRO });
+    if (error) throw error;
+    res.json({ instalado: true, permitido: true, roteiro: data?.roteiro_ia || null, catalogo: CATALOGO_ROTEIRO });
+  } catch (err) {
+    console.error('[roteiro]', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+app.put('/api/roteiro-ia', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const v = ROT.validarRoteiro(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const { error } = await db.supabase.from('usuarios').update({ roteiro_ia: v.roteiro }).eq('id', req.userId);
+    if (error && automacoes?.tabelaAusente(error)) return res.status(503).json({ erro: 'O roteiro ainda não foi instalado no banco.' });
+    if (error) throw error;
+    res.json({ ok: true, roteiro: v.roteiro });
+  } catch (err) {
+    console.error('[roteiro]', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// "Testar conversa": o corretor faz o papel do lead e a Lia responde com o
+// roteiro em edicao (ainda nao salvo). Sem tools: nada sai pelo WhatsApp.
+const testeRoteiroLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `roteiro:${req.userId}`,
+  message: { erro: 'Muitos testes seguidos. Aguarde alguns minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const CONTEXTO_TESTE = '[MODO TESTE NO PAINEL]\nEsta conversa é uma simulação feita pelo corretor para testar o roteiro. Não há busca de imóveis, envio de fotos nem agenda nesta simulação: se o lead pedir imóvel, foto ou horário, diga com naturalidade que vai verificar e siga o roteiro.';
+
+// authMiddleware explicito: o app.use('/api/agente', ...) fica mais abaixo no arquivo.
+app.post('/api/agente/testar-roteiro', authMiddleware, exigeFluxos, testeRoteiroLimiter, async (req, res) => {
+  try {
+    if (!gerarResposta) return res.status(503).json({ erro: 'Agente IA não configurado.' });
+    const v = ROT.validarRoteiro(req.body?.roteiro || {});
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+
+    const mensagens = req.body?.mensagens;
+    if (!Array.isArray(mensagens) || !mensagens.length || mensagens.length > 20) {
+      return res.status(400).json({ erro: 'A conversa de teste deve ter de 1 a 20 mensagens' });
+    }
+    const historico = [];
+    for (let i = 0; i < mensagens.length; i++) {
+      const m = mensagens[i];
+      const role = i % 2 === 0 ? 'user' : 'assistant';
+      const content = String(m?.content ?? '').trim();
+      if (m?.role !== role || !content || content.length > 600) {
+        return res.status(400).json({ erro: 'Conversa de teste inválida' });
+      }
+      historico.push({ role, content });
+    }
+    if (historico[historico.length - 1].role !== 'user') return res.status(400).json({ erro: 'A última mensagem deve ser do lead' });
+
+    const { data: u } = await db.supabase.from('usuarios').select('nome').eq('id', req.userId).maybeSingle();
+    const nomeCorretor = (u?.nome || '').trim().split(/\s+/)[0] || null;
+    const resp = await gerarResposta(historico, CONTEXTO_TESTE, { nomeCorretor, roteiro: v.roteiro });
+    res.json({ resposta: resp.texto || '' });
+  } catch (err) {
+    console.error('[roteiro] teste falhou:', err.message);
+    res.status(500).json({ erro: 'Não foi possível gerar a resposta agora.' });
+  }
 });
 
 // ─────────────────────────────────────────────
@@ -2986,7 +3081,7 @@ app.post('/webhook', metaRawBody, metaWebhookAuth, async (req, res) => {
       sendImage: (tel, urlOuB64, caption) => enviarImagem(tel, urlOuB64, caption),
     }) : undefined;
 
-    const opcoesLia = { nomeCorretor, toolHandlers };
+    const opcoesLia = { nomeCorretor, toolHandlers, roteiro: await carregarRoteiro(userIdDestino) };
     const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
     if (respLia.toolsExecutadas?.length) {
       console.log(`[meta] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));

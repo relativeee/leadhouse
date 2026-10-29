@@ -1120,6 +1120,11 @@
             <h3>Lia (Assistente)</h3>
             <p>Pausar/retomar atendimento automático</p>
         </div>
+        <div class="config-card" onclick="abrirConfig('roteiro')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            <h3>Roteiro da Lia</h3>
+            <p>Perguntas, tom e quando passar pra você</p>
+        </div>
         <div class="config-card" onclick="abrirConfig('plano')">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
             <h3>Meu Plano</h3>
@@ -1362,6 +1367,64 @@
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
                         <span>Nenhum lead pausado individualmente</span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUB: Roteiro da Lia -->
+        <div class="config-sub" id="configRoteiro" style="display:none">
+            <div class="conta-section__title">Roteiro da Lia</div>
+            <p class="rot-intro">Defina o que a Lia pergunta, em que tom ela conversa e quando ela passa o lead pra você. Sem roteiro, a Lia usa o atendimento padrão.</p>
+            <div id="rotAviso" class="rot-aviso" style="display:none"></div>
+
+            <div id="rotForm" style="display:none">
+                <div class="rot-bloco">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Perguntas de qualificação</h3>
+                        <span class="rot-bloco__hint" id="rotPergContador"></span>
+                    </div>
+                    <p class="rot-bloco__desc">A Lia pula o que o lead já respondeu e adapta as palavras à conversa.</p>
+                    <div id="rotPerguntas" class="rot-perguntas"></div>
+                    <button type="button" class="btn btn--outline rot-add" id="rotAddPergunta" onclick="rotAddPergunta()">+ Adicionar pergunta</button>
+                    <label class="rot-check"><input type="checkbox" id="rotOrdemLivre"> A Lia pode perguntar em qualquer ordem</label>
+                </div>
+
+                <div class="rot-bloco">
+                    <h3 class="rot-bloco__title">Tom da conversa</h3>
+                    <div id="rotTons" class="rot-opcoes"></div>
+                </div>
+
+                <div class="rot-bloco">
+                    <h3 class="rot-bloco__title">Passar a conversa pra você</h3>
+                    <p class="rot-bloco__desc">Nesses momentos a Lia avisa o lead que você vai continuar o atendimento.</p>
+                    <div id="rotPassagens" class="rot-opcoes"></div>
+                </div>
+
+                <div class="rot-bloco">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Outras instruções</h3>
+                        <span class="rot-bloco__hint" id="rotExtrasContador"></span>
+                    </div>
+                    <p class="rot-bloco__desc">Ex.: "sempre mencione que trabalho com lançamentos na planta". As regras de segurança da Lia continuam valendo.</p>
+                    <textarea id="rotExtras" class="form-input form-textarea rot-extras" rows="4" oninput="rotContarExtras()"></textarea>
+                </div>
+
+                <div class="rot-acoes">
+                    <button type="button" class="btn btn--primary" id="rotSalvar" onclick="rotSalvar()">Salvar roteiro</button>
+                    <button type="button" class="btn btn--outline" onclick="rotRestaurar()">Voltar ao padrão</button>
+                </div>
+
+                <div class="rot-bloco rot-teste">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Testar conversa</h3>
+                        <button type="button" class="rot-link" onclick="rotTesteReiniciar()">Reiniciar</button>
+                    </div>
+                    <p class="rot-bloco__desc">Você faz o papel do lead. A Lia responde com o roteiro acima, mesmo sem salvar. Nada é enviado pelo WhatsApp.</p>
+                    <div id="rotChat" class="rot-chat"></div>
+                    <form class="rot-chat__form" onsubmit="rotTesteEnviar(event)">
+                        <input type="text" id="rotChatInput" class="form-input" maxlength="600" placeholder="Escreva como se fosse o lead..." autocomplete="off">
+                        <button type="submit" class="btn btn--primary" id="rotChatEnviar">Enviar</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -5122,12 +5185,193 @@ function abrirConfig(secao) {
     document.getElementById('configGrid').style.display = 'none';
     document.getElementById('configSubview').style.display = '';
     document.querySelectorAll('.config-sub').forEach(el => el.style.display = 'none');
-    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif', lia: 'configLia' };
+    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif', lia: 'configLia', roteiro: 'configRoteiro' };
     const el = document.getElementById(map[secao]);
     if (el) el.style.display = '';
     if (secao === 'aparencia') syncPrefButtons();
     if (secao === 'notif') refreshNotifStatus();
     if (secao === 'lia') refreshLiaStatus();
+    if (secao === 'roteiro') rotCarregar();
+}
+
+// ═══════════════════════════════════════════════
+// Roteiro da Lia (Fluxos Fase 2, entrega 3) — backend: /api/roteiro-ia
+// ═══════════════════════════════════════════════
+let rotCatalogo = null;
+let rotPerguntas = [];
+let rotChatMsgs = [];
+
+async function rotCarregar() {
+    const aviso = document.getElementById('rotAviso');
+    const form = document.getElementById('rotForm');
+    aviso.style.display = 'none';
+    form.style.display = 'none';
+    let r;
+    try { r = await apiCall('GET', '/api/roteiro-ia'); } catch (e) { r = null; }
+    if (!r || !r.catalogo) {
+        aviso.textContent = 'Não foi possível carregar o roteiro. Tente de novo em instantes.';
+        aviso.style.display = '';
+        return;
+    }
+    rotCatalogo = r.catalogo;
+    if (!r.permitido) {
+        aviso.innerHTML = 'O roteiro da Lia está disponível nos planos <strong>Pro</strong> e <strong>Elite</strong>.';
+        aviso.style.display = '';
+        return;
+    }
+    if (!r.instalado) {
+        aviso.textContent = 'O roteiro ainda está sendo instalado no sistema. Volte em alguns minutos.';
+        aviso.style.display = '';
+        return;
+    }
+    rotPreencher(r.roteiro || {});
+    rotTesteReiniciar();
+    form.style.display = '';
+}
+
+function rotPreencher(rot) {
+    rotPerguntas = (rot.perguntas || []).map(p => ({ texto: p.texto || '', campo: p.campo || 'outro', obrigatoria: !!p.obrigatoria }));
+    document.getElementById('rotOrdemLivre').checked = !!rot.ordem_livre;
+    const tom = rot.tom || 'neutro';
+    document.getElementById('rotTons').innerHTML = Object.entries(rotCatalogo.tons).map(([k, nome]) =>
+        `<label class="rot-opcao"><input type="radio" name="rotTom" value="${esc(k)}" ${k === tom ? 'checked' : ''}> ${esc(nome)}</label>`).join('');
+    const quando = rot.passar_ao_corretor?.quando || [];
+    document.getElementById('rotPassagens').innerHTML = Object.entries(rotCatalogo.passagens).map(([k, nome]) =>
+        `<label class="rot-opcao"><input type="checkbox" name="rotPassagem" value="${esc(k)}" ${quando.includes(k) ? 'checked' : ''}> ${esc(nome)}</label>`).join('');
+    const extras = document.getElementById('rotExtras');
+    extras.maxLength = rotCatalogo.limites.instrucoes;
+    extras.value = rot.instrucoes_extras || '';
+    rotContarExtras();
+    rotRenderPerguntas();
+}
+
+function rotRenderPerguntas() {
+    const lim = rotCatalogo.limites;
+    const campos = Object.entries(rotCatalogo.campos);
+    const box = document.getElementById('rotPerguntas');
+    box.innerHTML = rotPerguntas.length ? rotPerguntas.map((p, i) => `
+        <div class="rot-pergunta">
+            <span class="rot-pergunta__num">${i + 1}</span>
+            <div class="rot-pergunta__corpo">
+                <input type="text" class="form-input" maxlength="${lim.texto}" value="${esc(p.texto)}" placeholder="Ex.: Já tem carta de crédito aprovada?" aria-label="Pergunta ${i + 1}" oninput="rotPerguntas[${i}].texto = this.value">
+                <div class="rot-pergunta__meta">
+                    <select class="form-input" aria-label="O que essa pergunta coleta" onchange="rotPerguntas[${i}].campo = this.value">
+                        ${campos.map(([k, nome]) => `<option value="${esc(k)}" ${k === p.campo ? 'selected' : ''}>${esc(nome)}</option>`).join('')}
+                    </select>
+                    <label class="rot-check"><input type="checkbox" ${p.obrigatoria ? 'checked' : ''} onchange="rotPerguntas[${i}].obrigatoria = this.checked"> Obrigatória</label>
+                </div>
+            </div>
+            <div class="rot-pergunta__botoes">
+                <button type="button" class="rot-icone" title="Subir" aria-label="Subir pergunta" ${i === 0 ? 'disabled' : ''} onclick="rotMover(${i}, -1)">↑</button>
+                <button type="button" class="rot-icone" title="Descer" aria-label="Descer pergunta" ${i === rotPerguntas.length - 1 ? 'disabled' : ''} onclick="rotMover(${i}, 1)">↓</button>
+                <button type="button" class="rot-icone rot-icone--del" title="Remover" aria-label="Remover pergunta" onclick="rotRemover(${i})">✕</button>
+            </div>
+        </div>`).join('') : '<div class="rot-vazio">Nenhuma pergunta: a Lia segue as 7 perguntas padrão (nome, intenção, tipo, região, valor, pagamento e prazo).</div>';
+    document.getElementById('rotPergContador').textContent = `${rotPerguntas.length}/${lim.perguntas}`;
+    document.getElementById('rotAddPergunta').disabled = rotPerguntas.length >= lim.perguntas;
+}
+
+function rotAddPergunta() {
+    if (rotPerguntas.length >= rotCatalogo.limites.perguntas) return;
+    rotPerguntas.push({ texto: '', campo: 'outro', obrigatoria: false });
+    rotRenderPerguntas();
+    const inputs = document.querySelectorAll('#rotPerguntas .rot-pergunta__corpo > input');
+    inputs[inputs.length - 1]?.focus();
+}
+
+function rotMover(i, delta) {
+    const j = i + delta;
+    if (j < 0 || j >= rotPerguntas.length) return;
+    [rotPerguntas[i], rotPerguntas[j]] = [rotPerguntas[j], rotPerguntas[i]];
+    rotRenderPerguntas();
+}
+
+function rotRemover(i) {
+    rotPerguntas.splice(i, 1);
+    rotRenderPerguntas();
+}
+
+function rotContarExtras() {
+    const el = document.getElementById('rotExtras');
+    document.getElementById('rotExtrasContador').textContent = `${el.value.length}/${rotCatalogo.limites.instrucoes}`;
+}
+
+function rotColetar() {
+    return {
+        perguntas: rotPerguntas.filter(p => p.texto.trim()).map(p => ({ texto: p.texto.trim(), campo: p.campo, obrigatoria: p.obrigatoria })),
+        ordem_livre: document.getElementById('rotOrdemLivre').checked,
+        tom: document.querySelector('input[name="rotTom"]:checked')?.value || 'neutro',
+        passar_ao_corretor: { quando: [...document.querySelectorAll('input[name="rotPassagem"]:checked')].map(el => el.value) },
+        instrucoes_extras: document.getElementById('rotExtras').value.trim(),
+    };
+}
+
+async function rotSalvar() {
+    const btn = document.getElementById('rotSalvar');
+    btn.disabled = true;
+    try {
+        const r = await apiCall('PUT', '/api/roteiro-ia', rotColetar());
+        if (r && r.ok) {
+            rotPreencher(r.roteiro);
+            toast('Roteiro salvo. A Lia já usa nas próximas mensagens.', 'sucesso');
+        } else {
+            toast(r?.erro || 'Não foi possível salvar o roteiro', 'erro');
+        }
+    } catch (e) {
+        toast('Não foi possível salvar o roteiro', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function rotRestaurar() {
+    if (!confirm('Voltar ao atendimento padrão da Lia? As perguntas e instruções deste roteiro serão apagadas ao salvar.')) return;
+    rotPreencher({});
+    toast('Roteiro limpo. Clique em "Salvar roteiro" para confirmar.', 'info');
+}
+
+function rotTesteReiniciar() {
+    rotChatMsgs = [];
+    rotRenderChat();
+}
+
+function rotRenderChat(digitando) {
+    const box = document.getElementById('rotChat');
+    const msgs = rotChatMsgs.map(m => `<div class="rot-msg rot-msg--${m.role === 'user' ? 'lead' : 'lia'}">${esc(m.content)}</div>`);
+    if (digitando) msgs.push('<div class="rot-msg rot-msg--lia rot-msg--digitando">Lia está digitando...</div>');
+    box.innerHTML = msgs.length ? msgs.join('') : '<div class="rot-vazio">Mande um "oi" como se fosse um lead chegando.</div>';
+    box.scrollTop = box.scrollHeight;
+}
+
+async function rotTesteEnviar(ev) {
+    ev.preventDefault();
+    const input = document.getElementById('rotChatInput');
+    const btn = document.getElementById('rotChatEnviar');
+    const texto = input.value.trim();
+    if (!texto || btn.disabled) return;
+    if (rotChatMsgs.length >= 19) { toast('Teste longo demais. Clique em Reiniciar.', 'info'); return; }
+    rotChatMsgs.push({ role: 'user', content: texto });
+    input.value = '';
+    btn.disabled = true;
+    rotRenderChat(true);
+    try {
+        const r = await apiCall('POST', '/api/agente/testar-roteiro', { roteiro: rotColetar(), mensagens: rotChatMsgs });
+        if (r && typeof r.resposta === 'string' && r.resposta) {
+            rotChatMsgs.push({ role: 'assistant', content: r.resposta });
+        } else {
+            rotChatMsgs.pop();
+            input.value = texto;
+            toast(r?.erro || 'A Lia não respondeu. Tente de novo.', 'erro');
+        }
+    } catch (e) {
+        rotChatMsgs.pop();
+        input.value = texto;
+        toast('A Lia não respondeu. Tente de novo.', 'erro');
+    } finally {
+        btn.disabled = false;
+        rotRenderChat();
+        input.focus();
+    }
 }
 
 // ═══════════════════════════════════════════════
