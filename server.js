@@ -1900,7 +1900,9 @@ app.put('/api/roteiro-ia', authMiddleware, exigeFluxos, async (req, res) => {
 });
 
 // "Testar conversa": o corretor faz o papel do lead e a Lia responde com o
-// roteiro em edicao (ainda nao salvo). Sem tools: nada sai pelo WhatsApp.
+// roteiro em edicao (ainda nao salvo). Tools reais com os imoveis e horarios do
+// corretor (so leitura); a foto e capturada e devolvida ao painel, nada sai pelo WhatsApp.
+// Sem tools a Lia "fingia" chamar a tool em texto e inventava imoveis dos exemplos.
 const testeRoteiroLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 30,
@@ -1910,7 +1912,7 @@ const testeRoteiroLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const CONTEXTO_TESTE = '[MODO TESTE NO PAINEL]\nEsta conversa é uma simulação feita pelo corretor para testar o roteiro. Não há busca de imóveis, envio de fotos nem agenda nesta simulação: se o lead pedir imóvel, foto ou horário, diga com naturalidade que vai verificar e siga o roteiro.';
+const CONTEXTO_TESTE = '[MODO TESTE NO PAINEL]\nEsta conversa é uma simulação feita pelo corretor para testar o roteiro. As tools funcionam normalmente com os imóveis reais do corretor: use-as como faria com um lead de verdade.';
 
 // authMiddleware explicito: o app.use('/api/agente', ...) fica mais abaixo no arquivo.
 app.post('/api/agente/testar-roteiro', authMiddleware, exigeFluxos, testeRoteiroLimiter, async (req, res) => {
@@ -1937,8 +1939,32 @@ app.post('/api/agente/testar-roteiro', authMiddleware, exigeFluxos, testeRoteiro
 
     const { data: u } = await db.supabase.from('usuarios').select('nome').eq('id', req.userId).maybeSingle();
     const nomeCorretor = (u?.nome || '').trim().split(/\s+/)[0] || null;
-    const resp = await gerarResposta(historico, CONTEXTO_TESTE, { nomeCorretor, roteiro: v.roteiro });
-    res.json({ resposta: resp.texto || '' });
+
+    let contextoExtra = CONTEXTO_TESTE;
+    try {
+      const slotsLivres = await calcularHorariosLivres(req.userId);
+      if (slotsLivres) {
+        contextoExtra += `\n\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
+      }
+    } catch (e) {
+      console.warn('[roteiro] teste sem horarios:', e.message);
+    }
+
+    const fotos = [];
+    const toolHandlers = criarToolHandlers ? criarToolHandlers({
+      userId: req.userId,
+      telefone: 'teste-painel',
+      conversa: { imoveisEnviados: new Set() },
+      db,
+      sendImage: async (_tel, url, legenda) => {
+        fotos.push({ url: /^https:\/\//i.test(String(url)) ? String(url) : null, legenda: String(legenda || '') });
+      },
+    }) : undefined;
+
+    const opcoes = { nomeCorretor, roteiro: v.roteiro, toolHandlers };
+    const resp = await gerarResposta(historico, contextoExtra, opcoes);
+    const guard = await guardFotoAlucinacao({ resposta: resp.texto, toolsExecutadas: resp.toolsExecutadas, historicoAnterior: historico, contextoExtra, opcoes });
+    res.json({ resposta: guard.texto || '', fotos });
   } catch (err) {
     console.error('[roteiro] teste falhou:', err.message);
     res.status(500).json({ erro: 'Não foi possível gerar a resposta agora.' });
