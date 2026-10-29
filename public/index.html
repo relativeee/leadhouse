@@ -5337,7 +5337,12 @@ function rotTesteReiniciar() {
 
 function rotRenderChat(digitando) {
     const box = document.getElementById('rotChat');
-    const msgs = rotChatMsgs.map(m => `<div class="rot-msg rot-msg--${m.role === 'user' ? 'lead' : 'lia'}">${esc(m.content)}</div>`);
+    const msgs = rotChatMsgs.map(m => (m.fotos || []).map(f => `
+        <div class="rot-msg rot-msg--lia rot-msg--foto">
+            ${f.url ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : ''}
+            <span>📷 ${esc(f.legenda)}</span>
+            <small>No WhatsApp, esta foto seria enviada ao lead.</small>
+        </div>`).join('') + `<div class="rot-msg rot-msg--${m.role === 'user' ? 'lead' : 'lia'}">${esc(m.content)}</div>`);
     if (digitando) msgs.push('<div class="rot-msg rot-msg--lia rot-msg--digitando">Lia está digitando...</div>');
     box.innerHTML = msgs.length ? msgs.join('') : '<div class="rot-vazio">Mande um "oi" como se fosse um lead chegando.</div>';
     box.scrollTop = box.scrollHeight;
@@ -5355,9 +5360,10 @@ async function rotTesteEnviar(ev) {
     btn.disabled = true;
     rotRenderChat(true);
     try {
-        const r = await apiCall('POST', '/api/agente/testar-roteiro', { roteiro: rotColetar(), mensagens: rotChatMsgs });
+        const mensagens = rotChatMsgs.map(m => ({ role: m.role, content: m.content }));
+        const r = await apiCall('POST', '/api/agente/testar-roteiro', { roteiro: rotColetar(), mensagens });
         if (r && typeof r.resposta === 'string' && r.resposta) {
-            rotChatMsgs.push({ role: 'assistant', content: r.resposta });
+            rotChatMsgs.push({ role: 'assistant', content: r.resposta, fotos: Array.isArray(r.fotos) ? r.fotos : [] });
         } else {
             rotChatMsgs.pop();
             input.value = texto;
