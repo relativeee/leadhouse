@@ -51,6 +51,7 @@ const TOOL_SCHEMAS = [
  * @param {Object} [opcoes]
  * @param {string} [opcoes.nomeCorretor]
  * @param {string} [opcoes.tempoResposta]
+ * @param {Object} [opcoes.roteiro] - usuarios.roteiro_ia do corretor dono do lead
  * @param {Object} [opcoes.toolHandlers] - { imoveis, enviando_arquivos } — se ausente, sem tools
  * @returns {Promise<{texto: string, toolsExecutadas: Array}>}
  */

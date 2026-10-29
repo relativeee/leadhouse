@@ -1,3 +1,5 @@
+const { formatarRoteiroPrompt } = require('../utils/roteiroIA');
+
 const TEMPLATE = `# SYSTEM PROMPT — LIA | Qualificadora de Leads Imobiliários
 
 > Versão 2.2 — LeadHaus AI / Lead House Group
@@ -519,10 +521,20 @@ E siga avançando o que ainda dá pra avançar (agendar visita, qualificar, etc)
 
 **FIM DO PROMPT**`;
 
-function buildSystemPrompt({ nomeCorretor, tempoResposta, estadoConversa } = {}) {
+const MARCA_EXEMPLOS = '## 12. EXEMPLOS DE CONVERSA';
+
+function buildSystemPrompt({ nomeCorretor, tempoResposta, estadoConversa, roteiro } = {}) {
   const nome = (nomeCorretor && String(nomeCorretor).trim()) || 'seu corretor';
   const tempo = (tempoResposta && String(tempoResposta).trim()) || '30 minutos';
-  const base = TEMPLATE
+
+  // Roteiro do corretor entra antes dos exemplos few-shot (que mostram o roteiro
+  // padrao). Replacer em funcao: texto do corretor com "$&" nao vira padrao.
+  const secaoRoteiro = formatarRoteiroPrompt(roteiro);
+  const template = secaoRoteiro
+    ? TEMPLATE.replace(MARCA_EXEMPLOS, () => `${secaoRoteiro}\n\n---\n\n${MARCA_EXEMPLOS}`)
+    : TEMPLATE;
+
+  const base = template
     .replace(/\{\{NOME_CORRETOR\}\}/g, nome)
     .replace(/\{\{TEMPO_RESPOSTA\}\}/g, tempo);
 
