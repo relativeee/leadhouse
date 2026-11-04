@@ -32,6 +32,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const db = require('./services/supabase');
+const { updateMiddleware } = require('./services/crmValidation');
 const { registrar, login, authMiddleware } = require('./services/auth');
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -39,12 +40,12 @@ if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET nao definido no .env'); proc
 const { validarEAjustarLead } = require('./utils/leadScoring');
 
 // Servicos opcionais (dependem de env vars externas)
-let extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead;
-let gerarResposta, extrairDadosLead, gerarResumoMatching;
+let extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead;
+let gerarResposta, extrairDadosLead, gerarResumoMatching, claudeModel;
 let salvarLead;
 
-try { ({ extrairMensagem, enviarMensagem, enviarImagem, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
-try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
+try { ({ extrairMensagem, enviarMensagem, enviarImagem, enviarTemplate, notificarCorretor, notificarNovoLead } = require('./services/whatsapp')); } catch (e) { console.warn('[Init] WhatsApp desabilitado:', e.message); }
+try { ({ gerarResposta, extrairDadosLead, gerarResumoMatching, MODEL: claudeModel } = require('./services/claude')); } catch (e) { console.warn('[Init] Claude desabilitado:', e.message); }
 try { ({ salvarLead } = require('./services/sheets')); } catch (e) { console.warn('[Init] Sheets desabilitado:', e.message); }
 
 let emails = null;
@@ -58,6 +59,9 @@ try { ({ criarToolHandlers } = require('./services/liaTools')); } catch (e) { co
 
 let pushService = null;
 try { pushService = require('./services/push'); } catch (e) { console.warn('[Init] push service indisponivel:', e.message); }
+
+let automacoes = null;
+try { automacoes = require('./services/automacoes'); } catch (e) { console.warn('[Init] automacoes indisponivel:', e.message); }
 
 const { metaAuth, evolutionAuth, cronAuthorized } = require('./services/webhookSecurity');
 const { durableWebhook } = require('./services/webhookEvents');
@@ -492,23 +496,12 @@ function buildAntiRepetContext(historico, leadData) {
   const msgsUser = (historico || []).filter(m => m.role === 'user').length;
   const jaApresentou = msgsAssistant > 0;
 
-  // Bloco de estado SEMPRE no topo — contextualiza o modelo antes dos few-shot.
-  ctx += `# ⚠️ ESTADO DESTA CONVERSA AGORA\n\n`;
-  ctx += `- Total de mensagens trocadas: ${totalMsgs} (${msgsAssistant} suas, ${msgsUser} do cliente)\n`;
-  ctx += `- É a sua primeira resposta nesta conversa? ${jaApresentou ? 'NÃO. Você JÁ respondeu antes.' : 'SIM. É a primeira.'}\n`;
-
-  if (jaApresentou) {
-    ctx += `\n## 🚫 REGRA #1 — VOCÊ JÁ SE APRESENTOU\n\n`;
-    ctx += `Você JÁ disse "Oi! Aqui é a Lia, assistente do(a)..." anteriormente. Esta NÃO é sua primeira mensagem.\n\n`;
-    ctx += `**É TERMINANTEMENTE PROIBIDO**:\n`;
-    ctx += `- Começar com "Oi"\n`;
-    ctx += `- Começar com "Olá"\n`;
-    ctx += `- Dizer "Aqui é a Lia"\n`;
-    ctx += `- Dizer "assistente do(a) [nome]"\n`;
-    ctx += `- Se apresentar de qualquer forma\n\n`;
-    ctx += `IGNORE os exemplos da Seção 12 do prompt — eles mostram só a PRIMEIRA mensagem de cada cenário. Você NÃO está na primeira mensagem. Entre DIRETO no assunto, sem saudação, sem apresentação.\n`;
-    ctx += `\nExemplos de início CORRETO pra esta resposta: "Show!", "Legal,", "Perfeito,", "Entendi.", "Beleza,", ou direto na pergunta/info.\n`;
-  }
+  // Estado da conversa: vai no fim do system (fora do cache), ver services/claude.js.
+  ctx += `[ESTADO DA CONVERSA]\n`;
+  ctx += `- Mensagens trocadas: ${totalMsgs} (${msgsAssistant} suas, ${msgsUser} do lead).\n`;
+  ctx += jaApresentou
+    ? `- Você já se apresentou. Não cumprimente nem se apresente de novo: continue a conversa de onde ela está.\n`
+    : `- É a sua primeira resposta: apresente-se em uma frase curta.\n`;
 
   const naoInformado = v => !v || v === 'não informado' || v === 'nao informado';
   const ld = leadData || {};
@@ -542,10 +535,8 @@ function buildAntiRepetContext(historico, leadData) {
   if (!naoInformado(ld.prazo)) coletados.push(`prazo: ${ld.prazo}`);
 
   if (coletados.length) {
-    ctx += `\n## 🚫 REGRA #2 — DADOS QUE O CLIENTE JÁ FORNECEU\n\n`;
-    ctx += `O cliente JÁ disse os seguintes dados nesta conversa:\n\n`;
-    coletados.forEach(d => { ctx += `- ${d}\n`; });
-    ctx += `\n**É TERMINANTEMENTE PROIBIDO perguntar de novo sobre qualquer item acima.** Se você perguntar "tá procurando pra comprar ou alugar?" depois que ele já disse que quer COMPRAR, ele desiste. Use os dados pra AVANÇAR. Pergunte SÓ sobre o que ainda falta das 7 informações-chave (nome, intenção, tipo, bairro, faixa, pagamento, prazo).\n`;
+    ctx += `- O lead já informou (não pergunte de novo, use para avançar):\n`;
+    coletados.forEach(d => { ctx += `  - ${d}\n`; });
   }
 
   return ctx;
@@ -1383,7 +1374,7 @@ app.post('/webhook/evolution', evolutionWebhookAuth, durableWebhook(db.supabase,
           sendImage: (tel, urlOuB64, caption) => evolution.sendImage(user.id, tel, urlOuB64, caption),
         }) : undefined;
 
-        const opcoesLia = { nomeCorretor: primeiroNome, toolHandlers };
+        const opcoesLia = { nomeCorretor: primeiroNome, toolHandlers, roteiro: await carregarRoteiro(user.id) };
         const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
         if (respLia.toolsExecutadas?.length) {
           console.log(`[evolution] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
@@ -1420,9 +1411,11 @@ app.post('/webhook/evolution', evolutionWebhookAuth, durableWebhook(db.supabase,
         // Detecta lead novo: se totalMsgsUser === 1, e a primeira mensagem desse contato
         // (apos cold start, historico_json ja teria mais mensagens).
         isNovoLead = totalMsgsUser === 1;
+        // Sem `temperatura` aqui: lead novo nasce 'frio' pelo default da coluna e o
+        // Bloco 4 grava a real. Forcar 'frio' fazia quente->frio->quente a cada msg,
+        // disparando eventos falsos de temperatura_mudou (automacoes).
         await db.upsertLeadWhatsApp(telefone, {
           nome: msg.pushName || '',
-          temperatura: 'frio',
           total_mensagens: totalMsgsUser,
           historico_json: buildHistoricoJson(),
         }, user.id);
@@ -1546,6 +1539,388 @@ app.post('/webhook/evolution', evolutionWebhookAuth, durableWebhook(db.supabase,
     if (!res.headersSent) res.status(500).json({ erro: 'erro interno' });
   }
 }));
+
+// ─────────────────────────────────────────────
+// AUTOMACOES — liga/desliga das receitas + historico (worker: /api/cron/automacoes)
+// ─────────────────────────────────────────────
+const { RECEITAS, configUsuario } = require('./utils/automacoesRegras');
+
+function listarReceitas(linhas) {
+  const cfg = configUsuario(linhas);
+  return Object.values(RECEITAS).map(r => ({ id: r.id, nome: r.nome, descricao: r.descricao, enviaParaLead: r.enviaParaLead, ...cfg[r.id] }));
+}
+
+app.get('/api/automacoes', authMiddleware, async (req, res) => {
+  try {
+    const [{ data: linhas, error }, { data: historico }] = await Promise.all([
+      db.supabase.from('automacoes').select('receita, ativo, config').eq('usuario_id', req.userId),
+      db.supabase.from('automacao_execucoes').select('receita, chave, status, detalhe, criado_em')
+        .eq('usuario_id', req.userId).order('criado_em', { ascending: false }).limit(20),
+    ]);
+    // Migration ainda nao rodou: mostra os padroes, sem permitir salvar.
+    if (error && automacoes?.tabelaAusente(error)) {
+      return res.json({ instalado: false, receitas: listarReceitas([]), historico: [] });
+    }
+    if (error) throw error;
+    res.json({ instalado: true, receitas: listarReceitas(linhas), historico: historico || [] });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.put('/api/automacoes/:receita', authMiddleware, async (req, res) => {
+  const receita = RECEITAS[req.params.receita];
+  if (!receita) return res.status(400).json({ erro: 'Automação inválida' });
+  const { ativo, config } = req.body || {};
+  if (typeof ativo !== 'boolean') return res.status(400).json({ erro: 'Campo "ativo" deve ser true ou false' });
+  // Fase 1: so as horas do SLA sao configuraveis.
+  const cfgLimpa = {};
+  if (config !== undefined) {
+    if (receita.id !== 'sla_corretor' || typeof config !== 'object' || config === null) return res.status(400).json({ erro: 'Configuração inválida' });
+    if (config.horas !== undefined) {
+      if (!Number.isInteger(config.horas) || config.horas < 1 || config.horas > 720) return res.status(400).json({ erro: 'Horas deve ser um inteiro entre 1 e 720' });
+      cfgLimpa.horas = config.horas;
+    }
+  }
+  try {
+    const linha = { usuario_id: req.userId, receita: receita.id, ativo, updated_at: new Date().toISOString() };
+    if (config !== undefined) linha.config = cfgLimpa;
+    const { error } = await db.supabase.from('automacoes').upsert(linha, { onConflict: 'usuario_id,receita' });
+    if (error && automacoes?.tabelaAusente(error)) return res.status(503).json({ erro: 'Automações ainda não foram instaladas no banco.' });
+    if (error) throw error;
+    res.json({ ok: true, receita: receita.id, ativo });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// FLUXOS — automacoes criadas pelo corretor (Fase 2). Worker: services/fluxos.js
+// Pro, Elite, trial valido e admin. Ownership por usuario_id em toda query.
+// ─────────────────────────────────────────────
+const FLX = require('./utils/fluxosRegras');
+const fluxosService = require('./services/fluxos');
+const FLUXO_COLUNAS = 'id, nome, ativo, gatilho, nos, no_inicial, parar_se_responder, created_at, updated_at';
+
+async function podeUsarFluxos(req) {
+  if (req.isAdmin) return true;
+  const { data: u } = await db.supabase.from('usuarios').select('plano, is_admin, trial_expires_at').eq('id', req.userId).maybeSingle();
+  return FLX.planoPermiteFluxos(u);
+}
+
+async function exigeFluxos(req, res, next) {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.status(403).json({ erro: 'Fluxos estão disponíveis nos planos Pro e Elite.', upgrade: true });
+    next();
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao verificar plano' });
+  }
+}
+
+function idFluxo(v) {
+  return /^[1-9]\d{0,15}$/.test(String(v)) ? Number(v) : null;
+}
+
+async function buscarFluxo(req, res) {
+  const id = idFluxo(req.params.id);
+  if (!id) { res.status(400).json({ erro: 'ID inválido' }); return null; }
+  const { data, error } = await db.supabase.from('fluxos').select(FLUXO_COLUNAS).eq('id', id).eq('usuario_id', req.userId).maybeSingle();
+  if (error) throw error;
+  if (!data) { res.status(404).json({ erro: 'Fluxo não encontrado' }); return null; }
+  return data;
+}
+
+function erroFluxos(res, err) {
+  if (automacoes?.tabelaAusente(err)) return res.status(503).json({ erro: 'Fluxos ainda não foram instalados no banco.' });
+  console.error('[fluxos]', err.message);
+  return res.status(500).json({ erro: 'Erro interno' });
+}
+
+const CATALOGO_FLUXOS = {
+  gatilhos: FLX.GATILHOS,
+  acoes: FLX.ACOES,
+  campos: FLX.CAMPOS_CONDICAO,
+  operadores: FLX.OPERADORES,
+  estagios: FLX.ESTAGIOS,
+  temperaturas: FLX.TEMPERATURAS,
+  marcosVisita: FLX.MARCOS_VISITA,
+  limites: FLX.LIMITES,
+};
+
+app.get('/api/fluxos', authMiddleware, async (req, res) => {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.json({ instalado: true, permitido: false, fluxos: [], catalogo: CATALOGO_FLUXOS });
+    const [{ data: lista, error }, { data: ativas, error: errI }] = await Promise.all([
+      db.supabase.from('fluxos').select(FLUXO_COLUNAS).eq('usuario_id', req.userId).order('created_at', { ascending: true }),
+      db.supabase.from('fluxo_inscricoes').select('fluxo_id').eq('usuario_id', req.userId).eq('status', 'ativa').limit(5000),
+    ]);
+    if (error && automacoes?.tabelaAusente(error)) return res.json({ instalado: false, permitido: true, fluxos: [], catalogo: CATALOGO_FLUXOS });
+    if (error) throw error;
+    if (errI) throw errI;
+    const contagem = {};
+    for (const i of ativas || []) contagem[i.fluxo_id] = (contagem[i.fluxo_id] || 0) + 1;
+    res.json({
+      instalado: true,
+      permitido: true,
+      fluxos: (lista || []).map(f => ({ ...f, leads_ativos: contagem[f.id] || 0 })),
+      catalogo: CATALOGO_FLUXOS,
+    });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const v = FLX.validarFluxo(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const { data: existentes, error: errC } = await db.supabase.from('fluxos').select('id').eq('usuario_id', req.userId).limit(FLX.LIMITES.fluxosPorUsuario);
+    if (errC) throw errC;
+    if ((existentes || []).length >= FLX.LIMITES.fluxosPorUsuario) return res.status(400).json({ erro: `Limite de ${FLX.LIMITES.fluxosPorUsuario} fluxos atingido` });
+    const { data, error } = await db.supabase
+      .from('fluxos')
+      .insert({ ...v.fluxo, usuario_id: req.userId, ativo: req.body.ativo === true })
+      .select(FLUXO_COLUNAS)
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.get('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (fluxo) res.json(fluxo);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.put('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const atual = await buscarFluxo(req, res);
+    if (!atual) return;
+    const v = FLX.validarFluxo(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const agora = new Date().toISOString();
+    const { data, error } = await db.supabase
+      .from('fluxos')
+      .update({ ...v.fluxo, ...(typeof req.body.ativo === 'boolean' && { ativo: req.body.ativo }), updated_at: agora })
+      .eq('id', atual.id)
+      .eq('usuario_id', req.userId)
+      .select(FLUXO_COLUNAS)
+      .single();
+    if (error) throw error;
+    // Lead parado num passo que foi removido nao tem como seguir.
+    const ids = Object.keys(v.fluxo.nos);
+    const { data: ativas } = await db.supabase.from('fluxo_inscricoes').select('id, no_atual').eq('fluxo_id', atual.id).eq('status', 'ativa').limit(5000);
+    const orfas = (ativas || []).filter(i => i.no_atual && !ids.includes(i.no_atual)).map(i => i.id);
+    if (orfas.length) {
+      await db.supabase.from('fluxo_inscricoes').update({ status: 'parada', motivo: 'passo removido na edição', atualizado_em: agora }).in('id', orfas);
+    }
+    res.json(data);
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.delete('/api/fluxos/:id', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const { error } = await db.supabase.from('fluxos').delete().eq('id', fluxo.id).eq('usuario_id', req.userId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/:acao(ativar|desativar)', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const ativo = req.params.acao === 'ativar';
+    const agora = new Date().toISOString();
+    const { error } = await db.supabase.from('fluxos').update({ ativo, updated_at: agora }).eq('id', fluxo.id).eq('usuario_id', req.userId);
+    if (error) throw error;
+    if (!ativo) {
+      await db.supabase.from('fluxo_inscricoes').update({ status: 'parada', motivo: 'fluxo desligado', atualizado_em: agora }).eq('fluxo_id', fluxo.id).eq('status', 'ativa');
+    }
+    res.json({ ok: true, ativo });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.get('/api/fluxos/:id/inscricoes', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const { data: insc, error } = await db.supabase
+      .from('fluxo_inscricoes')
+      .select('id, lead_id, no_atual, proximo_em, status, motivo, criado_em, atualizado_em')
+      .eq('fluxo_id', fluxo.id)
+      .eq('usuario_id', req.userId)
+      .order('criado_em', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    const leadIds = [...new Set((insc || []).map(i => i.lead_id))];
+    const { data: leads } = leadIds.length
+      ? await db.supabase.from('leads').select('id, nome, telefone').in('id', leadIds).eq('usuario_id', req.userId)
+      : { data: [] };
+    const porId = new Map((leads || []).map(l => [l.id, l]));
+    res.json((insc || []).map(i => ({ ...i, lead_nome: porId.get(i.lead_id)?.nome || null })));
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/inscrever', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    if (!fluxo.ativo) return res.status(400).json({ erro: 'Ligue o fluxo antes de colocar leads nele' });
+    const leadId = idFluxo(req.body?.lead_id);
+    if (!leadId) return res.status(400).json({ erro: 'Lead inválido' });
+    const { data: lead, error: errL } = await db.supabase.from('leads').select('id').eq('id', leadId).eq('usuario_id', req.userId).maybeSingle();
+    if (errL) throw errL;
+    if (!lead) return res.status(404).json({ erro: 'Lead não encontrado' });
+    const ctx = { sb: db.supabase, agora: new Date(), stats: { fluxos: { inscritos: 0 } } };
+    const ok = await fluxosService.inscrever(ctx, { ...fluxo, usuario_id: req.userId }, leadId, `manual:${Date.now()}`);
+    if (!ok) return res.status(409).json({ erro: 'Este lead já está neste fluxo (ou atingiu o limite de hoje)' });
+    res.status(201).json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+app.post('/api/fluxos/:id/inscricoes/:insc/parar', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const fluxo = await buscarFluxo(req, res);
+    if (!fluxo) return;
+    const inscId = idFluxo(req.params.insc);
+    if (!inscId) return res.status(400).json({ erro: 'ID inválido' });
+    const { data, error } = await db.supabase
+      .from('fluxo_inscricoes')
+      .update({ status: 'parada', motivo: 'parado manualmente', atualizado_em: new Date().toISOString() })
+      .eq('id', inscId)
+      .eq('fluxo_id', fluxo.id)
+      .eq('usuario_id', req.userId)
+      .eq('status', 'ativa')
+      .select('id');
+    if (error) throw error;
+    if (!data?.length) return res.status(404).json({ erro: 'Inscrição ativa não encontrada' });
+    res.json({ ok: true });
+  } catch (err) { erroFluxos(res, err); }
+});
+
+// ─────────────────────────────────────────────
+// ROTEIRO DA LIA — perguntas, tom e passagem ao corretor (Fase 2, entrega 3).
+// Mesmo gate dos fluxos (Pro, Elite, trial valido, admin). Regras: utils/roteiroIA.js
+// ─────────────────────────────────────────────
+const ROT = require('./utils/roteiroIA');
+
+const CATALOGO_ROTEIRO = { campos: ROT.CAMPOS, tons: ROT.TONS, passagens: ROT.PASSAGENS, limites: ROT.LIMITES };
+
+// Usado no atendimento: qualquer falha (coluna ainda nao criada, rede) cai no
+// roteiro padrao em vez de derrubar a resposta da Lia.
+async function carregarRoteiro(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await db.supabase.from('usuarios').select('roteiro_ia').eq('id', userId).maybeSingle();
+    if (error) { console.warn('[roteiro] leitura falhou:', error.message); return null; }
+    return data?.roteiro_ia || null;
+  } catch (err) {
+    console.warn('[roteiro] leitura falhou:', err.message);
+    return null;
+  }
+}
+
+app.get('/api/roteiro-ia', authMiddleware, async (req, res) => {
+  try {
+    if (!(await podeUsarFluxos(req))) return res.json({ instalado: true, permitido: false, roteiro: null, catalogo: CATALOGO_ROTEIRO });
+    const { data, error } = await db.supabase.from('usuarios').select('roteiro_ia').eq('id', req.userId).maybeSingle();
+    if (error && automacoes?.tabelaAusente(error)) return res.json({ instalado: false, permitido: true, roteiro: null, catalogo: CATALOGO_ROTEIRO });
+    if (error) throw error;
+    res.json({ instalado: true, permitido: true, roteiro: data?.roteiro_ia || null, catalogo: CATALOGO_ROTEIRO });
+  } catch (err) {
+    console.error('[roteiro]', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+app.put('/api/roteiro-ia', authMiddleware, exigeFluxos, async (req, res) => {
+  try {
+    const v = ROT.validarRoteiro(req.body);
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+    const { error } = await db.supabase.from('usuarios').update({ roteiro_ia: v.roteiro }).eq('id', req.userId);
+    if (error && automacoes?.tabelaAusente(error)) return res.status(503).json({ erro: 'O roteiro ainda não foi instalado no banco.' });
+    if (error) throw error;
+    res.json({ ok: true, roteiro: v.roteiro });
+  } catch (err) {
+    console.error('[roteiro]', err.message);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// "Testar conversa": o corretor faz o papel do lead e a Lia responde com o
+// roteiro em edicao (ainda nao salvo). Tools reais com os imoveis e horarios do
+// corretor (so leitura); a foto e capturada e devolvida ao painel, nada sai pelo WhatsApp.
+// Sem tools a Lia "fingia" chamar a tool em texto e inventava imoveis dos exemplos.
+const testeRoteiroLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `roteiro:${req.userId}`,
+  message: { erro: 'Muitos testes seguidos. Aguarde alguns minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const CONTEXTO_TESTE = '[MODO TESTE NO PAINEL]\nEsta conversa é uma simulação feita pelo corretor para testar o roteiro. As tools funcionam normalmente com os imóveis reais do corretor: use-as como faria com um lead de verdade.';
+
+// authMiddleware explicito: o app.use('/api/agente', ...) fica mais abaixo no arquivo.
+app.post('/api/agente/testar-roteiro', authMiddleware, exigeFluxos, testeRoteiroLimiter, async (req, res) => {
+  try {
+    if (!gerarResposta) return res.status(503).json({ erro: 'Agente IA não configurado.' });
+    const v = ROT.validarRoteiro(req.body?.roteiro || {});
+    if (!v.ok) return res.status(400).json({ erro: v.erros[0], erros: v.erros });
+
+    const mensagens = req.body?.mensagens;
+    if (!Array.isArray(mensagens) || !mensagens.length || mensagens.length > 20) {
+      return res.status(400).json({ erro: 'A conversa de teste deve ter de 1 a 20 mensagens' });
+    }
+    const historico = [];
+    for (let i = 0; i < mensagens.length; i++) {
+      const m = mensagens[i];
+      const role = i % 2 === 0 ? 'user' : 'assistant';
+      const content = String(m?.content ?? '').trim();
+      if (m?.role !== role || !content || content.length > 600) {
+        return res.status(400).json({ erro: 'Conversa de teste inválida' });
+      }
+      historico.push({ role, content });
+    }
+    if (historico[historico.length - 1].role !== 'user') return res.status(400).json({ erro: 'A última mensagem deve ser do lead' });
+
+    const { data: u } = await db.supabase.from('usuarios').select('nome').eq('id', req.userId).maybeSingle();
+    const nomeCorretor = (u?.nome || '').trim().split(/\s+/)[0] || null;
+
+    let contextoExtra = CONTEXTO_TESTE;
+    try {
+      const slotsLivres = await calcularHorariosLivres(req.userId);
+      if (slotsLivres) {
+        contextoExtra += `\n\n[HORÁRIOS DISPONÍVEIS PARA VISITAS]\nQuando o cliente quiser agendar uma visita, sugira estes horários:\n${slotsLivres}\n\nSempre ofereça 2-3 opções ao cliente. Se nenhum horário servir, diga que vai consultar o corretor.`;
+      }
+    } catch (e) {
+      console.warn('[roteiro] teste sem horarios:', e.message);
+    }
+
+    const fotos = [];
+    const toolHandlers = criarToolHandlers ? criarToolHandlers({
+      userId: req.userId,
+      telefone: 'teste-painel',
+      conversa: { imoveisEnviados: new Set() },
+      db,
+      sendImage: async (_tel, url, legenda) => {
+        fotos.push({ url: /^https:\/\//i.test(String(url)) ? String(url) : null, legenda: String(legenda || '') });
+      },
+    }) : undefined;
+
+    const opcoes = { nomeCorretor, roteiro: v.roteiro, toolHandlers };
+    const resp = await gerarResposta(historico, contextoExtra, opcoes);
+    const guard = await guardFotoAlucinacao({ resposta: resp.texto, toolsExecutadas: resp.toolsExecutadas, historicoAnterior: historico, contextoExtra, opcoes });
+    res.json({ resposta: guard.texto || '', fotos });
+  } catch (err) {
+    console.error('[roteiro] teste falhou:', err.message);
+    res.status(500).json({ erro: 'Não foi possível gerar a resposta agora.' });
+  }
+});
 
 // ─────────────────────────────────────────────
 // LIA — Kill switch (pausar global ou por lead)
@@ -2033,6 +2408,33 @@ app.get('/api/admin/audit', authMiddleware, adminOnly, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// ─────────────────────────────────────────────
+// CRON — automacoes (Supabase pg_cron a cada minuto, ver migrations/automacoes_cron.sql)
+// ─────────────────────────────────────────────
+// Diferente do trial-expiring: CRON_SECRET obrigatorio (chamada vem do Supabase,
+// nao da Vercel — sem fallback por User-Agent). Compare timing-safe.
+function cronSecretAuth(req, res, next) {
+  const expected = Buffer.from((process.env.CRON_SECRET || '').trim());
+  const provided = Buffer.from((req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim());
+  if (!expected.length || expected.length !== provided.length || !crypto.timingSafeEqual(expected, provided)) {
+    return res.status(401).json({ erro: 'Acesso negado' });
+  }
+  next();
+}
+
+app.get('/api/cron/automacoes', cronSecretAuth, async (req, res) => {
+  if (!automacoes) return res.status(503).json({ erro: 'automacoes service indisponivel' });
+  try {
+    const r = await automacoes.rodarCiclo({ db, push: pushService, emails, enviarTemplate, enviarMensagem, evolution });
+    if (r.falhas.length && Sentry) Sentry.captureMessage(`[cron automacoes] ${r.falhas.join(' | ')}`);
+    res.json(r);
+  } catch (err) {
+    console.error('[cron automacoes]', err.message);
+    if (Sentry) Sentry.captureException(err);
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // ─────────────────────────────────────────────
@@ -2582,7 +2984,7 @@ app.post('/webhook', metaAuth, durableWebhook(db.supabase, 'meta', async (req, r
       sendImage: (tel, urlOuB64, caption) => enviarImagem(tel, urlOuB64, caption),
     }) : undefined;
 
-    const opcoesLia = { nomeCorretor, toolHandlers };
+    const opcoesLia = { nomeCorretor, toolHandlers, roteiro: await carregarRoteiro(userIdDestino) };
     const respLia = await gerarResposta(conversa.historico, contextoExtra || undefined, opcoesLia);
     if (respLia.toolsExecutadas?.length) {
       console.log(`[meta] tools acionadas:`, respLia.toolsExecutadas.map(t => `${t.nome}(${JSON.stringify(t.input)})`).join(', '));
@@ -2830,8 +3232,8 @@ app.post('/api/imoveis', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/imoveis/:id', async (req, res) => {
-  try { res.json(await db.atualizarImovel(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/imoveis/:id', updateMiddleware('imovel', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarImovel(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -2901,16 +3303,16 @@ app.post('/api/leads-manual', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/leads-manual/:id', async (req, res) => {
-  try { res.json(await db.atualizarLead(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/leads-manual/:id', updateMiddleware('lead', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarLead(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
 // Atualiza estagio de qualquer lead (por ID)
-app.put('/api/leads/:id/estagio', async (req, res) => {
+app.put('/api/leads/:id/estagio', updateMiddleware('estagio', db.supabase), async (req, res) => {
   const { estagio } = req.body;
   if (!estagio) return res.status(400).json({ erro: 'Estagio obrigatorio' });
-  try { res.json(await db.atualizarLead(parseInt(req.params.id), { estagio }, req.userId)); }
+  try { res.json(await db.atualizarLead(req.recordId, { estagio }, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -2949,8 +3351,8 @@ app.post('/api/visitas', async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
-app.put('/api/visitas/:id', async (req, res) => {
-  try { res.json(await db.atualizarVisita(parseInt(req.params.id), req.body, req.userId)); }
+app.put('/api/visitas/:id', updateMiddleware('visita', db.supabase), async (req, res) => {
+  try { res.json(await db.atualizarVisita(req.recordId, req.body, req.userId)); }
   catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
@@ -3212,6 +3614,7 @@ app.get('/health', async (req, res) => {
     resend: process.env.RESEND_API_KEY ? 'configured' : 'not_configured',
     whatsapp: process.env.WHATSAPP_PHONE_ID ? 'configured' : 'not_configured',
     claude: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not_configured',
+    claude_model: claudeModel || 'unknown',
     google: process.env.GOOGLE_CLIENT_ID ? 'configured' : 'not_configured',
     sentry: Sentry ? 'initialized' : (process.env.SENTRY_DSN ? 'env_set_but_not_init' : 'not_configured'),
   };

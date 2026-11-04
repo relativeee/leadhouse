@@ -16,51 +16,28 @@
  * @param {Function} deps.sendImage - async (telefone, urlOuBase64, caption) => any
  * @returns {Object} { imoveis, enviando_arquivos }
  */
+const { buscarImoveis } = require('../utils/imoveisBusca');
+
 function criarToolHandlers({ userId, telefone, conversa, db, sendImage }) {
   // Cache local pra um id_imovel virar imovel completo sem refazer query (dedup).
   const imovelCache = new Map();
 
+  // Filtro em JS (utils/imoveisBusca.js): valor/quartos sao TEXT no banco e
+  // comparar no Postgres era lexicografico ("2500000" <= "700000").
   async function imoveisHandler(input = {}) {
-    const { bairro, tipo, quartos_min, valor_max, valor_min, nome } = input;
-
-    let query = db.supabase
+    const { data, error } = await db.supabase
       .from('imoveis')
       .select('*')
       .eq('usuario_id', userId)
-      .eq('status', 'disponivel');
-
-    if (bairro) query = query.ilike('bairro', `%${bairro}%`);
-    if (tipo) query = query.ilike('tipo', `%${tipo}%`);
-    if (nome) query = query.ilike('titulo', `%${nome}%`);
-    if (typeof quartos_min === 'number') query = query.gte('quartos', quartos_min);
-    if (typeof valor_max === 'number') query = query.lte('valor', valor_max);
-    if (typeof valor_min === 'number') query = query.gte('valor', valor_min);
-
-    query = query.limit(10);
-
-    const { data, error } = await query;
+      .eq('status', 'disponivel')
+      .limit(500);
     if (error) {
       console.error('[liaTools.imoveis] erro:', error.message);
       return { erro: 'Falha ao consultar imoveis', filtros: input };
     }
 
-    // Salva no cache + formato compacto pra Lia
-    const lista = (data || []).map(im => {
-      imovelCache.set(im.id, im);
-      return {
-        id: im.id,
-        titulo: im.titulo,
-        bairro: im.bairro || null,
-        tipo: im.tipo || null,
-        valor: im.valor || null,
-        quartos: im.quartos || null,
-        vagas: im.vagas || null,
-        area: im.area || null,
-        tem_foto: !!im.foto_url,
-      };
-    });
-
-    return { total: lista.length, imoveis: lista, filtros_aplicados: input };
+    for (const im of data || []) imovelCache.set(im.id, im);
+    return buscarImoveis(data || [], input);
   }
 
   async function enviandoArquivosHandler(input = {}) {

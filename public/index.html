@@ -94,6 +94,10 @@
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             Funil de Vendas
         </button>
+        <button class="sidebar__item" onclick="trocarAba('automacoes', this)">
+            <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Automações
+        </button>
         <button class="sidebar__item sidebar__item--ai" onclick="trocarAba('agente', this)">
             <svg class="sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Agente IA
@@ -881,6 +885,40 @@
 </main>
 
 <!-- ============================================
+     ABA: AUTOMACOES
+     ============================================ -->
+<main class="dashboard" id="aba-automacoes" style="display:none;">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header__title">Automações</h1>
+            <p class="page-header__sub">Ações que o LeadHouse faz sozinho quando algo acontece com seus leads</p>
+        </div>
+    </header>
+
+    <div id="automacoesAviso"></div>
+
+    <section class="conta-section">
+        <div class="conta-section__head">
+            <div class="conta-section__title">Meus fluxos</div>
+            <button class="btn btn--primary" id="btnNovoFluxo" style="display:none" onclick="novoFluxo()">+ Novo fluxo</button>
+        </div>
+        <div id="fluxosLista"></div>
+    </section>
+
+    <section class="conta-section">
+        <div class="conta-section__title">Automações prontas</div>
+        <div id="automacoesLista"></div>
+    </section>
+
+    <section class="conta-section">
+        <div class="conta-section__title">Últimas execuções</div>
+        <div id="automacoesHistorico"></div>
+    </section>
+
+</main>
+
+<!-- ============================================
      ABA: FUNIL DE VENDAS
      ============================================ -->
 <main class="dashboard" id="aba-funil" style="display:none;">
@@ -1081,6 +1119,11 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="10" r="1.2" fill="currentColor"/><circle cx="15.5" cy="10" r="1.2" fill="currentColor"/><path d="M8 15c1 1.2 2.4 2 4 2s3-.8 4-2"/></svg>
             <h3>Lia (Assistente)</h3>
             <p>Pausar/retomar atendimento automático</p>
+        </div>
+        <div class="config-card" onclick="abrirConfig('roteiro')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            <h3>Roteiro da Lia</h3>
+            <p>Perguntas, tom e quando passar pra você</p>
         </div>
         <div class="config-card" onclick="abrirConfig('plano')">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -1328,6 +1371,64 @@
             </div>
         </div>
 
+        <!-- SUB: Roteiro da Lia -->
+        <div class="config-sub" id="configRoteiro" style="display:none">
+            <div class="conta-section__title">Roteiro da Lia</div>
+            <p class="rot-intro">Defina o que a Lia pergunta, em que tom ela conversa e quando ela passa o lead pra você. Sem roteiro, a Lia usa o atendimento padrão.</p>
+            <div id="rotAviso" class="rot-aviso" style="display:none"></div>
+
+            <div id="rotForm" style="display:none">
+                <div class="rot-bloco">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Perguntas de qualificação</h3>
+                        <span class="rot-bloco__hint" id="rotPergContador"></span>
+                    </div>
+                    <p class="rot-bloco__desc">A Lia pula o que o lead já respondeu e adapta as palavras à conversa.</p>
+                    <div id="rotPerguntas" class="rot-perguntas"></div>
+                    <button type="button" class="btn btn--outline rot-add" id="rotAddPergunta" onclick="rotAddPergunta()">+ Adicionar pergunta</button>
+                    <label class="rot-check"><input type="checkbox" id="rotOrdemLivre"> A Lia pode perguntar em qualquer ordem</label>
+                </div>
+
+                <div class="rot-bloco">
+                    <h3 class="rot-bloco__title">Tom da conversa</h3>
+                    <div id="rotTons" class="rot-opcoes"></div>
+                </div>
+
+                <div class="rot-bloco">
+                    <h3 class="rot-bloco__title">Passar a conversa pra você</h3>
+                    <p class="rot-bloco__desc">Nesses momentos a Lia avisa o lead que você vai continuar o atendimento.</p>
+                    <div id="rotPassagens" class="rot-opcoes"></div>
+                </div>
+
+                <div class="rot-bloco">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Outras instruções</h3>
+                        <span class="rot-bloco__hint" id="rotExtrasContador"></span>
+                    </div>
+                    <p class="rot-bloco__desc">Ex.: "sempre mencione que trabalho com lançamentos na planta". As regras de segurança da Lia continuam valendo.</p>
+                    <textarea id="rotExtras" class="form-input form-textarea rot-extras" rows="4" oninput="rotContarExtras()"></textarea>
+                </div>
+
+                <div class="rot-acoes">
+                    <button type="button" class="btn btn--primary" id="rotSalvar" onclick="rotSalvar()">Salvar roteiro</button>
+                    <button type="button" class="btn btn--outline" onclick="rotRestaurar()">Voltar ao padrão</button>
+                </div>
+
+                <div class="rot-bloco rot-teste">
+                    <div class="rot-bloco__head">
+                        <h3 class="rot-bloco__title">Testar conversa</h3>
+                        <button type="button" class="rot-link" onclick="rotTesteReiniciar()">Reiniciar</button>
+                    </div>
+                    <p class="rot-bloco__desc">Você faz o papel do lead. A Lia responde com o roteiro acima, mesmo sem salvar. Nada é enviado pelo WhatsApp.</p>
+                    <div id="rotChat" class="rot-chat"></div>
+                    <form class="rot-chat__form" onsubmit="rotTesteEnviar(event)">
+                        <input type="text" id="rotChatInput" class="form-input" maxlength="600" placeholder="Escreva como se fosse o lead..." autocomplete="off">
+                        <button type="submit" class="btn btn--primary" id="rotChatEnviar">Enviar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- SUB: Meus Dados (LGPD) -->
         <div class="config-sub" id="configDados" style="display:none">
             <div class="conta-section__title">Meus Dados</div>
@@ -1456,6 +1557,21 @@
     </div>
 </div>
 
+<!-- ── Modal editor de fluxo ── -->
+<div class="modal-overlay" id="fluxoModalOverlay" onclick="if(event.target===this)fecharFluxoEditor()">
+    <div class="modal modal--lg" onclick="event.stopPropagation()">
+        <div class="modal__header">
+            <div class="modal__title" id="fluxoModalTitle">Novo fluxo</div>
+            <button class="modal__close" onclick="fecharFluxoEditor()" aria-label="Fechar">&times;</button>
+        </div>
+        <div id="fluxoModalContent"></div>
+        <div class="modal__footer" id="fluxoModalFooter">
+            <button class="btn btn--primary" id="fluxoSalvarBtn" onclick="salvarFluxo()">Salvar fluxo</button>
+            <button class="btn btn--ghost" onclick="fecharFluxoEditor()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Modal QR Code WhatsApp ── -->
 <div class="modal-overlay" id="qrModalOverlay" onclick="if(event.target===this)fecharQRModal()" style="display:none">
   <div class="modal" style="max-width:420px">
@@ -1526,6 +1642,7 @@
 </div><!-- /main-content -->
 </div><!-- /layout -->
 
+<script src="/fluxosGrafo.js"></script>
 <script>
 // ═══════════════════════════════════════════════
 // ESTADO GLOBAL
@@ -1558,9 +1675,850 @@ function trocarAba(aba, btn) {
     if (aba === 'comunicacoes') carregarComunicacoes();
     if (aba === 'agenda') carregarAgenda();
     if (aba === 'funil') carregarFunil();
+    if (aba === 'automacoes') carregarAutomacoes();
     if (aba === 'admin') carregarAdmin();
     if (aba === 'agente') carregarAIStats();
     if (aba === 'conta') carregarConta();
+}
+
+// ═══════════════════════════════════════════════
+// AUTOMACOES
+// ═══════════════════════════════════════════════
+const AUTOMACAO_STATUS = { ok: 'Executada', pulado: 'Pulada', erro: 'Erro', executando: 'Executando' };
+
+async function carregarAutomacoes() {
+    const lista = document.getElementById('automacoesLista');
+    const aviso = document.getElementById('automacoesAviso');
+    const fluxosPronto = carregarFluxos();
+    try {
+        const res = await fetch('/api/automacoes', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        const { instalado, receitas, historico } = await res.json();
+
+        aviso.innerHTML = instalado ? '' : `<div class="lia-card"><div class="lia-card__desc">As automações estão sendo ativadas na sua conta. Os botões ficam disponíveis em breve.</div></div>`;
+
+        lista.innerHTML = receitas.map(r => `
+            <div class="lia-card">
+                <div class="lia-card__row">
+                    <div class="lia-card__info">
+                        <div class="lia-card__title">${esc(r.nome)}</div>
+                        <div class="lia-card__desc">${esc(r.descricao)}</div>
+                        ${r.enviaParaLead ? `<div class="lia-card__desc" style="margin-top:0.5rem;color:var(--gold-light)">Envia mensagem ao cliente pelo WhatsApp oficial do LeadHouse.</div>` : ''}
+                    </div>
+                    <button class="lia-toggle${r.ativo ? ' lia-toggle--on' : ''}" ${instalado ? '' : 'disabled'}
+                        onclick="toggleAutomacao('${r.id}', this)" aria-label="Ligar/desligar ${esc(r.nome)}" aria-pressed="${r.ativo}">
+                        <span class="lia-toggle__dot"></span>
+                    </button>
+                </div>
+            </div>`).join('');
+
+        const nomes = Object.fromEntries(receitas.map(r => [r.id, r.nome]));
+        await fluxosPronto;
+        for (const f of fluxosEstado.fluxos) nomes['fluxo:' + f.id] = 'Fluxo: ' + f.nome;
+        document.getElementById('automacoesHistorico').innerHTML = historico.length
+            ? historico.map(h => `
+                <div class="lia-card__row" style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <div class="lia-card__info">
+                        <div class="lia-card__desc"><strong>${esc(nomes[h.receita] || h.receita)}</strong>${h.detalhe ? ' · ' + esc(h.detalhe) : ''}</div>
+                        <div class="lia-card__desc" style="font-size:0.72rem">${new Date(h.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' })}</div>
+                    </div>
+                    <span class="badge">${esc(AUTOMACAO_STATUS[h.status] || h.status)}</span>
+                </div>`).join('')
+            : `<div class="lia-card__desc">Nenhuma automação executada ainda.</div>`;
+    } catch {
+        lista.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Não foi possível carregar as automações. Tente novamente.</div></div>`;
+    }
+}
+
+async function toggleAutomacao(id, btn) {
+    const ativo = !btn.classList.contains('lia-toggle--on');
+    btn.classList.toggle('lia-toggle--on', ativo);
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/automacoes/' + encodeURIComponent(id), {
+            method: 'PUT',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ativo }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        btn.setAttribute('aria-pressed', ativo);
+        toast(ativo ? 'Automação ligada' : 'Automação desligada', 'sucesso');
+    } catch (e) {
+        btn.classList.toggle('lia-toggle--on', !ativo);
+        toast(e.message || 'Erro ao salvar', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ═══════════════════════════════════════════════
+// FLUXOS (Automações Fase 2) — lista + editor em formulário
+// O backend guarda um grafo (nos + no_inicial); aqui o editor trabalha com
+// uma lista linear de passos e converte na hora de salvar.
+// ═══════════════════════════════════════════════
+let fluxosEstado = { instalado: true, permitido: false, fluxos: [], catalogo: null };
+let fluxoEd = null; // fluxo em edição: { id, nome, ativo, gatilho, passos: [], parar_se_responder }
+
+const FLUXO_OPERADORES = { igual: 'é igual a', diferente: 'é diferente de', contem: 'contém', vazio: 'está vazio', nao_vazio: 'está preenchido' };
+const FLUXO_CAMPOS = { temperatura: 'Temperatura', estagio: 'Estágio', bairro: 'Bairro', faixa_valor: 'Faixa de valor', objetivo: 'Objetivo', tipo_imovel: 'Tipo de imóvel', origem: 'Origem', pagamento: 'Pagamento', prazo: 'Prazo' };
+const FLUXO_MARCOS = { '24h': '24h antes da visita', '2h': '2h antes da visita', pos: 'No dia seguinte à visita' };
+const FLUXO_UNIDADES = { minutos: 1, horas: 60, dias: 1440 };
+const FLUXO_STATUS = { ativa: 'Em andamento', concluida: 'Concluído', parada: 'Parado', erro: 'Erro' };
+const capitalizar = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+const FLUXO_MODELOS = [
+    {
+        nome: 'Follow-up de lead sem resposta',
+        descricao: 'Lead parado 24h em Atendimento recebe 2 mensagens (dia 0 e dia 2). Sem resposta em 5 dias, vira frio e você é avisado.',
+        gatilho: { tipo: 'lead_parado', estagio: 'atendimento', horas: 24 },
+        passos: [
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Tudo bem? Ainda está procurando imóvel? Posso te mandar algumas opções novas 😊' },
+            { tipo: 'esperar', minutos: 2 * 1440 },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}, separei umas opções que combinam com o que você procura. Quer que eu te mande?' },
+            { tipo: 'esperar', minutos: 3 * 1440 },
+            { tipo: 'acao', acao: 'mudar_temperatura', para: 'frio' },
+            { tipo: 'acao', acao: 'push', titulo: 'Lead sem resposta: {nome}', texto: '5 dias sem responder ao follow-up. Marquei como frio.' },
+        ],
+    },
+    {
+        nome: 'Boas-vindas a lead cadastrado à mão',
+        descricao: 'Quando você cadastra um lead manualmente, ele recebe uma mensagem de apresentação.',
+        gatilho: { tipo: 'lead_criado' },
+        passos: [
+            { tipo: 'condicao', campo: 'origem', op: 'igual', valor: 'manual' },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Aqui é {corretor}, corretor(a) de imóveis. Peguei seu contato e vou te ajudar a encontrar o imóvel ideal. O que você está procurando?' },
+        ],
+    },
+    {
+        nome: 'Reativar lead frio',
+        descricao: 'Lead que esfriou recebe uma mensagem 7 dias depois, se continuar frio.',
+        gatilho: { tipo: 'temperatura_mudou', para: 'frio' },
+        passos: [
+            { tipo: 'esperar', minutos: 7 * 1440 },
+            { tipo: 'condicao', campo: 'temperatura', op: 'igual', valor: 'frio' },
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}, tudo bem? Entraram imóveis novos que podem te interessar. Quer dar uma olhada?' },
+        ],
+    },
+    {
+        nome: 'Confirmar visita',
+        descricao: '24h antes da visita, pede confirmação ao cliente e te avisa.',
+        gatilho: { tipo: 'visita', marco: '24h' },
+        passos: [
+            { tipo: 'acao', acao: 'whatsapp', texto: 'Oi {primeiro_nome}! Passando para confirmar nossa visita amanhã. Está tudo certo?' },
+            { tipo: 'acao', acao: 'push', titulo: 'Visita amanhã: {nome}', texto: 'Pedi confirmação ao cliente.' },
+        ],
+    },
+];
+
+async function carregarFluxos() {
+    const box = document.getElementById('fluxosLista');
+    const btnNovo = document.getElementById('btnNovoFluxo');
+    try {
+        const res = await fetch('/api/fluxos', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        fluxosEstado = await res.json();
+    } catch {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Não foi possível carregar seus fluxos. Tente novamente.</div></div>`;
+        return;
+    }
+    const { instalado, permitido, fluxos } = fluxosEstado;
+    btnNovo.style.display = permitido && instalado ? '' : 'none';
+    if (!permitido) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__row">
+            <div class="lia-card__info">
+                <div class="lia-card__title">Crie seus próprios fluxos</div>
+                <div class="lia-card__desc">Monte sequências de follow-up, regras "quando → se → faça" e mensagens automáticas no WhatsApp. Disponível nos planos Pro e Elite.</div>
+            </div>
+            <button class="btn btn--primary" onclick="document.querySelector('.sidebar__item[onclick*=conta]')?.click()">Ver planos</button>
+        </div></div>`;
+        return;
+    }
+    if (!instalado) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Os fluxos estão sendo ativados na sua conta. Volte em instantes.</div></div>`;
+        return;
+    }
+    if (!fluxos.length) {
+        box.innerHTML = `<div class="lia-card"><div class="lia-card__desc">Você ainda não criou nenhum fluxo. Clique em <strong>+ Novo fluxo</strong> para começar por um modelo pronto.</div></div>`;
+        return;
+    }
+    box.innerHTML = fluxos.map(f => `
+        <div class="lia-card">
+            <div class="lia-card__row">
+                <div class="lia-card__info">
+                    <div class="lia-card__title">${esc(f.nome)}</div>
+                    <div class="lia-card__desc">${esc(descreverGatilho(f.gatilho))} · ${Object.keys(f.nos || {}).length} passo(s) · ${f.leads_ativos} lead(s) no fluxo</div>
+                    <div class="fluxo-card__acoes">
+                        <button class="btn btn--ghost-sm" onclick="editarFluxo(${f.id})">Editar</button>
+                        <button class="btn btn--ghost-sm" onclick="duplicarFluxo(${f.id})">Duplicar</button>
+                        <button class="btn btn--ghost-sm" onclick="excluirFluxo(${f.id})">Excluir</button>
+                    </div>
+                </div>
+                <button class="lia-toggle${f.ativo ? ' lia-toggle--on' : ''}" onclick="toggleFluxo(${f.id}, this)"
+                    aria-label="Ligar/desligar ${esc(f.nome)}" aria-pressed="${f.ativo}">
+                    <span class="lia-toggle__dot"></span>
+                </button>
+            </div>
+        </div>`).join('');
+}
+
+function descreverGatilho(g) {
+    if (!g) return '';
+    switch (g.tipo) {
+        case 'lead_criado': return 'Quando um lead novo chega';
+        case 'lead_respondeu': return 'Quando o lead manda mensagem';
+        case 'estagio_mudou': return g.para ? `Quando o lead vai para "${capitalizar(g.para)}"` : 'Quando o lead muda de estágio';
+        case 'temperatura_mudou': return g.para ? `Quando o lead fica ${g.para}` : 'Quando a temperatura muda';
+        case 'lead_parado': return `Lead parado ${g.horas}h em "${capitalizar(g.estagio)}"`;
+        case 'visita': return FLUXO_MARCOS[g.marco] || 'Visita';
+        case 'manual': return 'Manual (você coloca o lead)';
+        default: return g.tipo;
+    }
+}
+
+async function toggleFluxo(id, btn) {
+    const ativo = !btn.classList.contains('lia-toggle--on');
+    if (!ativo && !confirm('Desligar este fluxo? Os leads que estão nele param onde estão.')) return;
+    btn.classList.toggle('lia-toggle--on', ativo);
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/fluxos/${id}/${ativo ? 'ativar' : 'desativar'}`, { method: 'POST', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        btn.setAttribute('aria-pressed', ativo);
+        toast(ativo ? 'Fluxo ligado' : 'Fluxo desligado', 'sucesso');
+        const f = fluxosEstado.fluxos.find(x => x.id === id);
+        if (f) f.ativo = ativo;
+    } catch (e) {
+        btn.classList.toggle('lia-toggle--on', !ativo);
+        toast(e.message || 'Erro ao salvar', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function excluirFluxo(id) {
+    const f = fluxosEstado.fluxos.find(x => x.id === id);
+    if (!f || !confirm(`Excluir o fluxo "${f.nome}"? Isso não pode ser desfeito.`)) return;
+    try {
+        const res = await fetch('/api/fluxos/' + id, { method: 'DELETE', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        toast('Fluxo excluído', 'sucesso');
+        carregarFluxos();
+    } catch (e) {
+        toast(e.message || 'Erro ao excluir', 'erro');
+    }
+}
+
+// ── Conversão grafo <-> lista linear ──
+function grafoParaPassos(fluxo) {
+    const passos = [];
+    let id = fluxo.no_inicial;
+    const vistos = new Set();
+    while (id && fluxo.nos[id] && !vistos.has(id)) {
+        vistos.add(id);
+        const no = fluxo.nos[id];
+        if (no.tipo === 'condicao' && no.nao) return null; // tem ramificação: o formulário não representa
+        const { sim, nao, proximo, pos, ...resto } = no;
+        passos.push(resto);
+        id = no.tipo === 'condicao' ? no.sim : no.proximo;
+    }
+    return vistos.size === Object.keys(fluxo.nos).length ? passos : null;
+}
+
+function passosParaGrafo(passos) {
+    const nos = {};
+    passos.forEach((p, i) => {
+        const prox = i + 1 < passos.length ? 'p' + (i + 2) : null;
+        nos['p' + (i + 1)] = p.tipo === 'condicao' ? { ...p, sim: prox, nao: null } : { ...p, proximo: prox };
+    });
+    return { nos, no_inicial: 'p1' };
+}
+
+// ── Abrir editor ──
+// Dois modos sobre o mesmo fluxo: 'form' (lista de passos) e 'visual' (cartões
+// ligados no canvas, tela cheia). Fluxo com ramificação só abre no visual.
+const telaGrandeFluxo = () => window.matchMedia('(min-width: 900px)').matches;
+let canvasEd = null; // modo visual: { editor, cards, df: { cardId -> dfId }, sel }
+
+function novoFluxo() {
+    document.getElementById('fluxoModalTitle').textContent = 'Novo fluxo';
+    document.getElementById('fluxoModalFooter').style.display = 'none';
+    document.getElementById('fluxoModalContent').innerHTML = `
+        <div class="lia-card__desc" style="margin-bottom:1rem">Comece por um modelo e ajuste do seu jeito:</div>
+        ${FLUXO_MODELOS.map((m, i) => `
+            <button class="fluxo-modelo" onclick="abrirEditorFluxo(null, ${i})">
+                <div class="lia-card__title">${esc(m.nome)}</div>
+                <div class="lia-card__desc">${esc(m.descricao)}</div>
+            </button>`).join('')}
+        <button class="fluxo-modelo" onclick="abrirEditorFluxo(null, -1)">
+            <div class="lia-card__title">Em branco</div>
+            <div class="lia-card__desc">Monte o fluxo do zero.</div>
+        </button>`;
+    document.getElementById('fluxoModalOverlay').classList.add('modal-overlay--open');
+}
+
+function editarFluxo(id) {
+    abrirEditorFluxo(fluxosEstado.fluxos.find(x => x.id === id), null);
+}
+
+function duplicarFluxo(id) {
+    const f = fluxosEstado.fluxos.find(x => x.id === id);
+    if (!f) return;
+    abrirEditorFluxo({ ...f, id: null, nome: (f.nome + ' (cópia)').slice(0, 80), ativo: false }, null);
+}
+
+function abrirEditorFluxo(fluxo, modeloIdx) {
+    if (fluxo) {
+        const passos = grafoParaPassos(fluxo);
+        fluxoEd = {
+            id: fluxo.id, nome: fluxo.nome, ativo: fluxo.ativo, gatilho: { ...fluxo.gatilho },
+            passos, grafo: passos ? null : { nos: fluxo.nos, no_inicial: fluxo.no_inicial },
+            parar_se_responder: fluxo.parar_se_responder, modo: 'form',
+        };
+    } else {
+        const m = FLUXO_MODELOS[modeloIdx];
+        fluxoEd = m
+            ? { id: null, nome: m.nome, ativo: false, gatilho: { ...m.gatilho }, passos: JSON.parse(JSON.stringify(m.passos)), parar_se_responder: true, modo: 'form' }
+            : { id: null, nome: '', ativo: false, gatilho: { tipo: 'lead_criado' }, passos: [{ tipo: 'acao', acao: 'push', titulo: '', texto: '' }], parar_se_responder: true, modo: 'form' };
+    }
+    document.getElementById('fluxoModalTitle').textContent = fluxoEd.id ? 'Editar fluxo' : 'Novo fluxo';
+    document.getElementById('fluxoModalFooter').style.display = '';
+    document.getElementById('fluxoModalContent').innerHTML = '<div id="fluxoEdTopo"></div><div id="fluxoEdCorpo"></div><div id="fluxoEdRodape"></div>';
+    document.getElementById('fluxoModalOverlay').classList.add('modal-overlay--open');
+    renderRodapeFluxo();
+    // Ramificado: no computador abre direto no visual; no celular, só leitura
+    if (!fluxoEd.passos && telaGrandeFluxo()) entrarModoVisual();
+    else renderEditorFluxo();
+}
+
+function fecharFluxoEditor() {
+    sairDoCanvas();
+    document.getElementById('fluxoModalOverlay').classList.remove('modal-overlay--open');
+    fluxoEd = null;
+}
+
+// ── Conteúdo ──
+function opcoes(mapa, atual) {
+    return Object.entries(mapa).map(([v, l]) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(l)}</option>`).join('');
+}
+const opcoesLista = (lista, atual, rotulo = capitalizar) => opcoes(Object.fromEntries(lista.map(v => [v, rotulo(v)])), atual);
+
+function renderEditorFluxo() {
+    if (!fluxoEd) return;
+    renderTopoFluxo();
+    if (fluxoEd.modo === 'visual') {
+        atualizarRotulosCanvas();
+        renderPainelCanvas();
+        return;
+    }
+    const corpo = document.getElementById('fluxoEdCorpo');
+    if (!fluxoEd.passos) {
+        corpo.innerHTML = `<div class="fluxo-bloco"><div class="lia-card__desc">Este fluxo tem ramificações (caminhos de sim/não). Para editar, abra no computador.</div>
+            ${descreverGrafoHtml(fluxoEd.grafo)}</div>`;
+        return;
+    }
+    corpo.innerHTML = `
+        ${fluxoEd.passos.map((p, i) => renderPassoFluxo(p, i)).join('')}
+        <div class="fluxo-add">
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('acao')">+ Ação</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('esperar')">+ Esperar</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoFluxo('condicao')">+ Condição</button>
+        </div>`;
+}
+
+function renderTopoFluxo() {
+    const cat = fluxosEstado.catalogo;
+    const g = fluxoEd.gatilho;
+    const gatilhos = Object.fromEntries(Object.entries(cat.gatilhos).map(([k, v]) => [k, v.nome]));
+    let extra = '';
+    if (g.tipo === 'estagio_mudou') extra = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null;aoMudarPassoFluxo()"><option value="">Qualquer estágio</option>${opcoesLista(cat.estagios, g.para)}</select>`;
+    if (g.tipo === 'temperatura_mudou') extra = `<select class="form-input" onchange="fluxoEd.gatilho.para=this.value||null;aoMudarPassoFluxo()"><option value="">Qualquer temperatura</option>${opcoesLista(cat.temperaturas, g.para)}</select>`;
+    if (g.tipo === 'lead_parado') extra = `
+        <select class="form-input" onchange="fluxoEd.gatilho.estagio=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.estagios, g.estagio)}</select>
+        <label class="fluxo-inline">por mais de <input type="number" min="1" max="720" class="form-input fluxo-num" value="${g.horas || 24}" onchange="fluxoEd.gatilho.horas=parseInt(this.value,10);aoMudarPassoFluxo()"> horas</label>`;
+    if (g.tipo === 'visita') extra = `<select class="form-input" onchange="fluxoEd.gatilho.marco=this.value;aoMudarPassoFluxo()">${opcoes(FLUXO_MARCOS, g.marco)}</select>`;
+
+    const visual = fluxoEd.modo === 'visual';
+    const podeVisual = telaGrandeFluxo();
+    document.getElementById('fluxoEdTopo').innerHTML = `
+        <div class="${visual ? 'fx-topo' : ''}">
+            <div class="modal-edit__group">
+                <label class="modal-edit__label" for="fluxoNome">Nome do fluxo</label>
+                <input id="fluxoNome" class="form-input" maxlength="80" value="${esc(fluxoEd.nome)}" oninput="fluxoEd.nome=this.value" placeholder="Ex.: Follow-up de lead novo">
+            </div>
+            <div class="fluxo-bloco${visual ? ' fx-topo__gatilho' : ''}">
+                <div class="fluxo-bloco__rotulo">Quando</div>
+                <select class="form-input" onchange="trocarGatilhoFluxo(this.value)">${opcoes(gatilhos, g.tipo)}</select>
+                ${extra}
+            </div>
+            <div class="fx-topo__opcoes">
+                <label class="fluxo-inline"><input type="checkbox" ${fluxoEd.parar_se_responder ? 'checked' : ''} onchange="fluxoEd.parar_se_responder=this.checked"> Parar quando o lead responder</label>
+                <label class="fluxo-inline"><input type="checkbox" ${fluxoEd.ativo ? 'checked' : ''} onchange="fluxoEd.ativo=this.checked"> Fluxo ligado</label>
+                ${podeVisual ? `<div class="fx-modo" role="group" aria-label="Modo do editor">
+                    <button class="fx-modo__btn${visual ? '' : ' fx-modo__btn--on'}" onclick="entrarModoFormulario()" ${fluxoEd.passos === null && !visual ? 'disabled' : ''}>Formulário</button>
+                    <button class="fx-modo__btn${visual ? ' fx-modo__btn--on' : ''}" onclick="entrarModoVisual()">Visual</button>
+                </div>` : ''}
+            </div>
+        </div>`;
+}
+
+function renderRodapeFluxo() {
+    document.getElementById('fluxoEdRodape').innerHTML = `
+        <div class="lia-card__desc" style="margin-top:0.75rem;font-size:0.75rem">
+            Variáveis nas mensagens: {nome}, {primeiro_nome}, {bairro}, {tipo_imovel}, {faixa_valor}, {objetivo}, {corretor}.<br>
+            WhatsApp automático: no máximo 2 por lead por dia, só no seu horário de trabalho. Pelo seu WhatsApp conectado; sem ele, só dentro de 24h da última mensagem do lead.
+        </div>
+        ${fluxoEd.id ? `<div class="conta-section__title" style="margin-top:1.5rem">Leads neste fluxo</div><div id="fluxoInscricoes"><div class="lia-card__desc">Carregando...</div></div>` : ''}`;
+    if (fluxoEd.id) carregarInscricoesFluxo(fluxoEd.id);
+}
+
+// Campos de um passo, usados no formulário e no painel do visual.
+// alvo: expressão JS que aponta para o objeto do passo (ex.: "fluxoEd.passos[2]").
+function camposPasso(p, alvo, notaCondicao) {
+    const cat = fluxosEstado.catalogo;
+    const set = campo => `${alvo}.${campo}`;
+    if (p.tipo === 'condicao') {
+        const semValor = p.op === 'vazio' || p.op === 'nao_vazio';
+        return `
+            <select class="form-input" onchange="${set('campo')}=this.value;aoMudarPassoFluxo()">${opcoes(FLUXO_CAMPOS, p.campo)}</select>
+            <select class="form-input" onchange="${set('op')}=this.value;renderEditorFluxo()">${opcoes(FLUXO_OPERADORES, p.op)}</select>
+            ${semValor ? '' : `<input class="form-input" maxlength="200" value="${esc(p.valor || '')}" oninput="${set('valor')}=this.value;aoMudarPassoFluxo()" placeholder="valor">`}
+            <div class="lia-card__desc" style="font-size:0.75rem">${notaCondicao}</div>`;
+    }
+    if (p.tipo === 'esperar') {
+        const unidade = p.minutos % 1440 === 0 ? 'dias' : p.minutos % 60 === 0 ? 'horas' : 'minutos';
+        return `<label class="fluxo-inline">
+            <input type="number" min="1" class="form-input fluxo-num" value="${p.minutos / FLUXO_UNIDADES[unidade]}" onchange="mudarEsperaNo(${alvo}, this.value, this.nextElementSibling.value)">
+            <select class="form-input" onchange="mudarEsperaNo(${alvo}, this.previousElementSibling.value, this.value)">${opcoes({ minutos: 'minutos', horas: 'horas', dias: 'dias' }, unidade)}</select>
+        </label>`;
+    }
+    const acoes = Object.fromEntries(Object.entries(cat.acoes).map(([k, v]) => [k, v.nome]));
+    let campos = '';
+    if (p.acao === 'push' || p.acao === 'email') campos = `
+        <input class="form-input" maxlength="120" value="${esc(p.titulo || '')}" oninput="${set('titulo')}=this.value;aoMudarPassoFluxo()" placeholder="${p.acao === 'email' ? 'Assunto' : 'Título'} (opcional)">
+        <textarea class="form-input" rows="2" maxlength="1000" oninput="${set('texto')}=this.value;aoMudarPassoFluxo()" placeholder="Mensagem para você">${esc(p.texto || '')}</textarea>`;
+    if (p.acao === 'whatsapp') campos = `
+        <textarea class="form-input" rows="3" maxlength="1000" oninput="${set('texto')}=this.value;aoMudarPassoFluxo()" placeholder="Mensagem para o lead">${esc(p.texto || '')}</textarea>`;
+    if (p.acao === 'whatsapp_template') campos = `
+        <input class="form-input" maxlength="512" value="${esc(p.template || '')}" oninput="${set('template')}=this.value.trim();aoMudarPassoFluxo()" placeholder="Nome do template aprovado na Meta">
+        <input class="form-input" value="${esc((p.params || []).join(' | '))}" oninput="${set('params')}=this.value.split('|').map(s=>s.trim()).filter(Boolean)" placeholder="Parâmetros separados por | (ex.: {primeiro_nome} | {bairro})">`;
+    if (p.acao === 'mover_estagio') campos = `<select class="form-input" onchange="${set('para')}=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.estagios, p.para)}</select>`;
+    if (p.acao === 'mudar_temperatura') campos = `<select class="form-input" onchange="${set('para')}=this.value;aoMudarPassoFluxo()">${opcoesLista(cat.temperaturas, p.para)}</select>`;
+    return `<select class="form-input" onchange="trocarAcaoNo(${alvo}, this.value)">${opcoes(acoes, p.acao)}</select>${campos}`;
+}
+
+const ROTULO_PASSO = { condicao: 'Se', esperar: 'Esperar', acao: 'Fazer' };
+
+function blocoPasso(p, i, n, corpo, acoes) {
+    return `
+        <div class="fluxo-bloco">
+            <div class="fluxo-bloco__head">
+                <div class="fluxo-bloco__rotulo">${i + 1}. ${ROTULO_PASSO[p.tipo]}</div>
+                <div class="fluxo-bloco__btns">
+                    <button class="btn btn--ghost-sm" ${i === 0 ? 'disabled' : ''} onclick="${acoes}(${i}, -1)" aria-label="Subir passo">↑</button>
+                    <button class="btn btn--ghost-sm" ${i === n - 1 ? 'disabled' : ''} onclick="${acoes}(${i}, 1)" aria-label="Descer passo">↓</button>
+                    <button class="btn btn--ghost-sm" onclick="${acoes}(${i}, 0)" aria-label="Remover passo">✕</button>
+                </div>
+            </div>
+            ${corpo}
+        </div>`;
+}
+
+function renderPassoFluxo(p, i) {
+    return blocoPasso(p, i, fluxoEd.passos.length, camposPasso(p, `fluxoEd.passos[${i}]`, 'Se não, o fluxo para aqui.'), 'mexerPassoFluxo');
+}
+
+// ── Edição ──
+function aoMudarPassoFluxo() {
+    if (fluxoEd?.modo === 'visual') atualizarRotulosCanvas();
+}
+
+function trocarGatilhoFluxo(tipo) {
+    const padrao = { lead_parado: { estagio: 'atendimento', horas: 24 }, visita: { marco: '24h' } };
+    fluxoEd.gatilho = { tipo, ...(padrao[tipo] || {}) };
+    renderEditorFluxo();
+}
+
+function trocarAcaoNo(no, acao) {
+    const padrao = { push: { titulo: '', texto: '' }, email: { titulo: '', texto: '' }, whatsapp: { texto: '' }, whatsapp_template: { template: '', params: [] }, mover_estagio: { para: 'qualificado' }, mudar_temperatura: { para: 'quente' } };
+    const { texto, _id } = no;
+    for (const k of Object.keys(no)) delete no[k];
+    Object.assign(no, _id ? { _id } : {}, { tipo: 'acao', acao }, padrao[acao] || {});
+    if (texto && 'texto' in no) no.texto = texto;
+    renderEditorFluxo();
+}
+
+function mudarEsperaNo(no, valor, unidade) {
+    no.minutos = Math.max(1, parseInt(valor, 10) || 1) * FLUXO_UNIDADES[unidade];
+    renderEditorFluxo();
+}
+
+function novoPasso(tipo) {
+    return tipo === 'esperar' ? { tipo, minutos: 1440 }
+        : tipo === 'condicao' ? { tipo, campo: 'temperatura', op: 'igual', valor: 'quente' }
+        : { tipo: 'acao', acao: 'push', titulo: '', texto: '' };
+}
+
+function limitePassosFluxo(total) {
+    const lim = fluxosEstado.catalogo.limites.nosPorFluxo;
+    if (total < lim) return true;
+    toast(`Máximo de ${lim} passos`, 'erro');
+    return false;
+}
+
+function addPassoFluxo(tipo) {
+    if (!limitePassosFluxo(fluxoEd.passos.length)) return;
+    fluxoEd.passos.push(novoPasso(tipo));
+    renderEditorFluxo();
+}
+
+// d = -1 sobe, 1 desce, 0 remove
+function mexerLista(lista, i, d) {
+    if (d === 0) lista.splice(i, 1);
+    else [lista[i], lista[i + d]] = [lista[i + d], lista[i]];
+}
+function mexerPassoFluxo(i, d) { mexerLista(fluxoEd.passos, i, d); renderEditorFluxo(); }
+
+// ── Leitura de fluxo ramificado (celular) ──
+function resumoPasso(p) {
+    if (p.tipo === 'esperar') {
+        const m = p.minutos;
+        return m % 1440 === 0 ? `Esperar ${m / 1440} dia(s)` : m % 60 === 0 ? `Esperar ${m / 60} hora(s)` : `Esperar ${m} min`;
+    }
+    if (p.tipo === 'condicao') {
+        const valor = p.op === 'vazio' || p.op === 'nao_vazio' ? '' : ` "${p.valor || ''}"`;
+        return `Se ${(FLUXO_CAMPOS[p.campo] || p.campo).toLowerCase()} ${FLUXO_OPERADORES[p.op] || p.op}${valor}`;
+    }
+    const nome = fluxosEstado.catalogo?.acoes[p.acao]?.nome || p.acao;
+    const detalhe = p.acao === 'mover_estagio' || p.acao === 'mudar_temperatura' ? capitalizar(p.para)
+        : p.acao === 'whatsapp_template' ? p.template
+        : (p.titulo || p.texto || '');
+    return detalhe ? `${nome}: ${detalhe}` : nome;
+}
+
+function descreverGrafoHtml(grafo) {
+    const vistos = new Set();
+    const linha = (id, prefixo, nivel) => {
+        const no = grafo.nos[id];
+        if (!no) return '';
+        if (vistos.has(id)) return `<div class="fx-leitura" style="padding-left:${nivel}rem">${prefixo}↪ continua no passo acima</div>`;
+        vistos.add(id);
+        let html = `<div class="fx-leitura" style="padding-left:${nivel}rem">${prefixo}${esc(resumoPasso(no))}</div>`;
+        if (no.tipo === 'condicao') {
+            html += no.sim ? linha(no.sim, 'Sim → ', nivel + 1) : '';
+            html += no.nao ? linha(no.nao, 'Não → ', nivel + 1) : '';
+        } else if (no.proximo) html += linha(no.proximo, '', nivel);
+        return html;
+    };
+    return linha(grafo.no_inicial, '', 0);
+}
+
+// ── Modo visual (Drawflow) ──
+const DRAWFLOW_CDN = {
+    js: ['https://cdn.jsdelivr.net/npm/drawflow@0.0.60/dist/drawflow.min.js', 'sha384-JsnM4f1X8b5e9VbQCj6Bt6840HQNDYVKohzbXJnqOetMno8i6cmKNLVkyK3snqSw'],
+    css: ['https://cdn.jsdelivr.net/npm/drawflow@0.0.60/dist/drawflow.min.css', 'sha384-IFh+Q6zh+LRcTjqVmAKetdGY59dT485vtvWT5DAKQy8iv5+fYWHXisHP7mFKcFqV'],
+};
+let drawflowCarregando = null;
+function carregarDrawflow() {
+    if (window.Drawflow) return Promise.resolve();
+    if (drawflowCarregando) return drawflowCarregando;
+    drawflowCarregando = new Promise((ok, falha) => {
+        const css = document.createElement('link');
+        Object.assign(css, { rel: 'stylesheet', href: DRAWFLOW_CDN.css[0], integrity: DRAWFLOW_CDN.css[1], crossOrigin: 'anonymous' });
+        document.head.appendChild(css);
+        const js = document.createElement('script');
+        Object.assign(js, { src: DRAWFLOW_CDN.js[0], integrity: DRAWFLOW_CDN.js[1], crossOrigin: 'anonymous' });
+        js.onload = () => ok();
+        js.onerror = () => { drawflowCarregando = null; falha(new Error('Drawflow indisponível')); };
+        document.head.appendChild(js);
+    });
+    return drawflowCarregando;
+}
+
+function rotuloCartao(card) {
+    if (card.tipo === 'gatilho') {
+        return `<div class="fx-card__head"><span class="fx-card__icone">⚡</span>Quando</div>
+            <div class="fx-passo"><div class="fx-passo__valor">${esc(descreverGatilho(card.gatilho))}</div></div>`;
+    }
+    if (card.tipo === 'condicao') {
+        return `<div class="fx-card__head"><span class="fx-card__icone">◇</span>Condição</div>
+            <div class="fx-passo"><div class="fx-passo__valor">${esc(resumoPasso(card))}</div></div>`;
+    }
+    const passos = card.passos.length
+        ? card.passos.map(p => `<div class="fx-passo">
+                <div class="fx-passo__tipo">${esc(p.tipo === 'esperar' ? 'Esperar' : (fluxosEstado.catalogo.acoes[p.acao]?.nome || p.acao))}</div>
+                <div class="fx-passo__valor">${esc(resumoPasso(p).replace(/^[^:]*: /, '').slice(0, 90))}</div>
+            </div>`).join('')
+        : '<div class="fx-passo fx-passo--vazio">Clique para adicionar passos</div>';
+    return `<div class="fx-card__head"><span class="fx-card__icone">▤</span>Bloco</div>${passos}`;
+}
+
+function atualizarRotulosCanvas() {
+    if (!canvasEd) return;
+    const ed = canvasEd.editor;
+    const trocar = (dfId, html) => {
+        const el = document.querySelector(`#node-${dfId} .drawflow_content_node`);
+        if (el && el.innerHTML !== html) { el.innerHTML = html; ed.updateConnectionNodes('node-' + dfId); }
+    };
+    trocar(1, rotuloCartao({ tipo: 'gatilho', gatilho: fluxoEd.gatilho }));
+    for (const [id, card] of Object.entries(canvasEd.cards)) trocar(canvasEd.df[id], rotuloCartao(card));
+}
+
+async function entrarModoVisual() {
+    if (fluxoEd.modo === 'visual') return;
+    const grafo = fluxoEd.passos ? passosParaGrafo(fluxoEd.passos) : fluxoEd.grafo;
+    try { await carregarDrawflow(); } catch { toast('Não foi possível carregar o editor visual. Tente de novo.', 'erro'); return; }
+    if (!fluxoEd) return; // fechou enquanto carregava
+
+    fluxoEd.modo = 'visual';
+    document.querySelector('#fluxoModalOverlay .modal').classList.add('modal--tela-cheia');
+    document.getElementById('fluxoEdRodape').style.display = 'none';
+    document.getElementById('fluxoEdCorpo').innerHTML = `
+        <div class="fx-wrap">
+            <div class="fx-toolbar">
+                <button class="btn btn--ghost-sm" onclick="addCartaoCanvas('grupo')">+ Bloco de ações</button>
+                <button class="btn btn--ghost-sm" onclick="addCartaoCanvas('condicao')">+ Condição</button>
+                <span class="fx-toolbar__sep"></span>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_out()" aria-label="Diminuir zoom">−</button>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_reset()">100%</button>
+                <button class="btn btn--ghost-sm" onclick="canvasEd.editor.zoom_in()" aria-label="Aumentar zoom">+</button>
+                <span class="fx-dica">Arraste da bolinha da direita até a da esquerda para ligar. Clique num bloco para editar.</span>
+            </div>
+            <div class="fx-main">
+                <div id="fxCanvas" class="fx-canvas"></div>
+                <aside id="fxPainel" class="fx-painel"></aside>
+            </div>
+        </div>`;
+
+    const { json, cards, dfPorId } = FluxosGrafo.paraDrawflow({ gatilho: fluxoEd.gatilho, ...grafo }, rotuloCartao);
+    const ed = new Drawflow(document.getElementById('fxCanvas'));
+    // Delete/Backspace digitando no painel ou no topo não pode apagar o bloco selecionado
+    const teclaOrig = ed.key.bind(ed);
+    ed.key = e => { if (e.target?.closest?.('#fxPainel, #fluxoEdTopo, input, textarea, select')) return; teclaOrig(e); };
+    // O "Quando" (nó 1) não pode ser apagado
+    const removerOrig = ed.removeNodeId.bind(ed);
+    ed.removeNodeId = id => { if (id !== 'node-1') removerOrig(id); };
+    ed.reroute = false;
+    ed.start();
+    ed.import(json);
+    canvasEd = { editor: ed, cards, df: dfPorId, sel: null };
+
+    ed.on('nodeSelected', dfId => {
+        const n = ed.getNodeFromId(dfId);
+        canvasEd.sel = n.name === 'gatilho' ? 'gatilho' : n.data._id;
+        renderPainelCanvas();
+    });
+    ed.on('nodeUnselected', () => { canvasEd.sel = null; renderPainelCanvas(); });
+    ed.on('nodeRemoved', dfId => {
+        const id = Object.keys(canvasEd.df).find(k => String(canvasEd.df[k]) === String(dfId));
+        if (id) { delete canvasEd.cards[id]; delete canvasEd.df[id]; }
+        canvasEd.sel = null;
+        renderPainelCanvas();
+    });
+    // Cada saída leva a um só bloco: ligar de novo substitui a ligação anterior
+    ed.on('connectionCreated', ({ output_id, input_id, output_class, input_class }) => {
+        if (String(output_id) === String(input_id)) { ed.removeSingleConnection(output_id, input_id, output_class, input_class); return; }
+        const outras = ed.getNodeFromId(output_id).outputs[output_class].connections.filter(c => String(c.node) !== String(input_id));
+        for (const c of outras) ed.removeSingleConnection(output_id, c.node, output_class, c.output);
+    });
+    renderEditorFluxo();
+}
+
+function sairDoCanvas() {
+    if (canvasEd) canvasEd.editor.editor_mode = 'view'; // desliga o atalho de teclado do Drawflow
+    canvasEd = null;
+    document.querySelector('#fluxoModalOverlay .modal')?.classList.remove('modal--tela-cheia');
+    const rodape = document.getElementById('fluxoEdRodape');
+    if (rodape) rodape.style.display = '';
+}
+
+function grafoDoCanvas() {
+    return FluxosGrafo.deDrawflow(canvasEd.editor.export(), canvasEd.cards);
+}
+
+function entrarModoFormulario() {
+    if (fluxoEd.modo !== 'visual') return;
+    const r = grafoDoCanvas();
+    if (r.erros.length) { toast(r.erros[0], 'erro'); return; }
+    const passos = grafoParaPassos(r);
+    if (!passos) { toast('Este fluxo tem ramificações (sim/não) e só pode ser editado no modo visual.', 'erro'); return; }
+    fluxoEd.passos = passos;
+    fluxoEd.grafo = null;
+    fluxoEd.modo = 'form';
+    sairDoCanvas();
+    renderEditorFluxo();
+}
+
+function totalPassosCanvas() {
+    return Object.values(canvasEd.cards).reduce((t, c) => t + (c.tipo === 'grupo' ? c.passos.length : 1), 0);
+}
+
+function addCartaoCanvas(tipo) {
+    if (!limitePassosFluxo(totalPassosCanvas())) return;
+    const ed = canvasEd.editor;
+    const id = FluxosGrafo.novoId(FluxosGrafo.idsEmUso(canvasEd.cards));
+    const card = tipo === 'condicao' ? novoPasso('condicao') : { tipo: 'grupo', passos: [{ _id: id, ...novoPasso('acao') }] };
+    // À direita do cartão mais à direita, na altura dele (sem cobrir nada)
+    const nos = Object.values(ed.export().drawflow.Home.data);
+    const ultimo = nos.reduce((a, n) => (!a || n.pos_x > a.pos_x ? n : a), null);
+    const x = ultimo ? ultimo.pos_x + 340 : 100;
+    const y = ultimo ? ultimo.pos_y : 100;
+    canvasEd.cards[id] = card;
+    canvasEd.df[id] = ed.addNode(card.tipo, 1, tipo === 'condicao' ? 2 : 1, x, y, 'fx-' + card.tipo, { _id: id }, rotuloCartao(card));
+    canvasEd.sel = id;
+    renderPainelCanvas();
+}
+
+function addPassoCartao(id, tipo) {
+    if (!limitePassosFluxo(totalPassosCanvas())) return;
+    const novo = FluxosGrafo.novoId(FluxosGrafo.idsEmUso(canvasEd.cards));
+    canvasEd.cards[id].passos.push({ _id: novo, ...novoPasso(tipo) });
+    renderEditorFluxo();
+}
+
+function mexerPassoCartao(id, i, d) { mexerLista(canvasEd.cards[id].passos, i, d); renderEditorFluxo(); }
+
+function apagarCartaoCanvas(id) {
+    canvasEd.editor.removeNodeId('node-' + canvasEd.df[id]);
+}
+
+function renderPainelCanvas() {
+    const painel = document.getElementById('fxPainel');
+    if (!painel || !canvasEd) return;
+    const id = canvasEd.sel;
+    if (!id) {
+        painel.innerHTML = `<div class="fx-painel__vazio">Clique num bloco para editar.<br><br>Use <strong>+ Bloco de ações</strong> para uma sequência de passos e <strong>+ Condição</strong> para dividir o caminho em Sim e Não.</div>`;
+        return;
+    }
+    if (id === 'gatilho') {
+        painel.innerHTML = `<div class="fx-painel__titulo">Quando</div><div class="lia-card__desc">O gatilho fica no topo, em "Quando". Ligue a bolinha da direita dele ao primeiro bloco do fluxo.</div>`;
+        return;
+    }
+    const card = canvasEd.cards[id];
+    if (!card) { painel.innerHTML = ''; return; }
+    const alvo = `canvasEd.cards['${id}']`;
+    const apagar = `<button class="btn btn--ghost-sm fx-painel__apagar" onclick="apagarCartaoCanvas('${id}')">Apagar bloco</button>`;
+    if (card.tipo === 'condicao') {
+        painel.innerHTML = `<div class="fx-painel__titulo">Condição</div>
+            <div class="fluxo-bloco">${camposPasso(card, alvo, 'Saída de cima = Sim. Saída de baixo = Não. Saída sem ligação encerra o fluxo.')}</div>${apagar}`;
+        return;
+    }
+    painel.innerHTML = `<div class="fx-painel__titulo">Bloco de ações</div>
+        <div class="lia-card__desc" style="font-size:0.75rem">Os passos rodam em sequência, de cima para baixo.</div>
+        ${card.passos.map((p, i) => blocoPasso(p, i, card.passos.length, camposPasso(p, `${alvo}.passos[${i}]`, ''), `mexerPassoCartao.bind(null, '${id}')`)).join('')}
+        <div class="fluxo-add">
+            <button class="btn btn--ghost-sm" onclick="addPassoCartao('${id}', 'acao')">+ Ação</button>
+            <button class="btn btn--ghost-sm" onclick="addPassoCartao('${id}', 'esperar')">+ Esperar</button>
+        </div>${apagar}`;
+}
+
+async function salvarFluxo() {
+    if (!fluxoEd) return;
+    let grafo;
+    if (fluxoEd.modo === 'visual') {
+        const r = grafoDoCanvas();
+        if (r.erros.length) { toast(r.erros[0], 'erro'); return; }
+        grafo = { nos: r.nos, no_inicial: r.no_inicial };
+    } else if (fluxoEd.passos) {
+        if (!fluxoEd.passos.length) { toast('Adicione pelo menos um passo', 'erro'); return; }
+        grafo = passosParaGrafo(fluxoEd.passos);
+    } else {
+        grafo = fluxoEd.grafo; // ramificado aberto no celular: só nome/gatilho/opções mudam
+    }
+    const btn = document.getElementById('fluxoSalvarBtn');
+    const body = {
+        nome: (fluxoEd.nome || '').trim(),
+        gatilho: fluxoEd.gatilho,
+        parar_se_responder: fluxoEd.parar_se_responder,
+        ativo: fluxoEd.ativo,
+        ...grafo,
+    };
+    btn.disabled = true;
+    try {
+        const res = await fetch(fluxoEd.id ? '/api/fluxos/' + fluxoEd.id : '/api/fluxos', {
+            method: fluxoEd.id ? 'PUT' : 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.erro || 'Erro ao salvar');
+        toast('Fluxo salvo', 'sucesso');
+        fecharFluxoEditor();
+        carregarFluxos();
+    } catch (e) {
+        toast(e.message, 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ── Leads no fluxo ──
+async function carregarInscricoesFluxo(id) {
+    const box = document.getElementById('fluxoInscricoes');
+    try {
+        const res = await fetch(`/api/fluxos/${id}/inscricoes`, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error();
+        const lista = await res.json();
+        if (!box) return;
+        box.innerHTML = lista.length ? lista.map(i => `
+            <div class="lia-card__row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+                <div class="lia-card__info">
+                    <div class="lia-card__desc"><strong>${esc(i.lead_nome || 'Lead')}</strong>${i.motivo ? ' · ' + esc(i.motivo) : ''}</div>
+                    <div class="lia-card__desc" style="font-size:0.72rem">${i.status === 'ativa' && i.proximo_em ? 'Próximo passo: ' + new Date(i.proximo_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' }) : new Date(i.atualizado_em || i.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Recife' })}</div>
+                </div>
+                <span class="badge">${esc(FLUXO_STATUS[i.status] || i.status)}</span>
+                ${i.status === 'ativa' ? `<button class="btn btn--ghost-sm" onclick="pararInscricaoFluxo(${id}, ${i.id})">Parar</button>` : ''}
+            </div>`).join('') : '<div class="lia-card__desc">Nenhum lead passou por este fluxo ainda.</div>';
+    } catch {
+        if (box) box.innerHTML = '<div class="lia-card__desc">Não foi possível carregar.</div>';
+    }
+}
+
+async function pararInscricaoFluxo(fluxoId, inscId) {
+    try {
+        const res = await fetch(`/api/fluxos/${fluxoId}/inscricoes/${inscId}/parar`, { method: 'POST', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).erro);
+        toast('Lead retirado do fluxo', 'sucesso');
+        carregarInscricoesFluxo(fluxoId);
+    } catch (e) {
+        toast(e.message || 'Erro', 'erro');
+    }
+}
+
+// ── Ficha do lead: "Colocar em fluxo" ──
+async function abrirColocarEmFluxo(leadId) {
+    const box = document.getElementById('leadFluxoBox');
+    if (!box) return;
+    if (!fluxosEstado.catalogo) {
+        try {
+            const res = await fetch('/api/fluxos', { headers: getAuthHeaders() });
+            if (res.ok) fluxosEstado = await res.json();
+        } catch {}
+    }
+    if (!fluxosEstado.permitido) { box.innerHTML = '<div class="lia-card__desc">Fluxos estão disponíveis nos planos Pro e Elite.</div>'; return; }
+    const ativos = fluxosEstado.fluxos.filter(f => f.ativo);
+    if (!ativos.length) { box.innerHTML = '<div class="lia-card__desc">Você não tem fluxos ligados. Crie um na aba Automações.</div>'; return; }
+    box.innerHTML = `<div class="fluxo-inline">
+        <select class="form-input" id="leadFluxoSelect">${ativos.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('')}</select>
+        <button class="btn btn--primary" onclick="colocarEmFluxo(${leadId})">Colocar</button>
+    </div>`;
+}
+
+async function colocarEmFluxo(leadId) {
+    const fluxoId = document.getElementById('leadFluxoSelect')?.value;
+    if (!fluxoId) return;
+    try {
+        const res = await fetch(`/api/fluxos/${encodeURIComponent(fluxoId)}/inscrever`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ lead_id: leadId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.erro || 'Erro');
+        toast('Lead colocado no fluxo. O primeiro passo roda em até 1 minuto.', 'sucesso');
+        document.getElementById('leadFluxoBox').innerHTML = '';
+    } catch (e) {
+        toast(e.message, 'erro');
+    }
 }
 
 // ═══════════════════════════════════════════════
@@ -2051,7 +3009,11 @@ function toast(msg, tipo) {
 // ═══════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════
-function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+// Escapa tambem aspas: o resultado vai em texto E em atributos (value="...", aria-label="...").
+function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+// Argumento de funcao dentro de onclick="fn(...)": literal JS valido + escapado pro atributo.
+// Uso: onclick="fn(${jsArg(a)}, ${jsArg(b)})" — sem aspas em volta.
+function jsArg(v) { return esc(JSON.stringify(String(v ?? ''))); }
 function capitalize(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
 function formatarTelefone(tel) {
     if (!tel || tel.length < 10) return tel || '--';
@@ -2148,6 +3110,9 @@ function paywallAssinar(plan) {
 }
 
 function isPlanActive(user) {
+    // Admin (ou admin impersonando) tem acesso total — espelha requirePlan no backend
+    if (user && user.is_admin) return true;
+    if (localStorage.getItem('lh_acting_as')) return true;
     if (!user || !user.plano) return false;
     if (user.plano === 'trial') {
         const exp = user.trial_expires_at ? new Date(user.trial_expires_at).getTime() : 0;
@@ -2408,8 +3373,8 @@ function renderDashLeads() {
             <td data-label="Engajamento"><div class="engajamento"><div class="engajamento__bar"><div class="engajamento__fill engajamento--${engLevel}" style="width:${engPct}%"></div></div><span class="engajamento__num">${msgs}</span></div></td>
             <td data-label="Atualizado">${esc(lead.ultimaAtualizacao || '--')}</td>
             <td data-label="Ações" class="td-acoes td-acoes--row" onclick="event.stopPropagation()">
-                <button class="btn-icon" title="Ligar" onclick="window.open('tel:${esc(lead.telefone)}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></button>
-                <button class="btn-icon" title="Agendar visita" onclick="agendarVisitaRapida('${esc(lead.nome)}','${esc(lead.telefone)}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+                <button class="btn-icon" title="Ligar" onclick="window.open('tel:' + ${jsArg(lead.telefone)})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></button>
+                <button class="btn-icon" title="Agendar visita" onclick="agendarVisitaRapida(${jsArg(lead.nome)}, ${jsArg(lead.telefone)})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
                 <button class="btn-icon" title="Ver detalhes" onclick="abrirModalLead(${idx})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </td>
         </tr>`;
@@ -2443,6 +3408,10 @@ function abrirModalLead(index) {
         ${lead.proximo_passo && lead.proximo_passo !== 'nao informado' ? `<div class="lead-modal__next"><div class="modal__label">Próximo passo</div><div class="modal__value">${esc(lead.proximo_passo)}</div></div>` : ''}
         ${lead.resumo ? `<div class="lead-modal__next"><div class="modal__label">Resumo da IA</div><div class="modal__value">${esc(lead.resumo)}</div></div>` : ''}
         <div class="lead-modal__meta">${lead.totalMensagens || 0} mensagens · Atualizado: ${esc(lead.ultimaAtualizacao || '--')}</div>
+        ${lead.id ? `<div class="lead-modal__next">
+            <button class="btn btn--ghost-sm" onclick="abrirColocarEmFluxo(${Number(lead.id)})">Colocar em fluxo</button>
+            <div id="leadFluxoBox" style="margin-top:0.5rem"></div>
+        </div>` : ''}
     `;
 
     document.getElementById('modalTitle').textContent = lead.nome || 'Detalhes do Lead';
@@ -2614,7 +3583,7 @@ function renderImoveis() {
                     <div class="imv-card__actions" onclick="event.stopPropagation()">
                         <button class="btn-icon" title="Ver detalhes" onclick="verImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                         <button class="btn-icon" title="Editar" onclick="editarDireto('imovel',${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                        <button class="btn-icon" title="Agendar visita" onclick="vincularImovelAVisita('${esc(im.titulo)}','${esc(im.endereco||'')}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+                        <button class="btn-icon" title="Agendar visita" onclick="vincularImovelAVisita(${jsArg(im.titulo)}, ${jsArg(im.endereco)})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
                         <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirImovel(${im.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
                     </div>
                 </div>
@@ -3090,7 +4059,7 @@ function renderLeadsManuais() {
             <div class="lead-card__foot" onclick="event.stopPropagation()">
                 ${wapp ? `<a class="lead-card__btn lead-card__btn--wapp" href="https://wa.me/55${wapp}" target="_blank" rel="noopener">WhatsApp</a>`:''}
                 <button class="lead-card__btn" onclick="editarDireto('lead',${l.id})">Editar</button>
-                <button class="lead-card__btn" onclick="agendarVisitaLead('${esc(l.nome)}','${esc(l.telefone||'')}')">Agendar visita</button>
+                <button class="lead-card__btn" onclick="agendarVisitaLead(${jsArg(l.nome)}, ${jsArg(l.telefone)})">Agendar visita</button>
                 <button class="btn-icon btn-icon--danger" title="Excluir" onclick="excluirLeadManual(${l.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
             </div>
         </article>`;
@@ -4153,7 +5122,7 @@ function renderFunil() {
             ${l.faixa_valor && l.faixa_valor !== 'nao informado' ? `<div class="kanban__card-detail">💰 ${esc(l.faixa_valor)}</div>` : ''}
             <div class="kanban__card-foot">
                 ${wapp ? `<a class="kanban__card-action" href="https://wa.me/55${wapp}" target="_blank" title="WhatsApp">💬</a>` : ''}
-                <span class="kanban__card-action" onclick="event.stopPropagation();agendarVisitaLead('${esc(l.nome)}','${esc(l.telefone||'')}')" title="Agendar visita">📅</span>
+                <span class="kanban__card-action" onclick="event.stopPropagation();agendarVisitaLead(${jsArg(l.nome)}, ${jsArg(l.telefone)})" title="Agendar visita">📅</span>
                 <span class="kanban__card-origem">${l.origem === 'whatsapp' ? 'WhatsApp' : 'Manual'}</span>
             </div>
         `;
@@ -4216,12 +5185,199 @@ function abrirConfig(secao) {
     document.getElementById('configGrid').style.display = 'none';
     document.getElementById('configSubview').style.display = '';
     document.querySelectorAll('.config-sub').forEach(el => el.style.display = 'none');
-    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif', lia: 'configLia' };
+    const map = { conta: 'configConta', integ: 'configInteg', aparencia: 'configAparencia', plano: 'configPlano', dados: 'configDados', notif: 'configNotif', lia: 'configLia', roteiro: 'configRoteiro' };
     const el = document.getElementById(map[secao]);
     if (el) el.style.display = '';
     if (secao === 'aparencia') syncPrefButtons();
     if (secao === 'notif') refreshNotifStatus();
     if (secao === 'lia') refreshLiaStatus();
+    if (secao === 'roteiro') rotCarregar();
+}
+
+// ═══════════════════════════════════════════════
+// Roteiro da Lia (Fluxos Fase 2, entrega 3) — backend: /api/roteiro-ia
+// ═══════════════════════════════════════════════
+let rotCatalogo = null;
+let rotPerguntas = [];
+let rotChatMsgs = [];
+
+async function rotCarregar() {
+    const aviso = document.getElementById('rotAviso');
+    const form = document.getElementById('rotForm');
+    aviso.style.display = 'none';
+    form.style.display = 'none';
+    let r;
+    try { r = await apiCall('GET', '/api/roteiro-ia'); } catch (e) { r = null; }
+    if (!r || !r.catalogo) {
+        aviso.textContent = 'Não foi possível carregar o roteiro. Tente de novo em instantes.';
+        aviso.style.display = '';
+        return;
+    }
+    rotCatalogo = r.catalogo;
+    if (!r.permitido) {
+        aviso.innerHTML = 'O roteiro da Lia está disponível nos planos <strong>Pro</strong> e <strong>Elite</strong>.';
+        aviso.style.display = '';
+        return;
+    }
+    if (!r.instalado) {
+        aviso.textContent = 'O roteiro ainda está sendo instalado no sistema. Volte em alguns minutos.';
+        aviso.style.display = '';
+        return;
+    }
+    rotPreencher(r.roteiro || {});
+    rotTesteReiniciar();
+    form.style.display = '';
+}
+
+function rotPreencher(rot) {
+    rotPerguntas = (rot.perguntas || []).map(p => ({ texto: p.texto || '', campo: p.campo || 'outro', obrigatoria: !!p.obrigatoria }));
+    document.getElementById('rotOrdemLivre').checked = !!rot.ordem_livre;
+    const tom = rot.tom || 'neutro';
+    document.getElementById('rotTons').innerHTML = Object.entries(rotCatalogo.tons).map(([k, nome]) =>
+        `<label class="rot-opcao"><input type="radio" name="rotTom" value="${esc(k)}" ${k === tom ? 'checked' : ''}> ${esc(nome)}</label>`).join('');
+    const quando = rot.passar_ao_corretor?.quando || [];
+    document.getElementById('rotPassagens').innerHTML = Object.entries(rotCatalogo.passagens).map(([k, nome]) =>
+        `<label class="rot-opcao"><input type="checkbox" name="rotPassagem" value="${esc(k)}" ${quando.includes(k) ? 'checked' : ''}> ${esc(nome)}</label>`).join('');
+    const extras = document.getElementById('rotExtras');
+    extras.maxLength = rotCatalogo.limites.instrucoes;
+    extras.value = rot.instrucoes_extras || '';
+    rotContarExtras();
+    rotRenderPerguntas();
+}
+
+function rotRenderPerguntas() {
+    const lim = rotCatalogo.limites;
+    const campos = Object.entries(rotCatalogo.campos);
+    const box = document.getElementById('rotPerguntas');
+    box.innerHTML = rotPerguntas.length ? rotPerguntas.map((p, i) => `
+        <div class="rot-pergunta">
+            <span class="rot-pergunta__num">${i + 1}</span>
+            <div class="rot-pergunta__corpo">
+                <input type="text" class="form-input" maxlength="${lim.texto}" value="${esc(p.texto)}" placeholder="Ex.: Já tem carta de crédito aprovada?" aria-label="Pergunta ${i + 1}" oninput="rotPerguntas[${i}].texto = this.value">
+                <div class="rot-pergunta__meta">
+                    <select class="form-input" aria-label="O que essa pergunta coleta" onchange="rotPerguntas[${i}].campo = this.value">
+                        ${campos.map(([k, nome]) => `<option value="${esc(k)}" ${k === p.campo ? 'selected' : ''}>${esc(nome)}</option>`).join('')}
+                    </select>
+                    <label class="rot-check"><input type="checkbox" ${p.obrigatoria ? 'checked' : ''} onchange="rotPerguntas[${i}].obrigatoria = this.checked"> Obrigatória</label>
+                </div>
+            </div>
+            <div class="rot-pergunta__botoes">
+                <button type="button" class="rot-icone" title="Subir" aria-label="Subir pergunta" ${i === 0 ? 'disabled' : ''} onclick="rotMover(${i}, -1)">↑</button>
+                <button type="button" class="rot-icone" title="Descer" aria-label="Descer pergunta" ${i === rotPerguntas.length - 1 ? 'disabled' : ''} onclick="rotMover(${i}, 1)">↓</button>
+                <button type="button" class="rot-icone rot-icone--del" title="Remover" aria-label="Remover pergunta" onclick="rotRemover(${i})">✕</button>
+            </div>
+        </div>`).join('') : '<div class="rot-vazio">Nenhuma pergunta: a Lia segue as 7 perguntas padrão (nome, intenção, tipo, região, valor, pagamento e prazo).</div>';
+    document.getElementById('rotPergContador').textContent = `${rotPerguntas.length}/${lim.perguntas}`;
+    document.getElementById('rotAddPergunta').disabled = rotPerguntas.length >= lim.perguntas;
+}
+
+function rotAddPergunta() {
+    if (rotPerguntas.length >= rotCatalogo.limites.perguntas) return;
+    rotPerguntas.push({ texto: '', campo: 'outro', obrigatoria: false });
+    rotRenderPerguntas();
+    const inputs = document.querySelectorAll('#rotPerguntas .rot-pergunta__corpo > input');
+    inputs[inputs.length - 1]?.focus();
+}
+
+function rotMover(i, delta) {
+    const j = i + delta;
+    if (j < 0 || j >= rotPerguntas.length) return;
+    [rotPerguntas[i], rotPerguntas[j]] = [rotPerguntas[j], rotPerguntas[i]];
+    rotRenderPerguntas();
+}
+
+function rotRemover(i) {
+    rotPerguntas.splice(i, 1);
+    rotRenderPerguntas();
+}
+
+function rotContarExtras() {
+    const el = document.getElementById('rotExtras');
+    document.getElementById('rotExtrasContador').textContent = `${el.value.length}/${rotCatalogo.limites.instrucoes}`;
+}
+
+function rotColetar() {
+    return {
+        perguntas: rotPerguntas.filter(p => p.texto.trim()).map(p => ({ texto: p.texto.trim(), campo: p.campo, obrigatoria: p.obrigatoria })),
+        ordem_livre: document.getElementById('rotOrdemLivre').checked,
+        tom: document.querySelector('input[name="rotTom"]:checked')?.value || 'neutro',
+        passar_ao_corretor: { quando: [...document.querySelectorAll('input[name="rotPassagem"]:checked')].map(el => el.value) },
+        instrucoes_extras: document.getElementById('rotExtras').value.trim(),
+    };
+}
+
+async function rotSalvar() {
+    const btn = document.getElementById('rotSalvar');
+    btn.disabled = true;
+    try {
+        const r = await apiCall('PUT', '/api/roteiro-ia', rotColetar());
+        if (r && r.ok) {
+            rotPreencher(r.roteiro);
+            toast('Roteiro salvo. A Lia já usa nas próximas mensagens.', 'sucesso');
+        } else {
+            toast(r?.erro || 'Não foi possível salvar o roteiro', 'erro');
+        }
+    } catch (e) {
+        toast('Não foi possível salvar o roteiro', 'erro');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function rotRestaurar() {
+    if (!confirm('Voltar ao atendimento padrão da Lia? As perguntas e instruções deste roteiro serão apagadas ao salvar.')) return;
+    rotPreencher({});
+    toast('Roteiro limpo. Clique em "Salvar roteiro" para confirmar.', 'info');
+}
+
+function rotTesteReiniciar() {
+    rotChatMsgs = [];
+    rotRenderChat();
+}
+
+function rotRenderChat(digitando) {
+    const box = document.getElementById('rotChat');
+    const msgs = rotChatMsgs.map(m => (m.fotos || []).map(f => `
+        <div class="rot-msg rot-msg--lia rot-msg--foto">
+            ${f.url ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : ''}
+            <span>📷 ${esc(f.legenda)}</span>
+            <small>No WhatsApp, esta foto seria enviada ao lead.</small>
+        </div>`).join('') + `<div class="rot-msg rot-msg--${m.role === 'user' ? 'lead' : 'lia'}">${esc(m.content)}</div>`);
+    if (digitando) msgs.push('<div class="rot-msg rot-msg--lia rot-msg--digitando">Lia está digitando...</div>');
+    box.innerHTML = msgs.length ? msgs.join('') : '<div class="rot-vazio">Mande um "oi" como se fosse um lead chegando.</div>';
+    box.scrollTop = box.scrollHeight;
+}
+
+async function rotTesteEnviar(ev) {
+    ev.preventDefault();
+    const input = document.getElementById('rotChatInput');
+    const btn = document.getElementById('rotChatEnviar');
+    const texto = input.value.trim();
+    if (!texto || btn.disabled) return;
+    if (rotChatMsgs.length >= 19) { toast('Teste longo demais. Clique em Reiniciar.', 'info'); return; }
+    rotChatMsgs.push({ role: 'user', content: texto });
+    input.value = '';
+    btn.disabled = true;
+    rotRenderChat(true);
+    try {
+        const mensagens = rotChatMsgs.map(m => ({ role: m.role, content: m.content }));
+        const r = await apiCall('POST', '/api/agente/testar-roteiro', { roteiro: rotColetar(), mensagens });
+        if (r && typeof r.resposta === 'string' && r.resposta) {
+            rotChatMsgs.push({ role: 'assistant', content: r.resposta, fotos: Array.isArray(r.fotos) ? r.fotos : [] });
+        } else {
+            rotChatMsgs.pop();
+            input.value = texto;
+            toast(r?.erro || 'A Lia não respondeu. Tente de novo.', 'erro');
+        }
+    } catch (e) {
+        rotChatMsgs.pop();
+        input.value = texto;
+        toast('A Lia não respondeu. Tente de novo.', 'erro');
+    } finally {
+        btn.disabled = false;
+        rotRenderChat();
+        input.focus();
+    }
 }
 
 // ═══════════════════════════════════════════════
